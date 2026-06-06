@@ -1,0 +1,140 @@
+﻿using Cleaning.BLL.DTOs;
+using Cleaning.BLL.Interfaces;
+using Cleaning.DAL.Entities;
+using Cleaning.DAL.Interfaces;
+
+namespace Cleaning.BLL.Services
+{
+    public class UserAddressService : IUserAddressService
+    {
+        private readonly IUnitOfWork _unitOfWork;
+
+        public UserAddressService(IUnitOfWork unitOfWork)
+        {
+            _unitOfWork = unitOfWork;
+        }
+
+        public async Task<IEnumerable<UserAddressDto>> GetUserAddressesAsync(Guid userId)
+        {
+            var addresses = await _unitOfWork.Repository<UserAddress>().FindAsync(a => a.UserId == userId);
+
+            return addresses.Select(a => new UserAddressDto
+            {
+                Id = a.Id,
+                UserId = a.UserId,
+                Label = a.Label,
+                AddressText = a.AddressText,
+                Latitude = a.Latitude,
+                Longitude = a.Longitude,
+                IsDefault = a.IsDefault
+            }).OrderByDescending(a => a.IsDefault).ToList();
+        }
+
+        public async Task<UserAddressDto?> GetAddressByIdAsync(Guid addressId, Guid userId)
+        {
+            var address = await _unitOfWork.Repository<UserAddress>().FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+            if (address == null) return null;
+
+            return new UserAddressDto
+            {
+                Id = address.Id,
+                UserId = address.UserId,
+                Label = address.Label,
+                AddressText = address.AddressText,
+                Latitude = address.Latitude,
+                Longitude = address.Longitude,
+                IsDefault = address.IsDefault
+            };
+        }
+
+        public async Task<UserAddressDto> CreateAddressAsync(Guid userId, CreateUserAddressDto request)
+        {
+            if (request.IsDefault)
+            {
+                await ResetDefaultAddressesAsync(userId);
+            }
+
+            var newAddress = new UserAddress
+            {
+                UserId = userId,
+                Label = request.Label,
+                AddressText = request.AddressText,
+                Latitude = request.Latitude,
+                Longitude = request.Longitude,
+                IsDefault = request.IsDefault,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.Repository<UserAddress>().AddAsync(newAddress);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new UserAddressDto
+            {
+                Id = newAddress.Id,
+                UserId = newAddress.UserId,
+                Label = newAddress.Label,
+                AddressText = newAddress.AddressText,
+                Latitude = newAddress.Latitude,
+                Longitude = newAddress.Longitude,
+                IsDefault = newAddress.IsDefault
+            };
+        }
+
+        public async Task<bool> UpdateAddressAsync(Guid addressId, Guid userId, UpdateUserAddressDto request)
+        {
+            var address = await _unitOfWork.Repository<UserAddress>().FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+            if (address == null) return false;
+
+            if (request.IsDefault && !address.IsDefault)
+            {
+                await ResetDefaultAddressesAsync(userId);
+            }
+
+            address.Label = request.Label;
+            address.AddressText = request.AddressText;
+            address.Latitude = request.Latitude;
+            address.Longitude = request.Longitude;
+            address.IsDefault = request.IsDefault;
+
+            _unitOfWork.Repository<UserAddress>().Update(address);
+            await _unitOfWork.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<bool> DeleteAddressAsync(Guid addressId, Guid userId)
+        {
+            var address = await _unitOfWork.Repository<UserAddress>().FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+            if (address == null) return false;
+
+            _unitOfWork.Repository<UserAddress>().Remove(address);
+            await _unitOfWork.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<bool> SetDefaultAddressAsync(Guid addressId, Guid userId)
+        {
+            var address = await _unitOfWork.Repository<UserAddress>().FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+            if (address == null) return false;
+
+            await ResetDefaultAddressesAsync(userId);
+
+            address.IsDefault = true;
+            _unitOfWork.Repository<UserAddress>().Update(address);
+
+            await _unitOfWork.SaveChangesAsync();
+            return true;
+        }
+
+        private async Task ResetDefaultAddressesAsync(Guid userId)
+        {
+            var existingDefaults = await _unitOfWork.Repository<UserAddress>().FindAsync(a => a.UserId == userId && a.IsDefault);
+            foreach (var addr in existingDefaults)
+            {
+                addr.IsDefault = false;
+                _unitOfWork.Repository<UserAddress>().Update(addr);
+            }
+        }
+    }
+}

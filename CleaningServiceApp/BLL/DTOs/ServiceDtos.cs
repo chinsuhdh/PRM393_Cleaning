@@ -1,0 +1,24 @@
+﻿using System.ComponentModel.DataAnnotations;
+using Cleaning.DAL.Enums;
+
+namespace Cleaning.BLL.DTOs
+{
+    public class ServiceCategoryDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = null!;
+        public string? IconUrl { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    public class ServiceDto
+    {
+        public Guid Id { get; set; }
+        public Guid CategoryId { get; set; }
+        public string Name { get; set; } = null!;
+        public string? Description { get; set; }
+        public string UnitType { get; set; } = null!;
+        public decimal BasePrice { get; set; }
+        public bool IsActive { get; set; }
+    }
+}
