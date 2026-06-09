@@ -1,5 +1,5 @@
 class ServiceCategory {
-  final int id;
+  final String id;
   final String name;
   final String? iconName;
 
@@ -9,7 +9,7 @@ class ServiceCategory {
     this.iconName,
   });
 
-  ServiceCategory copyWith({int? id, String? name, String? iconName}) {
+  ServiceCategory copyWith({String? id, String? name, String? iconName}) {
     return ServiceCategory(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -19,8 +19,8 @@ class ServiceCategory {
 
   factory ServiceCategory.fromJson(Map<String, dynamic> json) {
     return ServiceCategory(
-      id: json['id'] as int,
-      name: json['name'] as String,
+      id: (json['id'] ?? '').toString(),
+      name: (json['name'] ?? 'Unknown') as String,
       iconName: json['iconName'] as String?,
     );
   }

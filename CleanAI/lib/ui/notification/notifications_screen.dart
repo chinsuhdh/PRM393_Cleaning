@@ -1,58 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/notification_item.dart';
-import '../../data/services/mock_data_service.dart';
-
-final _notificationsProvider = Provider<List<NotificationItem>>((ref) {
-  return MockDataService.notifications;
-});
+import '../../data/repositories/notification_repository.dart';
 
 class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifications = ref.watch(_notificationsProvider);
+    // Sử dụng provider thật từ Repository
+    final notificationsAsync = ref.watch(notificationsProvider);
     final theme = Theme.of(context);
-    final unreadCount = notifications.where((n) => n.isUnread).length;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Notifications${unreadCount > 0 ? ' ($unreadCount)' : ''}',
-          style: const TextStyle(fontWeight: FontWeight.w800),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => context.pop(),
         ),
+        title: const Text('Notifications', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           TextButton(
-            onPressed: () {},
+            onPressed: () async {
+              // Gọi API đánh dấu tất cả đã đọc (nếu backend hỗ trợ)
+              // Tạm thời invalidate để load lại list
+              ref.invalidate(notificationsProvider);
+            },
             child: const Text('Mark all read'),
           ),
         ],
       ),
-      body: notifications.isEmpty
-          ? Center(
+      body: notificationsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Lỗi: $err')),
+        data: (notifications) {
+          final unreadCount = notifications.where((n) => n.isUnread).length;
+
+          if (notifications.isEmpty) {
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.notifications_none_rounded,
-                      size: 64,
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.4)),
+                      size: 64, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
                   const SizedBox(height: 16),
                   Text('No notifications yet',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant)),
+                      style: theme.textTheme.bodyLarge
+                          ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 ],
               ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: notifications.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, i) =>
-                  _NotificationRow(notification: notifications[i]),
-            ),
+            );
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: notifications.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, i) {
+              final notif = notifications[i];
+              return InkWell(
+                onTap: () async {
+                  if (notif.isUnread) {
+                    try {
+                      await ref.read(notificationRepositoryProvider).markAsRead(notif.id);
+                      ref.invalidate(notificationsProvider); // Cập nhật lại UI
+                    } catch (e) {
+                      // ignore
+                    }
+                  }
+                },
+                child: _NotificationRow(notification: notif),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
@@ -62,8 +86,9 @@ class _NotificationRow extends StatelessWidget {
   const _NotificationRow({required this.notification});
 
   IconData _icon(String title) {
-    if (title.contains('Booking')) return Icons.event_available_rounded;
-    if (title.contains('Worker')) return Icons.engineering_rounded;
+    final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('booking')) return Icons.event_available_rounded;
+    if (lowerTitle.contains('worker')) return Icons.engineering_rounded;
     return Icons.campaign_rounded;
   }
 
@@ -95,9 +120,7 @@ class _NotificationRow extends StatelessWidget {
             ),
             child: Icon(
               _icon(notification.title),
-              color: notification.isUnread
-                  ? kPrimary
-                  : theme.colorScheme.onSurfaceVariant,
+              color: notification.isUnread ? kPrimary : theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(width: 12),
@@ -111,9 +134,7 @@ class _NotificationRow extends StatelessWidget {
                       child: Text(
                         notification.title,
                         style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: notification.isUnread
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                          fontWeight: notification.isUnread ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
                     ),
@@ -121,10 +142,7 @@ class _NotificationRow extends StatelessWidget {
                       Container(
                         width: 10,
                         height: 10,
-                        decoration: const BoxDecoration(
-                          color: kPrimary,
-                          shape: BoxShape.circle,
-                        ),
+                        decoration: const BoxDecoration(color: kPrimary, shape: BoxShape.circle),
                       ),
                   ],
                 ),

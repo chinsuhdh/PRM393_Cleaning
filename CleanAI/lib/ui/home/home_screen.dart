@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/constants/app_constants.dart';
 import '../../data/models/service_category.dart';
-import '../../data/models/worker.dart';
-import '../../data/repositories/worker_repository.dart';
-import '../../data/services/mock_data_service.dart';
+import '../../data/repositories/service_catalog_repository.dart';
+import '../../data/repositories/auth_repository.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -20,7 +18,6 @@ class HomeScreen extends ConsumerWidget {
           SliverToBoxAdapter(child: _SearchSection()),
           SliverToBoxAdapter(child: _PromoBanner()),
           SliverToBoxAdapter(child: _CategoriesSection()),
-          SliverToBoxAdapter(child: _RecommendedWorkersSection(ref: ref)),
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
@@ -28,37 +25,46 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _HeaderSection extends StatelessWidget {
+class _HeaderSection extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final authState = ref.watch(authProvider);
+    final userName = authState.userName ?? 'there';
+    final initials = userName.isNotEmpty ? userName[0].toUpperCase() : '?';
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 56, 20, 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Welcome back,',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome back,',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              Text(
-                AppConstants.mockUserName,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+                Text(
+                  userName,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 16),
           CircleAvatar(
             radius: 24,
             backgroundColor: kPrimaryContainer,
             child: Text(
-              AppConstants.mockUserInitials,
+              initials,
               style: const TextStyle(
                 color: kOnPrimaryContainer,
                 fontWeight: FontWeight.w700,
@@ -99,7 +105,7 @@ class _PromoBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Container(
-        height: 140,
+        constraints: const BoxConstraints(minHeight: 140),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [kPrimary, Color(0xFF1D4ED8)],
@@ -110,7 +116,6 @@ class _PromoBanner extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Background decorative circles
             Positioned(
               right: -20,
               top: -20,
@@ -135,7 +140,6 @@ class _PromoBanner extends StatelessWidget {
                 ),
               ),
             ),
-            // Content
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -173,7 +177,7 @@ class _PromoBanner extends StatelessWidget {
                     child: const Text(
                       'Book Now',
                       style:
-                          TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
                   ),
                 ],
@@ -186,10 +190,11 @@ class _PromoBanner extends StatelessWidget {
   }
 }
 
-class _CategoriesSection extends StatelessWidget {
+class _CategoriesSection extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
-    final categories = MockDataService.categories;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -201,12 +206,30 @@ class _CategoriesSection extends StatelessWidget {
         const SizedBox(height: 16),
         SizedBox(
           height: 110,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
-            itemBuilder: (context, i) => _CategoryItem(category: categories[i]),
+          child: categoriesAsync.when(
+            data: (categories) {
+              if (categories.isEmpty) {
+                return const Center(
+                  child: Text('No categories available'),
+                );
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                scrollDirection: Axis.horizontal,
+                itemCount: categories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, i) =>
+                    _CategoryItem(category: categories[i]),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(
+              child: Text(
+                'Could not load categories',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ),
           ),
         ),
       ],
@@ -232,7 +255,8 @@ class _CategoryItem extends StatelessWidget {
     final theme = Theme.of(context);
     final icon = _icons[category.iconName] ?? Icons.cleaning_services_rounded;
     return GestureDetector(
-      onTap: () => context.push('/service/1'),
+      // ĐÃ SỬA: Chuyển hướng sang trang Danh sách Dịch vụ (CategoryServicesScreen)
+      onTap: () => context.push('/category/${category.id}'),
       child: SizedBox(
         width: 80,
         child: Column(
@@ -263,145 +287,6 @@ class _CategoryItem extends StatelessWidget {
   }
 }
 
-class _RecommendedWorkersSection extends StatelessWidget {
-  final WidgetRef ref;
-  const _RecommendedWorkersSection({required this.ref});
-
-  @override
-  Widget build(BuildContext context) {
-    final workersAsync = ref.watch(recommendedWorkersProvider);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionTitle(
-          title: 'AI Recommended Workers',
-          onSeeAll: () {},
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 160,
-          child: workersAsync.when(
-            data: (workers) => ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              scrollDirection: Axis.horizontal,
-              itemCount: workers.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
-              itemBuilder: (context, i) => WorkerCard(worker: workers[i]),
-            ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class WorkerCard extends StatelessWidget {
-  final Worker worker;
-  const WorkerCard({super.key, required this.worker});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: () => context.push('/service/1'),
-      child: Container(
-        width: 240,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: kPrimaryContainer,
-                  child: Text(
-                    worker.initials,
-                    style: const TextStyle(
-                      color: kOnPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        worker.name,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Row(
-                        children: [
-                          const Icon(Icons.star_rounded,
-                              color: kTertiary, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${worker.rating} (${worker.reviews})',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_rounded,
-                        color: kPrimary, size: 16),
-                    const SizedBox(width: 4),
-                    Text(worker.distance,
-                        style: theme.textTheme.bodySmall),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: kSecondaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${worker.matchPercentage}% Match',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: kOnSecondaryContainer,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _SectionTitle extends StatelessWidget {
   final String title;
   final VoidCallback? onSeeAll;
@@ -421,17 +306,23 @@ class _SectionTitle extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
+          Expanded(
+            child: Text(
+              title,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          if (onSeeAll != null)
+          if (onSeeAll != null) ...[
+            const SizedBox(width: 16),
             TextButton(
               onPressed: onSeeAll,
               child: const Text('See All'),
             ),
+          ]
         ],
       ),
     );

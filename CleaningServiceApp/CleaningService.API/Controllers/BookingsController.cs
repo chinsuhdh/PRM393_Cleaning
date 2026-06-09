@@ -90,5 +90,18 @@ namespace CleaningService.API.Controllers
 
             return Ok(new { message = "Nhận đơn đặt lịch thành công!" });
         }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetBookingById(Guid id)
+        {
+            var booking = await _bookingService.GetBookingByIdAsync(id);
+
+            if (booking == null)
+            {
+                return NotFound(new { message = "Không tìm thấy đơn đặt lịch này." });
+            }
+
+            return Ok(booking);
+        }
     }
 }

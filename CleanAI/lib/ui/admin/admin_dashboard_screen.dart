@@ -1,39 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../data/repositories/admin_repository.dart';
+import '../../data/repositories/auth_repository.dart';
 
-class AdminDashboardScreen extends StatelessWidget {
+class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
-  static const List<Map<String, dynamic>> _stats = [
-    {'icon': Icons.people_rounded, 'label': 'Total Users', 'value': '1,248', 'change': '+12%', 'color': kPrimary},
-    {'icon': Icons.event_available_rounded, 'label': 'Active Bookings', 'value': '87', 'change': '+5%', 'color': kSecondary},
-    {'icon': Icons.attach_money_rounded, 'label': 'Revenue', 'value': '\$24.5K', 'change': '+18%', 'color': kTertiary},
-    {'icon': Icons.engineering_rounded, 'label': 'Workers', 'value': '342', 'change': '+7%', 'color': Color(0xFF8B5CF6)},
-  ];
-
-  static const List<Map<String, String>> _activity = [
-    {'icon': 'booking', 'title': 'New booking: Deep Cleaning', 'subtitle': 'John Doe · 2 min ago', 'type': 'booking'},
-    {'icon': 'user', 'title': 'New user registered', 'subtitle': 'sarah@example.com · 15 min ago', 'type': 'user'},
-    {'icon': 'worker', 'title': 'Worker verified', 'subtitle': 'Maria Garcia · 1 hr ago', 'type': 'worker'},
-    {'icon': 'booking', 'title': 'Booking cancelled', 'subtitle': 'Bob Johnson · 2 hr ago', 'type': 'cancel'},
-    {'icon': 'revenue', 'title': 'Revenue milestone reached', 'subtitle': '\$25K total · 3 hr ago', 'type': 'revenue'},
-  ];
+  // Khởi tạo Activity tạm thời trống cho đến khi viết API log hoạt động gần đây
+  static const List<Map<String, String>> _activity = [];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+
+    // Lắng nghe Provider thống kê từ AdminRepository
+    final statsAsync = ref.watch(adminStatsProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard',
             style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
-          IconButton(icon: const Icon(Icons.logout_rounded), onPressed: () => context.go('/login')),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Đăng xuất',
+            onPressed: () {
+              // Gọi hàm logout void đồng bộ để xoá token và reset state
+              ref.read(authProvider.notifier).logout();
+              context.go('/login');
+            },
+          ),
         ],
       ),
       body: CustomScrollView(
         slivers: [
-          // Welcome banner
+          // 1. Welcome banner hiển thị tổng quan hệ thống
           SliverToBoxAdapter(
             child: Container(
               margin: const EdgeInsets.all(16),
@@ -63,7 +66,7 @@ class AdminDashboardScreen extends StatelessWidget {
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800)),
                         const SizedBox(height: 4),
-                        Text('Friday, Oct 6, 2026',
+                        Text(DateTime.now().toString().split(' ')[0],
                             style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.6),
                                 fontSize: 12)),
@@ -87,23 +90,76 @@ class AdminDashboardScreen extends StatelessWidget {
             ),
           ),
 
-          // Stats grid
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.4,
-              ),
-              delegate: SliverChildListDelegate(
-                _stats.map((stat) => _StatCard(stat: stat)).toList(),
+          // 2. Grid thống kê dữ liệu thời gian thực lấy từ PostgreSQL
+          statsAsync.when(
+            loading: () => const SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: CircularProgressIndicator(),
+                ),
               ),
             ),
+            error: (err, _) => SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text('Lỗi tải thống kê: $err',
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+            data: (data) {
+              // Ánh xạ dữ liệu JSON trả về từ ASP.NET Core Controller sang List cục bộ
+              final List<Map<String, dynamic>> realStats = [
+                {
+                  'icon': Icons.people_rounded,
+                  'label': 'Total Clients',
+                  'value': data['totalClients']?.toString() ?? '0',
+                  'change': 'Live',
+                  'color': kPrimary
+                },
+                {
+                  'icon': Icons.engineering_rounded,
+                  'label': 'Total Workers',
+                  'value': data['totalWorkers']?.toString() ?? '0',
+                  'change': 'Live',
+                  'color': kSecondary
+                },
+                {
+                  'icon': Icons.list_alt_rounded,
+                  'label': 'Total Bookings',
+                  'value': data['totalBookings']?.toString() ?? '0',
+                  'change': 'Live',
+                  'color': kTertiary
+                },
+                {
+                  'icon': Icons.attach_money_rounded,
+                  'label': 'Total Revenue',
+                  'value': '\$${data['totalRevenue']?.toString() ?? '0.00'}',
+                  'change': 'Done',
+                  'color': Colors.green
+                },
+              ];
+
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.4,
+                  ),
+                  delegate: SliverChildListDelegate(
+                    realStats.map((stat) => _StatCard(stat: stat)).toList(),
+                  ),
+                ),
+              );
+            },
           ),
 
-          // Quick management
+          // 3. Phân hệ điều hướng quản lý nhanh (Quick Management)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
@@ -130,7 +186,7 @@ class AdminDashboardScreen extends StatelessWidget {
             ),
           ),
 
-          // Recent Activity
+          // 4. Luồng hoạt động gần đây của toàn hệ thống
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -143,9 +199,17 @@ class AdminDashboardScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
             sliver: SliverList(
               delegate: SliverChildListDelegate(
-                _activity
-                    .map((a) => _ActivityRow(activity: a))
-                    .toList(),
+                _activity.isEmpty
+                    ? [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Center(
+                      child: Text('Chưa có hoạt động nào gần đây.',
+                          style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13)),
+                    ),
+                  )
+                ]
+                    : _activity.map((a) => _ActivityRow(activity: a)).toList(),
               ),
             ),
           ),

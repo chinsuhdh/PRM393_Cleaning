@@ -8,10 +8,7 @@ class DioClient {
     BaseOptions(
       baseUrl: const String.fromEnvironment(
         'API_BASE_URL',
-        // Dùng 10.0.2.2 để Emulator gọi xuống localhost của máy tính (Port HTTP 5066)
-        // Lưu ý: Nếu các controller trong .NET của bạn có route là "api/[controller]"
-        // thì bạn cần thêm hậu tố /api vào đây, ví dụ: 'http://10.0.2.2:5066/api'
-        defaultValue: 'http://10.0.2.2:5066',
+        defaultValue: 'http://127.0.0.1:5000/api',
       ),
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),

@@ -1,28 +1,18 @@
-# Flutter
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-build/
-.build-outputs/
-
-# Android
-.gradle/
-.kotlin/
-local.properties
-debug.keystore
-
-# IntelliJ / Android Studio
-.idea/
 *.iml
-
-# macOS
+.gradle
+.kotlin
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
 .DS_Store
-
-# Env
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
 .env
-
-# Android native build
-.externalNativeBuild/
-.cxx/
-captures/
+debug.keystore

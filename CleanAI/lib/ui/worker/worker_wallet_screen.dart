@@ -4,13 +4,8 @@ import '../../core/theme/app_colors.dart';
 class WorkerWalletScreen extends StatelessWidget {
   const WorkerWalletScreen({super.key});
 
-  static const List<Map<String, String>> _transactions = [
-    {'title': 'Deep Cleaning - John Doe', 'amount': '+\$80', 'date': 'Oct 15, 2026', 'type': 'credit'},
-    {'title': 'House Cleaning - Jane Smith', 'amount': '+\$60', 'date': 'Oct 14, 2026', 'type': 'credit'},
-    {'title': 'Withdrawal to Bank', 'amount': '-\$100', 'date': 'Oct 13, 2026', 'type': 'debit'},
-    {'title': 'Sofa Cleaning - Bob Johnson', 'amount': '+\$45', 'date': 'Oct 12, 2026', 'type': 'credit'},
-    {'title': 'Carpet Cleaning - Alice Brown', 'amount': '+\$55', 'date': 'Oct 10, 2026', 'type': 'credit'},
-  ];
+  // Transactions are empty until wallet API is implemented
+  static const List<Map<String, String>> _transactions = [];
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +49,7 @@ class WorkerWalletScreen extends StatelessWidget {
                                 color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 14)),
                         const SizedBox(height: 8),
-                        const Text('\$240.00',
+                        const Text('\$0.00',
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 40,
@@ -65,11 +60,11 @@ class WorkerWalletScreen extends StatelessWidget {
                           children: [
                             _BalanceStat(
                                 label: 'This Month',
-                                value: '\$1,240'),
+                                value: '\$0'),
                             const SizedBox(width: 24),
                             _BalanceStat(
                                 label: 'Total Earned',
-                                value: '\$8,420'),
+                                value: '\$0'),
                           ],
                         ),
                       ],

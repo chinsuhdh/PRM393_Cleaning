@@ -20,9 +20,4 @@ class AppConstants {
   static const double radiusXl = 20.0;
   static const double radiusFull = 100.0;
 
-  // Mock user info
-  static const String mockUserName = 'Bui Ngoc Tam';
-  static const String mockUserInitials = 'BN';
-  static const String mockUserEmail = 'buingoctam06042003@gmail.com';
-  static const String mockUserPhone = '+1 234 567 8900';
 }

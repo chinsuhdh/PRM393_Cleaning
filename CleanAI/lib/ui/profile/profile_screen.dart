@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/constants/app_constants.dart';
+import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/profile_repository.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(myProfileProvider);
+    final authState = ref.watch(authProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile',
@@ -20,146 +24,200 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Profile header card
-          Card(
-            elevation: 0,
-            color: kPrimaryContainer,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: kPrimary,
-                    child: Text(
-                      AppConstants.mockUserInitials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 24,
-                      ),
+      body: profileAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) {
+          // Fallback to auth state info if profile API fails
+          final name = authState.userName ?? 'User';
+          final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
+          return _ProfileBody(
+            name: name,
+            email: '', // Để trống chờ BE
+            phone: '', // Để trống chờ BE
+            initials: initials,
+            avatarUrl: null,
+          );
+        },
+        data: (profile) => _ProfileBody(
+          name: profile.fullName,
+          // Sử dụng dữ liệu từ BE, nếu property chưa có thì fallback về chuỗi rỗng
+          email: profile.email ?? '',
+          phone: profile.phoneNumber ?? '',
+          initials: profile.initials,
+          avatarUrl: profile.avatarUrl, // Nhận avatarUrl từ backend
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileBody extends StatelessWidget {
+  final String name;
+  final String email;
+  final String phone;
+  final String initials;
+  final String? avatarUrl;
+
+  const _ProfileBody({
+    required this.name,
+    required this.email,
+    required this.phone,
+    required this.initials,
+    this.avatarUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Kiểm tra xem có avatar hợp lệ không
+    final hasAvatar = avatarUrl != null && avatarUrl!.isNotEmpty;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Profile header card
+        Card(
+          elevation: 0,
+          color: kPrimaryContainer,
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: kPrimary,
+                  backgroundImage: hasAvatar ? NetworkImage(avatarUrl!) : null,
+                  child: !hasAvatar
+                      ? Text(
+                    initials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppConstants.mockUserName,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: kOnPrimaryContainer,
-                          ),
+                  )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: kOnPrimaryContainer,
                         ),
+                      ),
+                      if (email.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
-                          AppConstants.mockUserEmail,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: kOnPrimaryContainer.withValues(alpha: 0.8),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          AppConstants.mockUserPhone,
+                          email,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: kOnPrimaryContainer.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
-                    ),
+                      if (phone.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          phone,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: kOnPrimaryContainer.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          // Stats row
-          Row(
-            children: [
-              Expanded(
-                  child: _StatCard(value: '12', label: 'Bookings')),
-              const SizedBox(width: 12),
-              Expanded(child: _StatCard(value: '4.9', label: 'Rating')),
-              const SizedBox(width: 12),
-              Expanded(child: _StatCard(value: '3', label: 'Saved')),
-            ],
+        ),
+        const SizedBox(height: 8),
+        // Stats row
+        Row(
+          children: [
+            Expanded(child: _StatCard(value: '—', label: 'Bookings')),
+            const SizedBox(width: 12),
+            Expanded(child: _StatCard(value: '—', label: 'Rating')),
+            const SizedBox(width: 12),
+            Expanded(child: _StatCard(value: '—', label: 'Saved')),
+          ],
+        ),
+        const SizedBox(height: 20),
+        // Menu section
+        _SectionHeader(title: 'Account'),
+        _ProfileMenuItem(
+          icon: Icons.person_outline_rounded,
+          title: 'Edit Profile',
+          onTap: () {},
+        ),
+        _ProfileMenuItem(
+          icon: Icons.location_on_outlined,
+          title: 'Saved Addresses',
+          onTap: () => context.push('/address'),
+        ),
+        _ProfileMenuItem(
+          icon: Icons.credit_card_outlined,
+          title: 'Payment Methods',
+          onTap: () {},
+        ),
+        _ProfileMenuItem(
+          icon: Icons.history_rounded,
+          title: 'Booking History',
+          onTap: () => context.push('/bookings'),
+        ),
+        const SizedBox(height: 8),
+        _SectionHeader(title: 'Preferences'),
+        _ProfileMenuItem(
+          icon: Icons.notifications_outlined,
+          title: 'Notifications',
+          onTap: () {},
+        ),
+        _ProfileMenuItem(
+          icon: Icons.dark_mode_outlined,
+          title: 'Appearance',
+          onTap: () {},
+        ),
+        _ProfileMenuItem(
+          icon: Icons.language_outlined,
+          title: 'Language',
+          subtitle: 'English',
+          onTap: () {},
+        ),
+        const SizedBox(height: 8),
+        _SectionHeader(title: 'Support'),
+        _ProfileMenuItem(
+          icon: Icons.help_outline_rounded,
+          title: 'Help & Support',
+          onTap: () {},
+        ),
+        _ProfileMenuItem(
+          icon: Icons.privacy_tip_outlined,
+          title: 'Privacy Policy',
+          onTap: () {},
+        ),
+        const SizedBox(height: 24),
+        // Log out
+        OutlinedButton.icon(
+          onPressed: () => context.go('/login'),
+          icon: const Icon(Icons.logout_rounded),
+          label: const Text('Log Out'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            foregroundColor: Colors.red,
+            side: const BorderSide(color: Colors.red),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          const SizedBox(height: 20),
-          // Menu section
-          _SectionHeader(title: 'Account'),
-          _ProfileMenuItem(
-            icon: Icons.person_outline_rounded,
-            title: 'Edit Profile',
-            onTap: () {},
-          ),
-          _ProfileMenuItem(
-            icon: Icons.location_on_outlined,
-            title: 'Saved Addresses',
-            onTap: () => context.push('/address'),
-          ),
-          _ProfileMenuItem(
-            icon: Icons.credit_card_outlined,
-            title: 'Payment Methods',
-            onTap: () {},
-          ),
-          _ProfileMenuItem(
-            icon: Icons.history_rounded,
-            title: 'Booking History',
-            onTap: () => context.push('/bookings'),
-          ),
-          const SizedBox(height: 8),
-          _SectionHeader(title: 'Preferences'),
-          _ProfileMenuItem(
-            icon: Icons.notifications_outlined,
-            title: 'Notifications',
-            onTap: () {},
-          ),
-          _ProfileMenuItem(
-            icon: Icons.dark_mode_outlined,
-            title: 'Appearance',
-            onTap: () {},
-          ),
-          _ProfileMenuItem(
-            icon: Icons.language_outlined,
-            title: 'Language',
-            subtitle: 'English',
-            onTap: () {},
-          ),
-          const SizedBox(height: 8),
-          _SectionHeader(title: 'Support'),
-          _ProfileMenuItem(
-            icon: Icons.help_outline_rounded,
-            title: 'Help & Support',
-            onTap: () {},
-          ),
-          _ProfileMenuItem(
-            icon: Icons.privacy_tip_outlined,
-            title: 'Privacy Policy',
-            onTap: () {},
-          ),
-          const SizedBox(height: 24),
-          // Log out
-          OutlinedButton.icon(
-            onPressed: () => context.go('/login'),
-            icon: const Icon(Icons.logout_rounded),
-            label: const Text('Log Out'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(height: 32),
-        ],
-      ),
+        ),
+        const SizedBox(height: 32),
+      ],
     );
   }
 }
@@ -208,9 +266,9 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              letterSpacing: 0.5,
-            ),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
@@ -249,10 +307,10 @@ class _ProfileMenuItem extends StatelessWidget {
               ?.copyWith(fontWeight: FontWeight.w500)),
       subtitle: subtitle != null
           ? Text(subtitle!,
-              style: TextStyle(color: theme.colorScheme.onSurfaceVariant))
+          style: TextStyle(color: theme.colorScheme.onSurfaceVariant))
           : null,
       trailing:
-          Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
+      Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
       onTap: onTap,
     );
   }

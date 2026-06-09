@@ -80,5 +80,10 @@ namespace Cleaning.DAL.Repositories
         {
             return await _dbSet.AnyAsync(expression);
         }
+
+        public IQueryable<T> GetQueryable()
+        {
+            return _context.Set<T>().AsQueryable();
+        }
     }
 }

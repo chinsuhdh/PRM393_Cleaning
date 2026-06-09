@@ -9,5 +9,7 @@ namespace Cleaning.BLL.Interfaces
 
         // Chức năng 2: Matching Worker
         Task<bool> RecommendWorkerAsync(Guid bookingId);
+
+        Task<List<WorkerDto>> GetRecommendedWorkersAsync(Guid bookingId);
     }
 }

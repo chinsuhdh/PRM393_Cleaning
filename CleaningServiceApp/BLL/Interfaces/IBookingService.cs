@@ -12,5 +12,7 @@ namespace Cleaning.BLL.Interfaces
         Task<IEnumerable<BookingDto>> GetAvailableBookingsAsync();
 
         Task<bool> AcceptBookingAsync(Guid bookingId, Guid workerId);
+
+        Task<BookingDto?> GetBookingByIdAsync(Guid bookingId);
     }
 }

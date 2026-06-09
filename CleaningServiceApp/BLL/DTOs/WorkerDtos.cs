@@ -33,4 +33,15 @@ namespace Cleaning.BLL.DTOs
         public int ExperienceMonths { get; set; }
         public bool IsVerified { get; set; }
     }
+
+    public class WorkerDto
+    {
+        public string Id { get; set; } = null!;
+        public string Name { get; set; } = null!;
+        public string Initials { get; set; } = null!;
+        public double Rating { get; set; }
+        public int Reviews { get; set; }
+        public string Distance { get; set; } = "Unknown"; 
+        public int MatchPercentage { get; set; }
+    }
 }

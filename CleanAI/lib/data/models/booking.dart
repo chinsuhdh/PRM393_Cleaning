@@ -9,6 +9,11 @@ class Booking {
   final String status;
   final Worker? worker;
 
+  // MỚI THÊM
+  final String? addressText;
+  final double? latitude;
+  final double? longitude;
+
   const Booking({
     required this.id,
     required this.serviceName,
@@ -17,49 +22,54 @@ class Booking {
     required this.price,
     required this.status,
     this.worker,
+    this.addressText,
+    this.latitude,
+    this.longitude,
   });
 
-  Booking copyWith({
-    String? id,
-    String? serviceName,
-    String? date,
-    String? time,
-    double? price,
-    String? status,
-    Worker? worker,
-  }) {
-    return Booking(
-      id: id ?? this.id,
-      serviceName: serviceName ?? this.serviceName,
-      date: date ?? this.date,
-      time: time ?? this.time,
-      price: price ?? this.price,
-      status: status ?? this.status,
-      worker: worker ?? this.worker,
-    );
-  }
-
   factory Booking.fromJson(Map<String, dynamic> json) {
+    String date = '';
+    String time = '';
+    final rawScheduled = json['scheduledTime'] as String?;
+
+    if (rawScheduled != null && rawScheduled.isNotEmpty) {
+      final dt = DateTime.tryParse(rawScheduled)?.toLocal();
+      if (dt != null) {
+        date = '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+        time = '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      } else {
+        date = rawScheduled;
+      }
+    }
+
+    String statusStr;
+    final rawStatus = json['status'];
+    if (rawStatus is int) {
+      const statusNames = ['Pending', 'Accepted', 'InProgress', 'Completed', 'Cancelled'];
+      statusStr = (rawStatus >= 0 && rawStatus < statusNames.length) ? statusNames[rawStatus] : rawStatus.toString();
+    } else {
+      statusStr = (rawStatus as String?) ?? 'Unknown';
+    }
+
+    String serviceName = (json['serviceName'] as String?) ?? '';
+    if (serviceName.isEmpty) {
+      final serviceObj = json['service'] as Map<String, dynamic>?;
+      serviceName = (serviceObj?['name'] as String?) ?? 'Dịch vụ #${json['serviceId'].toString().substring(0, 8)}';
+    }
+
     return Booking(
-      id: json['id'] as String,
-      serviceName: json['serviceName'] as String,
-      date: json['date'] as String,
-      time: json['time'] as String,
-      price: (json['price'] as num).toDouble(),
-      status: json['status'] as String,
-      worker: json['worker'] != null
-          ? Worker.fromJson(json['worker'] as Map<String, dynamic>)
-          : null,
+      id: (json['id'] ?? '').toString(),
+      serviceName: serviceName,
+      date: date,
+      time: time,
+      price: (json['totalPrice'] as num?)?.toDouble() ?? 0.0,
+      status: statusStr,
+      worker: json['worker'] != null ? Worker.fromJson(json['worker'] as Map<String, dynamic>) : null,
+
+      // MỚI THÊM: Parse dữ liệu tọa độ từ BE trả về
+      addressText: json['addressText'] as String?,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'serviceName': serviceName,
-        'date': date,
-        'time': time,
-        'price': price,
-        'status': status,
-        'worker': worker?.toJson(),
-      };
 }

@@ -48,9 +48,16 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen>
       body: bookingsAsync.when(
         data: (bookings) => TabBarView(
           controller: _tabController,
-          children: _tabs.map((status) {
-            final filtered =
-                bookings.where((b) => b.status == status).toList();
+          children: _tabs.map((tabStatus) {
+
+            // ĐÃ SỬA: Gom nhóm các status đang xử lý vào tab 'Upcoming'
+            final filtered = bookings.where((b) {
+              if (tabStatus == 'Upcoming') {
+                return ['Pending', 'Confirmed', 'InProgress', 'Upcoming'].contains(b.status);
+              }
+              return b.status == tabStatus;
+            }).toList();
+
             if (filtered.isEmpty) {
               return Center(
                 child: Column(
@@ -62,7 +69,7 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen>
                             .withValues(alpha: 0.4)),
                     const SizedBox(height: 16),
                     Text(
-                      'No $status bookings',
+                      'No $tabStatus bookings',
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -79,8 +86,7 @@ class _BookingsScreenState extends ConsumerState<BookingsScreen>
             );
           }).toList(),
         ),
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
@@ -91,9 +97,13 @@ class BookingCard extends StatelessWidget {
   final Booking booking;
   const BookingCard({super.key, required this.booking});
 
+  // ĐÃ SỬA: Bổ sung các trạng thái thực tế từ Backend vào logic màu sắc
   Color _statusColor(String status) {
     switch (status) {
       case 'Upcoming':
+      case 'Pending':
+      case 'Confirmed':
+      case 'InProgress':
         return kPrimary;
       case 'Completed':
         return kSecondary;
@@ -104,9 +114,13 @@ class BookingCard extends StatelessWidget {
     }
   }
 
+  // ĐÃ SỬA: Bổ sung các trạng thái thực tế từ Backend vào logic màu nền
   Color _statusBgColor(String status) {
     switch (status) {
       case 'Upcoming':
+      case 'Pending':
+      case 'Confirmed':
+      case 'InProgress':
         return kPrimaryContainer;
       case 'Completed':
         return kSecondaryContainer;

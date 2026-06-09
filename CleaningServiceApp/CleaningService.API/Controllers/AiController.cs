@@ -42,5 +42,23 @@ namespace CleaningService.API.Controllers
             if (!success) return BadRequest("Không thể phân tích hoặc không tìm thấy thợ phù hợp.");
             return Ok(new { message = "Đã chạy AI Matching và lưu kết quả." });
         }
+
+        [HttpGet("recommended-workers/{bookingId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetRecommendedWorkers(Guid bookingId)
+        {
+            try
+            {
+                var workers = await _aiService.GetRecommendedWorkersAsync(bookingId);
+                if (workers == null || !workers.Any())
+                    return Ok(new List<WorkerDto>()); // Trả về mảng rỗng nếu không có
+
+                return Ok(workers); // Lúc này API sẽ trả về mảng JSON chuẩn: [ {..}, {..} ]
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Lỗi truy xuất AI", details = ex.Message });
+            }
+        }
     }
 }
