@@ -100,6 +100,8 @@ namespace CleaningService.API
             builder.Services.AddScoped<IBookingService, BookingService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
+            // ĐÃ THÊM DÒNG ĐĂNG KÝ ADMIN SERVICE Ở ĐÂY ĐỂ FIX LỖI 500
+            builder.Services.AddScoped<IAdminService, AdminService>();
 
             builder.Services.AddHttpClient<IAiService, AiService>();
 

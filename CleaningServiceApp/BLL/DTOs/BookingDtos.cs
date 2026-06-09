@@ -19,6 +19,12 @@ namespace Cleaning.BLL.DTOs
         public string Status { get; set; } = null!;
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
+
+        // MỚI THÊM: Truyền thông tin địa chỉ và dịch vụ xuống Frontend
+        public string? ServiceName { get; set; }
+        public string? AddressText { get; set; }
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
     }
 
     public class CreateBookingDto
