@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: cleaning_api
+    ports:
+      - "8080:8080" # .NET 8 mặc định chạy cổng 8080
+    depends_on:
+      - ollama
+    environment:
+      # SỬA Ở ĐÂY: Dùng __ để map với AiConfig:OllamaUrl trong appsettings.json
+      - AiConfig__OllamaUrl=http://ollama:11434 
+    networks:
+      - cleaning_network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: local_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - cleaning_network
+
+networks:
+  cleaning_network:
+    driver: bridge
+
+volumes:
+  ollama_data:
