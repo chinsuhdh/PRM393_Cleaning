@@ -56,7 +56,6 @@ namespace CleaningService.API
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
 
-            // SỬA LẠI PHẦN ADD SWAGGER GEN Ở ĐÂY
             builder.Services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v1", new OpenApiInfo { Title = "Cleaning Service API", Version = "v1" });
@@ -100,13 +99,18 @@ namespace CleaningService.API
             builder.Services.AddScoped<IBookingService, BookingService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
-            // ĐÃ THÊM DÒNG ĐĂNG KÝ ADMIN SERVICE Ở ĐÂY ĐỂ FIX LỖI 500
             builder.Services.AddScoped<IAdminService, AdminService>();
 
             builder.Services.AddHttpClient<IAiService, AiService>();
 
+            // ==========================================
+            // 1. KHỞI TẠO BIẾN app 
+            // ==========================================
             var app = builder.Build();
 
+            // ==========================================
+            // 3. CẤU HÌNH PIPELINE REQUEST
+            // ==========================================
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();

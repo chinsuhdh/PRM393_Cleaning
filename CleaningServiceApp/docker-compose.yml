@@ -1,18 +1,42 @@
-version: '3.8'
-
 services:
   api:
-    build: 
-      context: .
-      dockerfile: Dockerfile
+    build: .
+    image: buingoctam/cleaning-api:latest
     container_name: cleaning_api
     ports:
-      - "8080:8080" # .NET 8 mặc định chạy cổng 8080
+      - "5000:8080" 
     depends_on:
       - ollama
+      # Đã bỏ - db vì API giờ phụ thuộc vào DB trên máy tính (Host)
     environment:
-      # SỬA Ở ĐÂY: Dùng __ để map với AiConfig:OllamaUrl trong appsettings.json
       - AiConfig__OllamaUrl=http://ollama:11434 
+      - ASPNETCORE_ENVIRONMENT=Development
+      
+      # 1. ĐỔI HOST THÀNH host.docker.internal ĐỂ TRỎ RA MÁY THẬT (POSTGRES 17)
+      # 2. Vẫn đọc Username và Password từ file .env
+      - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=PRM393_Cleaning;Username=${DB_USER};Password=${DB_PASSWORD}
+      
+      # Đọc chuỗi JWT bằng biến từ .env
+      - JwtConfig__Secret=${JWT_SECRET}
+      - JwtConfig__Issuer=CleaningAppBackend
+      - JwtConfig__Audience=CleaningAppFlutter
+      - JwtConfig__AccessTokenExpirationMinutes=15
+      - JwtConfig__RefreshTokenExpirationDays=7
+    networks:
+      - cleaning_network
+
+  db:
+    image: postgres:16
+    container_name: cleaning_db
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=PRM393_Cleaning
+    ports:
+      # ĐỔI THÀNH 5433 ĐỂ TRÁNH XUNG ĐỘT PORT 5432 CỦA POSTGRES 17 TRÊN MÁY TÍNH
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - cleaning_network
 
@@ -32,3 +56,4 @@ networks:
 
 volumes:
   ollama_data:
+  postgres_data:
