@@ -1,8 +1,3 @@
-Cấu trúc database bạn thiết kế rất chặt chẽ, tối ưu cho việc ánh xạ sang Entity Framework Core và phân chia các module cho backend. Khung thư mục Flutter cũng rất rõ ràng, tách biệt được các luồng UI cho Client, Worker và Admin.
-
-Dưới đây là nội dung markdown hoàn chỉnh cho file `README.md`. Bạn có thể copy toàn bộ đoạn dưới đây và dán thẳng vào trình soạn thảo trên GitHub.
-
----
 
 # Hệ Thống Đặt Lịch Dịch Vụ Vệ Sinh Tích Hợp AI (AI-Powered Cleaning Service Platform)
 
