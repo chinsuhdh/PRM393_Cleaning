@@ -6,7 +6,7 @@ using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Entities;
-using Cleaning.DAL.Enums; 
+using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -17,11 +17,14 @@ namespace Cleaning.BLL.Services
     {
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService; // [THÊM MỚI] Khai báo EmailService
 
-        public AuthService(AppDbContext context, IConfiguration configuration)
+        // [THÊM MỚI] Inject IEmailService vào constructor
+        public AuthService(AppDbContext context, IConfiguration configuration, IEmailService emailService)
         {
             _context = context;
             _configuration = configuration;
+            _emailService = emailService;
         }
 
         // ==========================================
@@ -69,14 +72,20 @@ namespace Cleaning.BLL.Services
                 {
                     AccountId = newAccount.Id,
                     OtpCode = otpCode,
-                    Purpose = "verify_account", // Gắn nhãn mục đích rõ ràng
+                    Purpose = "verify_account",
                     ExpiresAt = DateTime.UtcNow.AddMinutes(15),
                     CreatedAt = DateTime.UtcNow
                 });
                 await _context.SaveChangesAsync();
 
-                // MOCK GỬI EMAIL/SMS
-                Console.WriteLine($"[MOCK EMAIL/SMS] Gửi mã OTP XÁC THỰC TÀI KHOẢN: {otpCode} tới {request.Email}");
+                // [THÊM MỚI] Gọi IEmailService để gửi mail thật thay vì Console.WriteLine
+                string emailBody = $@"
+                    <h2>Xác thực tài khoản CleanAI</h2>
+                    <p>Chào {request.FullName},</p>
+                    <p>Mã OTP xác thực tài khoản của bạn là: <strong style='font-size: 24px;'>{otpCode}</strong></p>
+                    <p>Mã này sẽ hết hạn sau 15 phút.</p>";
+
+                await _emailService.SendEmailAsync(request.Email, "Mã xác thực tài khoản - CleanAI", emailBody);
 
                 await transaction.CommitAsync();
                 return true;
@@ -96,10 +105,8 @@ namespace Cleaning.BLL.Services
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Email == request.Email);
             if (account == null) return false;
 
-            // Nếu đã active rồi thì bỏ qua
             if (account.Status == AccountStatus.Active) return true;
 
-            // Tìm mã OTP chưa sử dụng, đúng mục đích và còn hạn
             var otpRecord = await _context.OtpVerifications
                 .Where(o => o.AccountId == account.Id && o.Purpose == "verify_account" && o.OtpCode == request.OtpCode && !o.IsUsed)
                 .OrderByDescending(o => o.CreatedAt)
@@ -107,7 +114,6 @@ namespace Cleaning.BLL.Services
 
             if (otpRecord == null || otpRecord.ExpiresAt < DateTime.UtcNow) return false;
 
-            // Đánh dấu OTP đã dùng và mở khóa tài khoản
             otpRecord.IsUsed = true;
             account.Status = AccountStatus.Active;
             account.UpdatedAt = DateTime.UtcNow;
@@ -143,13 +149,11 @@ namespace Cleaning.BLL.Services
                 return null;
             }
 
-            // Chặn đăng nhập nếu chưa verify hoặc bị ban
             if (account.Status != AccountStatus.Active)
             {
                 throw new Exception("Tài khoản chưa được xác thực hoặc đã bị khóa.");
             }
 
-            // Đăng nhập thành công
             var accessToken = GenerateJwtToken(account);
             var refreshToken = GenerateRefreshToken();
 
@@ -264,7 +268,13 @@ namespace Cleaning.BLL.Services
 
             await _context.SaveChangesAsync();
 
-            Console.WriteLine($"[MOCK EMAIL] Gửi mã OTP QUÊN MẬT KHẨU: {otpCode} tới {request.Email}");
+            // [THÊM MỚI] Gọi IEmailService
+            string emailBody = $@"
+                <h2>Yêu cầu đặt lại mật khẩu</h2>
+                <p>Mã OTP để đặt lại mật khẩu của bạn là: <strong style='font-size: 24px;'>{otpCode}</strong></p>
+                <p>Mã này sẽ hết hạn sau 5 phút. Vui lòng không chia sẻ mã này cho bất kỳ ai.</p>";
+
+            await _emailService.SendEmailAsync(request.Email, "Mã OTP khôi phục mật khẩu - CleanAI", emailBody);
 
             return true;
         }
