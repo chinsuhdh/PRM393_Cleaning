@@ -1,6 +1,8 @@
 ﻿using System.Text;
 using Cleaning.BLL.Interfaces;
 using Cleaning.BLL.Services;
+// [THÊM MỚI] Khai báo namespace chứa EmailConfiguration
+using Cleaning.BLL.DTOs;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
@@ -87,8 +89,17 @@ namespace CleaningService.API
             });
 
             // ==========================================
+            // [THÊM MỚI] BINDING CẤU HÌNH TỪ APPSETTINGS
+            // ==========================================
+            builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("EmailConfiguration"));
+
+            // ==========================================
             // ĐĂNG KÝ DEPENDENCY INJECTION
             // ==========================================
+
+            // [THÊM MỚI] Đăng ký Email Service
+            builder.Services.AddScoped<IEmailService, EmailService>();
+
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();

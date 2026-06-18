@@ -33,16 +33,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
     try {
+      // FE gọi API Đăng ký. BE sẽ nhận request, tạo Account, tạo OTP và gửi Email ở bên dưới BE.
       final success = await ref.read(authProvider.notifier).register(
-            name: _nameController.text,
-            email: _emailController.text,
-            phone: _phoneController.text,
-            password: _passwordController.text,
-          );
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+      );
+
       if (success && mounted) {
-        context.go('/home');
+        // Thông báo cho user biết để check mail
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đăng ký thành công! Vui lòng kiểm tra email để lấy mã xác thực.')),
+        );
+        // Chuyển sang màn hình nhập OTP thay vì vào home
+        context.push('/verify-otp');
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Đăng ký thất bại. Email hoặc SĐT có thể đã tồn tại.')),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -90,7 +102,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     prefixIcon: Icon(Icons.person_outline_rounded),
                   ),
                   validator: (v) =>
-                      v == null || v.isEmpty ? 'Please enter your name' : null,
+                  v == null || v.isEmpty ? 'Please enter your name' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -101,7 +113,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (v) =>
-                      v == null || v.isEmpty ? 'Please enter your email' : null,
+                  v == null || v.isEmpty ? 'Please enter your email' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -112,7 +124,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     prefixIcon: Icon(Icons.phone_outlined),
                   ),
                   validator: (v) =>
-                      v == null || v.isEmpty ? 'Please enter your phone' : null,
+                  v == null || v.isEmpty ? 'Please enter your phone' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -145,7 +157,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ? Icons.visibility_off_rounded
                           : Icons.visibility_rounded),
                       onPressed: () => setState(() =>
-                          _confirmPasswordVisible = !_confirmPasswordVisible),
+                      _confirmPasswordVisible = !_confirmPasswordVisible),
                     ),
                   ),
                   validator: (v) => v != _passwordController.text
@@ -160,18 +172,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
-                          ),
-                        )
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
                       : const Text(
-                          'Create Account',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
+                    'Create Account',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Row(

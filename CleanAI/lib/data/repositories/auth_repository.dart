@@ -67,7 +67,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       return true;
     } on DioException catch (e) {
-      print("Login Error: ${e.response?.data['message'] ?? e.message}");
+      // [ĐÃ SỬA] Xử lý lỗi an toàn hơn tránh crash String/int
+      final data = e.response?.data;
+      String errorMsg = "Lỗi đăng nhập";
+
+      if (data is Map<String, dynamic> && data['message'] != null) {
+        // Nếu BE trả về JSON chuẩn
+        errorMsg = data['message'];
+      } else {
+        // Nếu BE trả về cục lỗi 500 dạng text hoặc HTML
+        errorMsg = "Tài khoản chưa xác thực hoặc sai thông tin.";
+      }
+
+      print("Login Error: $errorMsg");
       return false;
     }
   }

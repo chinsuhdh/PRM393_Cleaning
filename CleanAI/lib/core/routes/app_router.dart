@@ -5,6 +5,9 @@ import '../../ui/auth/splash_screen.dart';
 import '../../ui/auth/onboarding_screen.dart';
 import '../../ui/auth/login_screen.dart';
 import '../../ui/auth/register_screen.dart';
+import '../../ui/auth/forgot_password_screen.dart'; // [ĐÃ THÊM] Import màn hình Quên mật khẩu
+import '../../ui/auth/verify_otp_screen.dart';      // [ĐÃ THÊM] Import màn hình Nhập OTP
+
 import '../../ui/home/client_shell.dart';
 import '../../ui/home/home_screen.dart';
 import '../../ui/booking/bookings_screen.dart';
@@ -73,13 +76,17 @@ final GoRouter appRouter = GoRouter(
     GoRoute(path: AppRoutes.onboarding, builder: (context, state) => const OnboardingScreen()),
     GoRoute(path: AppRoutes.login, builder: (context, state) => const LoginScreen()),
     GoRoute(path: AppRoutes.register, builder: (context, state) => const RegisterScreen()),
+
+    // [ĐÃ SỬA] Trỏ tới màn hình VerifyOtpScreen thay vì Scaffold Text
     GoRoute(
       path: AppRoutes.verifyOtp,
-      builder: (context, state) => Scaffold(appBar: AppBar(title: const Text('Verify OTP')), body: const Center(child: Text('VerifyOtpScreen'))),
+      builder: (context, state) => const VerifyOtpScreen(),
     ),
+
+    // [ĐÃ SỬA] Trỏ tới màn hình ForgotPasswordScreen thay vì Scaffold Text
     GoRoute(
       path: AppRoutes.forgotPassword,
-      builder: (context, state) => Scaffold(appBar: AppBar(title: const Text('Forgot Password')), body: const Center(child: Text('ForgotPasswordScreen'))),
+      builder: (context, state) => const ForgotPasswordScreen(),
     ),
 
     // =========================================================
