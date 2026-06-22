@@ -1,0 +1,16 @@
+**/.git
+**/.github
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/TestResults
+**/*.user
+**/*.suo
+**/*.nupkg
+Dockerfile
+docker-compose*.yml
+.env
+.env.*
+!.env.example
+README.md

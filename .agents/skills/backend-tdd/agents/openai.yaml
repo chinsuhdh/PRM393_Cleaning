@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backend TDD"
+  short_description: "Pragmatic TDD for the .NET backend."
+  default_prompt: "Use $backend-tdd to design focused backend tests before implementing behavior."
