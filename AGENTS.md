@@ -33,8 +33,9 @@ dotnet build CleaningServiceApp\CleaningServiceApp.sln --configuration Release -
 
 Add `dotnet test` once test projects exist.
 
-## Pull Requests
+## Branches And Commits
 
-- Do not push, commit, or open a PR unless the user explicitly asks.
-- PR summaries should include: summary, key changes, checks run, code-review-graph context used, and known gaps.
-- Treat GitHub Actions on the PR as the real workflow test; local checks are a pre-flight, not a replacement.
+- If the user asks to finish or package work and no task branch exists, create a focused branch before committing.
+- Commit only after implementation and verification are complete.
+- Commit summaries should cover: summary, key changes, checks run, code-review-graph context used, and known gaps.
+- Push only when the user explicitly asks.
