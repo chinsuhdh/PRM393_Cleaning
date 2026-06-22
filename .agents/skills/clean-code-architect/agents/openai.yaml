@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clean Code Architect"
+  short_description: "Preserve structure with pragmatic clean code."
+  default_prompt: "Use $clean-code-architect to implement or review code while preserving the existing architecture, keeping files focused, avoiding magic values, and using only necessary abstractions."

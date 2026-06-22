@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema; 
-using Cleaning.DAL.Enums; 
+using System.ComponentModel.DataAnnotations.Schema;
+using Cleaning.DAL.Enums;
 
 namespace Cleaning.DAL.Entities
 {
