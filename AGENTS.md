@@ -35,7 +35,9 @@ Add `dotnet test` once test projects exist.
 
 ## Branches And Commits
 
-- If the user asks to finish or package work and no task branch exists, create a focused branch before committing.
+- Do not create a new branch unless the user explicitly asks, except when the current branch is `main` or `master`.
+- If the current branch is `main` or `master` and the user asks to commit/package work, create a focused task branch before committing.
+- If already on a non-main task branch, keep using the current branch unless the user asks for a different branch.
 - Commit only after implementation and verification are complete.
 - Commit summaries should cover: summary, key changes, checks run, code-review-graph context used, and known gaps.
 - Push only when the user explicitly asks.
