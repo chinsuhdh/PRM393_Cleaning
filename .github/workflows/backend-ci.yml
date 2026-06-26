@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 name: Backend Docker CI/CD
 
 on:
@@ -143,4 +143,4 @@ jobs:
   #         tags: ${{ steps.docker-tags.outputs.tags }}
   #         cache-from: type=gha
   #         cache-to: type=gha,mode=max
->>>>>>> 208a93398155a03b2f330269745df8818312a887
+
