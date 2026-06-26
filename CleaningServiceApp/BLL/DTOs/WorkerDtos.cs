@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace Cleaning.BLL.DTOs
 {
@@ -41,7 +42,7 @@ namespace Cleaning.BLL.DTOs
         public string Initials { get; set; } = null!;
         public double Rating { get; set; }
         public int Reviews { get; set; }
-        public string Distance { get; set; } = "Unknown"; 
+        public string Distance { get; set; } = "Unknown";
         public int MatchPercentage { get; set; }
     }
 }

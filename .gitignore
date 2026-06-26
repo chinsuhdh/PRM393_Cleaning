@@ -3,4 +3,10 @@
 bin/
 obj/
 .vs/
+<<<<<<< HEAD
 .env
+=======
+.env
+# Added by code-review-graph
+.code-review-graph/
+>>>>>>> 208a93398155a03b2f330269745df8818312a887
