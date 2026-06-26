@@ -2,6 +2,10 @@
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Interfaces;
+using Cleaning.DAL.Enums;
+
+// Thêm dòng Alias này để phân biệt Entity trong DB với Class Service hiện tại
+using DalWorkerService = Cleaning.DAL.Entities.WorkerService;
 
 namespace Cleaning.BLL.Services
 {
@@ -22,11 +26,11 @@ namespace Cleaning.BLL.Services
             return new WorkerProfileDto
             {
                 UserId = worker.UserId,
-                IdentityCardNumber = worker.IdentityCardNumber,
                 AverageRating = worker.AverageRating,
-                CompletedJobs = worker.CompletedJobs,
+                OnlineStatus = worker.OnlineStatus,
                 CurrentLat = worker.CurrentLat,
                 CurrentLng = worker.CurrentLng,
+                ImmediateBookingEnabled = worker.ImmediateBookingEnabled,
                 VerifiedAt = worker.VerifiedAt
             };
         }
@@ -39,10 +43,13 @@ namespace Cleaning.BLL.Services
             var newWorker = new WorkerProfile
             {
                 UserId = workerId,
-                IdentityCardNumber = request.IdentityCardNumber,
                 AverageRating = 5.0m,
-                CompletedJobs = 0,
-                CreatedAt = DateTime.UtcNow
+                OnlineStatus = WorkerOnlineStatus.Offline,
+                ImmediateBookingEnabled = false,
+                CurrentLat = request.CurrentLat,
+                CurrentLng = request.CurrentLng,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             await _unitOfWork.Repository<WorkerProfile>().AddAsync(newWorker);
@@ -58,6 +65,7 @@ namespace Cleaning.BLL.Services
 
             worker.CurrentLat = request.CurrentLat;
             worker.CurrentLng = request.CurrentLng;
+            worker.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Repository<WorkerProfile>().Update(worker);
             await _unitOfWork.SaveChangesAsync();
@@ -67,7 +75,9 @@ namespace Cleaning.BLL.Services
 
         public async Task<IEnumerable<WorkerSkillDto>> GetWorkerSkillsAsync(Guid workerId)
         {
-            var skills = await _unitOfWork.Repository<WorkerSkill>().FindAsync(ws => ws.WorkerId == workerId);
+            // Sử dụng DalWorkerService thay vì WorkerService
+            var skills = await _unitOfWork.Repository<DalWorkerService>()
+                .FindAsync(ws => ws.WorkerId == workerId);
 
             return skills.Select(ws => new WorkerSkillDto
             {
@@ -79,17 +89,19 @@ namespace Cleaning.BLL.Services
 
         public async Task<bool> AddOrUpdateWorkerSkillAsync(Guid workerId, WorkerSkillDto request)
         {
-            var skill = await _unitOfWork.Repository<WorkerSkill>()
+            // Sử dụng DalWorkerService thay vì WorkerService
+            var skill = await _unitOfWork.Repository<DalWorkerService>()
                 .FirstOrDefaultAsync(ws => ws.WorkerId == workerId && ws.ServiceId == request.ServiceId);
 
             if (skill != null)
             {
                 skill.ExperienceMonths = request.ExperienceMonths;
-                _unitOfWork.Repository<WorkerSkill>().Update(skill);
+                _unitOfWork.Repository<DalWorkerService>().Update(skill);
             }
             else
             {
-                var newSkill = new WorkerSkill
+                // Khởi tạo instance của Entity bằng Alias
+                var newSkill = new DalWorkerService
                 {
                     WorkerId = workerId,
                     ServiceId = request.ServiceId,
@@ -97,7 +109,7 @@ namespace Cleaning.BLL.Services
                     IsVerified = false,
                     CreatedAt = DateTime.UtcNow
                 };
-                await _unitOfWork.Repository<WorkerSkill>().AddAsync(newSkill);
+                await _unitOfWork.Repository<DalWorkerService>().AddAsync(newSkill);
             }
 
             await _unitOfWork.SaveChangesAsync();

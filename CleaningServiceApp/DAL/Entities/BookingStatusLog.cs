@@ -10,14 +10,15 @@ public partial class BookingStatusLog
 
     public Guid BookingId { get; set; }
 
+    public BookingStatus? OldStatus { get; set; }
+
+    public BookingStatus NewStatus { get; set; }
+
     public Guid? ChangedBy { get; set; }
 
     public string? Reason { get; set; }
 
     public DateTime CreatedAt { get; set; }
-
-    public BookingStatus? OldStatus { get; set; }
-    public BookingStatus NewStatus { get; set; }
 
     public virtual Booking Booking { get; set; } = null!;
 

@@ -8,4 +8,9 @@
         public Guid ProfileId { get; set; }
         public string FullName { get; set; } = null!;
     }
+
+    public class TokenRequestDto
+    {
+        public string RefreshToken { get; set; } = null!;
+    }
 }

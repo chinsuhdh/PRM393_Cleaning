@@ -1,4 +1,8 @@
-﻿using System.Linq.Expressions;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -39,7 +43,7 @@ namespace Cleaning.DAL.Repositories
             {
                 foreach (var includeProperty in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    query = query.Include(includeProperty);
+                    query = query.Include(includeProperty.Trim());
                 }
             }
 

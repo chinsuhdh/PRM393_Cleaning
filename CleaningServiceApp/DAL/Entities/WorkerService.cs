@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Cleaning.DAL.Entities;
 
-public partial class WorkerSkill
+public partial class WorkerService
 {
     public Guid WorkerId { get; set; }
 

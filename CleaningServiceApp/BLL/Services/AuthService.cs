@@ -9,6 +9,7 @@ using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Cleaning.BLL.Services
@@ -17,38 +18,44 @@ namespace Cleaning.BLL.Services
     {
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
-        private readonly IEmailService _emailService; // [THÊM MỚI] Khai báo EmailService
+        private readonly IEmailService _emailService;
+        private readonly ILogger<AuthService> _logger;
 
-        // [THÊM MỚI] Inject IEmailService vào constructor
-        public AuthService(AppDbContext context, IConfiguration configuration, IEmailService emailService)
+        public AuthService(AppDbContext context, IConfiguration configuration, IEmailService emailService, ILogger<AuthService> logger)
         {
             _context = context;
             _configuration = configuration;
             _emailService = emailService;
+            _logger = logger;
         }
 
-        // ==========================================
-        // 1. ĐĂNG KÝ (REGISTER) - KÈM TẠO OTP XÁC THỰC
-        // ==========================================
         public async Task<bool> RegisterAsync(RegisterRequestDto request)
         {
-            // Kiểm tra tồn tại
             var exists = await _context.Accounts.AnyAsync(a => a.Email == request.Email || a.PhoneNumber == request.PhoneNumber);
             if (exists) return false;
 
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Băm mật khẩu bằng BCrypt
                 string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+                // Parse Role từ Request, nếu không hợp lệ thì fallback về Client
+                if (!Enum.TryParse<UserRole>(request.Role, true, out var parsedRole))
+                {
+                    parsedRole = UserRole.Client;
+                }
 
                 var newAccount = new Account
                 {
                     Email = request.Email,
                     PhoneNumber = request.PhoneNumber,
                     PasswordHash = passwordHash,
-                    Role = UserRole.Client,
-                    Status = AccountStatus.PendingVerification, // Cài trạng thái chờ xác thực
+                    // BẮT BUỘC có dữ liệu để vượt qua Constraint chk_password_pair trong PostgreSQL
+                    PasswordSalt = "BCRYPT_EMBEDDED",
+                    Role = parsedRole,
+                    Status = AccountStatus.PendingVerification,
+                    IsEmailVerified = false,
+                    IsPhoneVerified = false,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -60,46 +67,44 @@ namespace Cleaning.BLL.Services
                 {
                     Id = newAccount.Id,
                     FullName = request.FullName,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow // Bổ sung UpdatedAt
                 };
 
                 _context.Profiles.Add(newProfile);
-                await _context.SaveChangesAsync();
 
-                // --- LOGIC TẠO OTP XÁC THỰC TÀI KHOẢN ---
-                var otpCode = new Random().Next(100000, 999999).ToString();
-                _context.OtpVerifications.Add(new OtpVerification
+                var otpCode = GenerateSecureOtp();
+                _context.VerificationCodes.Add(new VerificationCode
                 {
                     AccountId = newAccount.Id,
-                    OtpCode = otpCode,
-                    Purpose = "verify_account",
+                    CodeHash = otpCode,
+                    Purpose = VerificationPurpose.EmailVerification,
                     ExpiresAt = DateTime.UtcNow.AddMinutes(15),
+                    IsUsed = false,
                     CreatedAt = DateTime.UtcNow
                 });
+
                 await _context.SaveChangesAsync();
 
-                // [THÊM MỚI] Gọi IEmailService để gửi mail thật thay vì Console.WriteLine
                 string emailBody = $@"
                     <h2>Xác thực tài khoản CleanAI</h2>
                     <p>Chào {request.FullName},</p>
                     <p>Mã OTP xác thực tài khoản của bạn là: <strong style='font-size: 24px;'>{otpCode}</strong></p>
-                    <p>Mã này sẽ hết hạn sau 15 phút.</p>";
+                    <p>Mã này sẽ hết hạn trong 15 phút.</p>";
 
                 await _emailService.SendEmailAsync(request.Email, "Mã xác thực tài khoản - CleanAI", emailBody);
 
                 await transaction.CommitAsync();
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                _logger.LogError(ex, "Lỗi xảy ra trong quá trình RegisterAsync cho email {Email}", request.Email);
                 return false;
             }
         }
 
-        // ==========================================
-        // 2. XÁC THỰC TÀI KHOẢN (VERIFY ACCOUNT)
-        // ==========================================
         public async Task<bool> VerifyAccountAsync(VerifyAccountDto request)
         {
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Email == request.Email);
@@ -107,24 +112,27 @@ namespace Cleaning.BLL.Services
 
             if (account.Status == AccountStatus.Active) return true;
 
-            var otpRecord = await _context.OtpVerifications
-                .Where(o => o.AccountId == account.Id && o.Purpose == "verify_account" && o.OtpCode == request.OtpCode && !o.IsUsed)
+            var otpRecord = await _context.VerificationCodes
+                .Where(o => o.AccountId == account.Id && o.Purpose == VerificationPurpose.EmailVerification && o.CodeHash == request.OtpCode && !o.IsUsed)
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
 
             if (otpRecord == null || otpRecord.ExpiresAt < DateTime.UtcNow) return false;
 
             otpRecord.IsUsed = true;
+
+            // Cập nhật trạng thái và cờ xác thực
             account.Status = AccountStatus.Active;
+            account.IsEmailVerified = true; // Bổ sung field bị thiếu
             account.UpdatedAt = DateTime.UtcNow;
+
+            var oldOtps = await _context.VerificationCodes.Where(o => o.AccountId == account.Id && !o.IsUsed).ToListAsync();
+            foreach (var otp in oldOtps) otp.IsUsed = true;
 
             await _context.SaveChangesAsync();
             return true;
         }
 
-        // ==========================================
-        // 3. ĐĂNG NHẬP (LOGIN)
-        // ==========================================
         public async Task<AuthResponseDto?> LoginAsync(LoginRequestDto request, string? ipAddress, string? userAgent)
         {
             var account = await _context.Accounts
@@ -133,19 +141,6 @@ namespace Cleaning.BLL.Services
 
             if (account == null || !BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash))
             {
-                if (account != null)
-                {
-                    _context.LoginHistories.Add(new LoginHistory
-                    {
-                        AccountId = account.Id,
-                        IpAddress = ipAddress,
-                        UserAgent = userAgent,
-                        IsSuccess = false,
-                        FailReason = "Wrong password",
-                        LoginTime = DateTime.UtcNow
-                    });
-                    await _context.SaveChangesAsync();
-                }
                 return null;
             }
 
@@ -155,24 +150,17 @@ namespace Cleaning.BLL.Services
             }
 
             var accessToken = GenerateJwtToken(account);
-            var refreshToken = GenerateRefreshToken();
+            var rawRefreshToken = GenerateRefreshToken();
+            string tokenHash = ComputeSha256Hash(rawRefreshToken);
 
             _context.RefreshTokens.Add(new RefreshToken
             {
                 AccountId = account.Id,
-                Token = refreshToken,
+                TokenHash = tokenHash,
                 ExpiresAt = DateTime.UtcNow.AddDays(Convert.ToDouble(_configuration["JwtConfig:RefreshTokenExpirationDays"])),
                 CreatedByIp = ipAddress,
+                IsRevoked = false,
                 CreatedAt = DateTime.UtcNow
-            });
-
-            _context.LoginHistories.Add(new LoginHistory
-            {
-                AccountId = account.Id,
-                IpAddress = ipAddress,
-                UserAgent = userAgent,
-                IsSuccess = true,
-                LoginTime = DateTime.UtcNow
             });
 
             await _context.SaveChangesAsync();
@@ -180,22 +168,21 @@ namespace Cleaning.BLL.Services
             return new AuthResponseDto
             {
                 AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                Role = account.Role.ToString()!,
+                RefreshToken = rawRefreshToken,
+                Role = account.Role.ToString(),
                 ProfileId = account.Id,
                 FullName = account.Profile?.FullName ?? "Unknown"
             };
         }
 
-        // ==========================================
-        // 4. LÀM MỚI TOKEN (REFRESH TOKEN)
-        // ==========================================
         public async Task<AuthResponseDto?> RefreshTokenAsync(string oldRefreshToken, string? ipAddress)
         {
+            string oldTokenHash = ComputeSha256Hash(oldRefreshToken);
+
             var tokenRecord = await _context.RefreshTokens
                 .Include(t => t.Account)
                 .ThenInclude(a => a.Profile)
-                .FirstOrDefaultAsync(t => t.Token == oldRefreshToken);
+                .FirstOrDefaultAsync(t => t.TokenHash == oldTokenHash);
 
             if (tokenRecord == null || tokenRecord.IsRevoked || tokenRecord.ExpiresAt < DateTime.UtcNow)
                 return null;
@@ -206,16 +193,18 @@ namespace Cleaning.BLL.Services
 
             var account = tokenRecord.Account;
             var newAccessToken = GenerateJwtToken(account);
-            var newRefreshTokenString = GenerateRefreshToken();
+            var newRawRefreshToken = GenerateRefreshToken();
+            string newTokenHash = ComputeSha256Hash(newRawRefreshToken);
 
-            tokenRecord.ReplacedByToken = newRefreshTokenString;
+            tokenRecord.ReplacedByTokenHash = newTokenHash;
 
             _context.RefreshTokens.Add(new RefreshToken
             {
                 AccountId = account.Id,
-                Token = newRefreshTokenString,
+                TokenHash = newTokenHash,
                 ExpiresAt = DateTime.UtcNow.AddDays(Convert.ToDouble(_configuration["JwtConfig:RefreshTokenExpirationDays"])),
                 CreatedByIp = ipAddress,
+                IsRevoked = false,
                 CreatedAt = DateTime.UtcNow
             });
 
@@ -224,19 +213,18 @@ namespace Cleaning.BLL.Services
             return new AuthResponseDto
             {
                 AccessToken = newAccessToken,
-                RefreshToken = newRefreshTokenString,
-                Role = account.Role.ToString()!,
+                RefreshToken = newRawRefreshToken,
+                Role = account.Role.ToString(),
                 ProfileId = account.Id,
                 FullName = account.Profile?.FullName ?? "Unknown"
             };
         }
 
-        // ==========================================
-        // 5. ĐĂNG XUẤT (LOGOUT)
-        // ==========================================
         public async Task<bool> LogoutAsync(string refreshToken, string? ipAddress)
         {
-            var tokenRecord = await _context.RefreshTokens.FirstOrDefaultAsync(t => t.Token == refreshToken);
+            string tokenHash = ComputeSha256Hash(refreshToken);
+
+            var tokenRecord = await _context.RefreshTokens.FirstOrDefaultAsync(t => t.TokenHash == tokenHash);
             if (tokenRecord == null) return false;
 
             tokenRecord.IsRevoked = true;
@@ -247,55 +235,52 @@ namespace Cleaning.BLL.Services
             return true;
         }
 
-        // ==========================================
-        // 6. QUÊN MẬT KHẨU (FORGOT PASSWORD)
-        // ==========================================
         public async Task<bool> ForgotPasswordAsync(ForgotPasswordRequestDto request)
         {
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Email == request.Email);
             if (account == null) return false;
 
-            var otpCode = new Random().Next(100000, 999999).ToString();
+            var otpCode = GenerateSecureOtp();
 
-            _context.OtpVerifications.Add(new OtpVerification
+            _context.VerificationCodes.Add(new VerificationCode
             {
                 AccountId = account.Id,
-                OtpCode = otpCode,
-                Purpose = "reset_password",
+                CodeHash = otpCode,
+                Purpose = VerificationPurpose.PasswordReset,
                 ExpiresAt = DateTime.UtcNow.AddMinutes(5),
+                IsUsed = false,
                 CreatedAt = DateTime.UtcNow
             });
 
             await _context.SaveChangesAsync();
 
-            // [THÊM MỚI] Gọi IEmailService
             string emailBody = $@"
                 <h2>Yêu cầu đặt lại mật khẩu</h2>
                 <p>Mã OTP để đặt lại mật khẩu của bạn là: <strong style='font-size: 24px;'>{otpCode}</strong></p>
-                <p>Mã này sẽ hết hạn sau 5 phút. Vui lòng không chia sẻ mã này cho bất kỳ ai.</p>";
+                <p>Mã này sẽ hết hạn trong 5 phút.</p>";
 
             await _emailService.SendEmailAsync(request.Email, "Mã OTP khôi phục mật khẩu - CleanAI", emailBody);
 
             return true;
         }
 
-        // ==========================================
-        // 7. ĐẶT LẠI MẬT KHẨU (RESET PASSWORD)
-        // ==========================================
         public async Task<bool> ResetPasswordAsync(ResetPasswordDto request)
         {
             var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Email == request.Email);
             if (account == null) return false;
 
-            var otpRecord = await _context.OtpVerifications
-                .Where(o => o.AccountId == account.Id && o.Purpose == "reset_password" && o.OtpCode == request.OtpCode && !o.IsUsed)
+            var otpRecord = await _context.VerificationCodes
+                .Where(o => o.AccountId == account.Id && o.Purpose == VerificationPurpose.PasswordReset && o.CodeHash == request.OtpCode && !o.IsUsed)
                 .OrderByDescending(o => o.CreatedAt)
                 .FirstOrDefaultAsync();
 
             if (otpRecord == null || otpRecord.ExpiresAt < DateTime.UtcNow) return false;
 
             account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            // Vẫn cần duy trì PasswordSalt do constraint DB
+            account.PasswordSalt = "BCRYPT_EMBEDDED";
             account.UpdatedAt = DateTime.UtcNow;
+
             otpRecord.IsUsed = true;
 
             await _context.SaveChangesAsync();
@@ -303,8 +288,9 @@ namespace Cleaning.BLL.Services
         }
 
         // ==========================================
-        // PRIVATE HELPERS
+        // PRIVATE HELPER METHODS
         // ==========================================
+
         private string GenerateJwtToken(Account account)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -315,7 +301,7 @@ namespace Cleaning.BLL.Services
                 new Claim(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, account.Email ?? ""),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(ClaimTypes.Role, account.Role.ToString()!)
+                new Claim(ClaimTypes.Role, account.Role.ToString())
             };
 
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -331,12 +317,24 @@ namespace Cleaning.BLL.Services
             return tokenHandler.WriteToken(token);
         }
 
-        private string GenerateRefreshToken()
+        private static string GenerateRefreshToken()
         {
             var randomNumber = new byte[64];
             using var rng = RandomNumberGenerator.Create();
             rng.GetBytes(randomNumber);
             return Convert.ToBase64String(randomNumber);
+        }
+
+        private static string ComputeSha256Hash(string input)
+        {
+            using var sha256 = SHA256.Create();
+            var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
+            return Convert.ToBase64String(hashBytes);
+        }
+
+        private static string GenerateSecureOtp()
+        {
+            return RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         }
     }
 }

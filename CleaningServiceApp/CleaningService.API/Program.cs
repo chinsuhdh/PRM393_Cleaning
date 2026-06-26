@@ -1,8 +1,7 @@
 ﻿using System.Text;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.BLL.Services;
-// [THÊM MỚI] Khai báo namespace chứa EmailConfiguration
-using Cleaning.BLL.DTOs;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
@@ -21,24 +20,40 @@ namespace CleaningService.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            // ==========================================
+            // 1. CẤU HÌNH DATABASE & ENUMS POSTGRESQL
+            // ==========================================
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 
+            // Map TẤT CẢ các Enum để đồng bộ với PostgreSQL Schema
             dataSourceBuilder.MapEnum<UserRole>("user_role");
             dataSourceBuilder.MapEnum<AccountStatus>("account_status");
+            dataSourceBuilder.MapEnum<VerificationPurpose>("verification_purpose");
+            dataSourceBuilder.MapEnum<PropertyType>("property_type");
             dataSourceBuilder.MapEnum<ServiceUnitType>("service_unit_type");
+            dataSourceBuilder.MapEnum<BookingType>("booking_type");
             dataSourceBuilder.MapEnum<BookingStatus>("booking_status");
+            dataSourceBuilder.MapEnum<WorkerOnlineStatus>("worker_online_status");
+            dataSourceBuilder.MapEnum<AvailabilityStatus>("availability_status");
             dataSourceBuilder.MapEnum<PaymentMethod>("payment_method");
             dataSourceBuilder.MapEnum<PaymentStatus>("payment_status");
+            dataSourceBuilder.MapEnum<PayoutStatus>("payout_status");
+            dataSourceBuilder.MapEnum<RescheduleStatus>("reschedule_status");
             dataSourceBuilder.MapEnum<AiSenderType>("ai_sender_type");
-            dataSourceBuilder.MapEnum<LogLevelType>("log_level_type");
-            dataSourceBuilder.MapEnum<DeployStatusType>("deploy_status_type");
+            dataSourceBuilder.MapEnum<PhotoType>("photo_type");
+            dataSourceBuilder.MapEnum<CleanlinessLevel>("cleanliness_level");
+            dataSourceBuilder.MapEnum<NotificationType>("notification_type");
 
             var dataSource = dataSourceBuilder.Build();
 
+            // Đăng ký AppDbContext với DI
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseNpgsql(dataSource));
 
+            // ==========================================
+            // 2. CẤU HÌNH AUTHENTICATION & JWT
+            // ==========================================
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
                 {
@@ -58,6 +73,9 @@ namespace CleaningService.API
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
 
+            // ==========================================
+            // 3. CẤU HÌNH SWAGGER (CÓ BEARER TOKEN)
+            // ==========================================
             builder.Services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v1", new OpenApiInfo { Title = "Cleaning Service API", Version = "v1" });
@@ -89,39 +107,41 @@ namespace CleaningService.API
             });
 
             // ==========================================
-            // [THÊM MỚI] BINDING CẤU HÌNH TỪ APPSETTINGS
+            // 4. BINDING CẤU HÌNH TỪ APPSETTINGS
             // ==========================================
             builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("EmailConfiguration"));
 
             // ==========================================
-            // ĐĂNG KÝ DEPENDENCY INJECTION
+            // 5. ĐĂNG KÝ DEPENDENCY INJECTION (DI)
             // ==========================================
 
-            // [THÊM MỚI] Đăng ký Email Service
-            builder.Services.AddScoped<IEmailService, EmailService>();
-
-            builder.Services.AddScoped<IAuthService, AuthService>();
+            // Core & Repositories
             builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+            // Business Services
+            builder.Services.AddScoped<IEmailService, EmailService>();
+            builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IProfileService, ProfileService>();
             builder.Services.AddScoped<IUserAddressService, UserAddressService>();
-            builder.Services.AddScoped<IWorkerService, WorkerService>();
+
+            // Chỉ định rõ namespace để tránh xung đột với Entity WorkerService trong DAL
+            builder.Services.AddScoped<IWorkerService, Cleaning.BLL.Services.WorkerService>();
+
             builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
 
+            // AI Service sử dụng HttpClient
             builder.Services.AddHttpClient<IAiService, AiService>();
 
             // ==========================================
-            // 1. KHỞI TẠO BIẾN app 
+            // 6. KHỞI TẠO APP VÀ PIPELINE
             // ==========================================
             var app = builder.Build();
 
-            // ==========================================
-            // 3. CẤU HÌNH PIPELINE REQUEST
-            // ==========================================
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -133,6 +153,7 @@ namespace CleaningService.API
                 app.UseHttpsRedirection();
             }
 
+            // Lưu ý: UseAuthentication phải nằm TRƯỚC UseAuthorization
             app.UseAuthentication();
             app.UseAuthorization();
 

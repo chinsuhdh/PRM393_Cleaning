@@ -34,10 +34,11 @@ namespace Cleaning.BLL.Services
                 .CountAsync();
 
             // Tính tổng doanh thu (Những đơn đã Completed)
+            // LƯU Ý BẢO MẬT: Ép kiểu sang (decimal?) để tránh lỗi sập API khi chưa có đơn hàng hoàn thành nào
             var totalRevenue = await _unitOfWork.Repository<Booking>()
                 .GetQueryable()
                 .Where(b => b.Status == BookingStatus.Completed)
-                .SumAsync(b => b.TotalPrice);
+                .SumAsync(b => (decimal?)b.TotalPrice) ?? 0m;
 
             return new AdminDashboardStatsDto
             {

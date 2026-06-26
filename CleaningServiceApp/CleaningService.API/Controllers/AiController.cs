@@ -8,7 +8,7 @@ namespace CleaningService.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // Bắt buộc đăng nhập mới được chat
+    [Authorize]
     public class AiController : ControllerBase
     {
         private readonly IAiService _aiService;
@@ -19,8 +19,12 @@ namespace CleaningService.API.Controllers
         }
 
         [HttpPost("chat")]
+        [ProducesResponseType(typeof(ChatResponseDto), 200)]
         public async Task<IActionResult> ChatWithBot([FromBody] ChatRequestDto request)
         {
+            if (string.IsNullOrWhiteSpace(request.Message))
+                return BadRequest(new { message = "Tin nhắn không được để trống." });
+
             try
             {
                 var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -33,31 +37,28 @@ namespace CleaningService.API.Controllers
             }
         }
 
-        // API ẩn dành cho CronJob/Hệ thống gọi để Trigger Matching
         [HttpPost("match-worker/{bookingId}")]
         [AllowAnonymous]
         public async Task<IActionResult> TriggerWorkerMatching(Guid bookingId)
         {
             var success = await _aiService.RecommendWorkerAsync(bookingId);
-            if (!success) return BadRequest("Không thể phân tích hoặc không tìm thấy thợ phù hợp.");
-            return Ok(new { message = "Đã chạy AI Matching và lưu kết quả." });
+            if (!success) return BadRequest(new { message = "Không thể phân tích hoặc không tìm thấy thợ phù hợp." });
+            return Ok(new { message = "Đã chạy thuật toán Matching thành công." });
         }
 
         [HttpGet("recommended-workers/{bookingId}")]
-        [AllowAnonymous]
+        [AllowAnonymous] // Tạm thời để ẩn danh cho hệ thống tự động quét nếu cần
+        [ProducesResponseType(typeof(List<WorkerDto>), 200)]
         public async Task<IActionResult> GetRecommendedWorkers(Guid bookingId)
         {
             try
             {
                 var workers = await _aiService.GetRecommendedWorkersAsync(bookingId);
-                if (workers == null || !workers.Any())
-                    return Ok(new List<WorkerDto>()); // Trả về mảng rỗng nếu không có
-
-                return Ok(workers); // Lúc này API sẽ trả về mảng JSON chuẩn: [ {..}, {..} ]
+                return Ok(workers);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = "Lỗi truy xuất AI", details = ex.Message });
+                return StatusCode(500, new { error = "Lỗi truy xuất hệ thống Matching", details = ex.Message });
             }
         }
     }

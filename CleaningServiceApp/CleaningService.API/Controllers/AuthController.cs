@@ -21,9 +21,9 @@ namespace CleaningService.API.Controllers
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
             var result = await _authService.RegisterAsync(request);
-            if (!result) return BadRequest("Email hoặc số điện thoại đã tồn tại trong hệ thống.");
+            if (!result) return BadRequest(new { message = "Email hoặc số điện thoại đã tồn tại, hoặc có lỗi hệ thống xảy ra." });
 
-            return Ok(new { message = "Đăng ký thành công!" });
+            return Ok(new { message = "Đăng ký thành công! Vui lòng kiểm tra email để nhận mã OTP." });
         }
 
         [HttpPost("login")]
@@ -34,28 +34,36 @@ namespace CleaningService.API.Controllers
             var ipAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString();
             var userAgent = Request.Headers.UserAgent.ToString();
 
-            var response = await _authService.LoginAsync(request, ipAddress, userAgent);
-            if (response == null) return Unauthorized(new { message = "Sai tài khoản hoặc mật khẩu." });
+            try
+            {
+                var response = await _authService.LoginAsync(request, ipAddress, userAgent);
+                if (response == null) return Unauthorized(new { message = "Sai tài khoản hoặc mật khẩu." });
 
-            return Ok(response);
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                // Bắt lỗi tài khoản chưa xác thực hoặc bị khóa đã quăng ra từ Service
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpPost("refresh-token")]
-        public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
+        public async Task<IActionResult> RefreshToken([FromBody] TokenRequestDto request)
         {
             var ipAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString();
 
-            var response = await _authService.RefreshTokenAsync(refreshToken, ipAddress);
+            var response = await _authService.RefreshTokenAsync(request.RefreshToken, ipAddress);
             if (response == null) return Unauthorized(new { message = "Refresh token không hợp lệ hoặc đã hết hạn." });
 
             return Ok(response);
         }
 
         [HttpPost("logout")]
-        public async Task<IActionResult> Logout([FromBody] string refreshToken)
+        public async Task<IActionResult> Logout([FromBody] TokenRequestDto request)
         {
             var ipAddress = Request.HttpContext.Connection.RemoteIpAddress?.ToString();
-            await _authService.LogoutAsync(refreshToken, ipAddress);
+            await _authService.LogoutAsync(request.RefreshToken, ipAddress);
 
             return Ok(new { message = "Đã đăng xuất khỏi thiết bị." });
         }
@@ -79,6 +87,7 @@ namespace CleaningService.API.Controllers
 
             return Ok(new { message = "Đặt lại mật khẩu thành công!" });
         }
+
         [HttpPost("verify")]
         public async Task<IActionResult> VerifyAccount([FromBody] VerifyAccountDto request)
         {

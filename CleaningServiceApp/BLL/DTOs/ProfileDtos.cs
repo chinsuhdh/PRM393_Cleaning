@@ -8,12 +8,15 @@ namespace Cleaning.BLL.DTOs
         public string FullName { get; set; } = null!;
         public string? AvatarUrl { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
     }
 
     public class UpdateProfileDto
     {
-        [Required]
+        [Required(ErrorMessage = "FullName is required")]
+        [StringLength(100, ErrorMessage = "FullName cannot exceed 100 characters")]
         public string FullName { get; set; } = null!;
+
         public string? AvatarUrl { get; set; }
     }
 }

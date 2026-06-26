@@ -1,7 +1,6 @@
 ﻿using System.Security.Claims;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
-using Cleaning.BLL.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -34,6 +33,7 @@ namespace CleaningService.API.Controllers
             }
             catch (Exception ex)
             {
+                // Trả về BadRequest kèm lỗi (ví dụ: Không tìm thấy Service)
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -66,13 +66,13 @@ namespace CleaningService.API.Controllers
             var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _bookingService.UpdateBookingStatusAsync(id, accountId, request);
 
-            if (!result) return NotFound(new { message = "Booking not found." });
+            if (!result) return NotFound(new { message = "Không tìm thấy đơn đặt lịch này hoặc có lỗi xảy ra." });
 
-            return Ok(new { message = "Status updated successfully." });
+            return Ok(new { message = "Cập nhật trạng thái đơn thành công." });
         }
 
         [HttpGet("available")]
-        [Authorize(Roles = "Worker")] // Chỉ thợ mới được xem danh sách đơn trống
+        [Authorize(Roles = "Worker")]
         public async Task<IActionResult> GetAvailableBookings()
         {
             var bookings = await _bookingService.GetAvailableBookingsAsync();
@@ -80,7 +80,7 @@ namespace CleaningService.API.Controllers
         }
 
         [HttpPatch("{id}/accept")]
-        [Authorize(Roles = "Worker")] // Chỉ thợ mới được nhận đơn
+        [Authorize(Roles = "Worker")]
         public async Task<IActionResult> AcceptBooking(Guid id)
         {
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
