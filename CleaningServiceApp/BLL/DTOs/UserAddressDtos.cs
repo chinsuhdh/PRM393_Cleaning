@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Cleaning.DAL.Enums;
 
 namespace Cleaning.BLL.DTOs
 {
@@ -10,6 +11,7 @@ namespace Cleaning.BLL.DTOs
         public string AddressText { get; set; } = null!;
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
+        public PropertyType PropertyType { get; set; } // Bổ sung field này
         public bool IsDefault { get; set; }
     }
 
@@ -17,9 +19,16 @@ namespace Cleaning.BLL.DTOs
     {
         [Required]
         public string AddressText { get; set; } = null!;
+
         public string Label { get; set; } = "Home";
+
         public decimal? Latitude { get; set; }
+
         public decimal? Longitude { get; set; }
+
+        [Required]
+        public PropertyType PropertyType { get; set; } // Bổ sung field này
+
         public bool IsDefault { get; set; }
     }
 

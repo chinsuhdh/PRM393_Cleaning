@@ -1,17 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using Cleaning.DAL.Enums;
 
 namespace Cleaning.DAL.Entities;
 
-public partial class OtpVerification
+public partial class VerificationCode
 {
     public Guid Id { get; set; }
 
     public Guid AccountId { get; set; }
 
-    public string OtpCode { get; set; } = null!;
+    public string CodeHash { get; set; } = null!;
 
-    public string Purpose { get; set; } = null!;
+    public VerificationPurpose Purpose { get; set; }
 
     public DateTime ExpiresAt { get; set; }
 

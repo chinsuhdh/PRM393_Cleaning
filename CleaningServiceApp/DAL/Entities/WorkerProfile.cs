@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Cleaning.DAL.Enums;
 
 namespace Cleaning.DAL.Entities;
 
@@ -7,25 +8,27 @@ public partial class WorkerProfile
 {
     public Guid UserId { get; set; }
 
-    public string? IdentityCardNumber { get; set; }
-
     public decimal AverageRating { get; set; }
 
-    public int CompletedJobs { get; set; }
+    public WorkerOnlineStatus OnlineStatus { get; set; }
 
     public decimal? CurrentLat { get; set; }
 
     public decimal? CurrentLng { get; set; }
 
+    public bool ImmediateBookingEnabled { get; set; }
+
     public DateTime? VerifiedAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
-    public virtual ICollection<AiRecommendation> AiRecommendations { get; set; } = new List<AiRecommendation>();
+    public DateTime UpdatedAt { get; set; }
 
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual Profile User { get; set; } = null!;
 
-    public virtual ICollection<WorkerSkill> WorkerSkills { get; set; } = new List<WorkerSkill>();
+    public virtual ICollection<WorkerAvailability> WorkerAvailabilities { get; set; } = new List<WorkerAvailability>();
+
+    public virtual ICollection<WorkerService> WorkerServices { get; set; } = new List<WorkerService>();
 }

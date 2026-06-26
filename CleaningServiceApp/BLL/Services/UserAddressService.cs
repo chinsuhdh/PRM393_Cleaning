@@ -26,13 +26,16 @@ namespace Cleaning.BLL.Services
                 AddressText = a.AddressText,
                 Latitude = a.Latitude,
                 Longitude = a.Longitude,
+                PropertyType = a.PropertyType,
                 IsDefault = a.IsDefault
             }).OrderByDescending(a => a.IsDefault).ToList();
         }
 
         public async Task<UserAddressDto?> GetAddressByIdAsync(Guid addressId, Guid userId)
         {
-            var address = await _unitOfWork.Repository<UserAddress>().FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+            var address = await _unitOfWork.Repository<UserAddress>()
+                .FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+
             if (address == null) return null;
 
             return new UserAddressDto
@@ -43,6 +46,7 @@ namespace Cleaning.BLL.Services
                 AddressText = address.AddressText,
                 Latitude = address.Latitude,
                 Longitude = address.Longitude,
+                PropertyType = address.PropertyType,
                 IsDefault = address.IsDefault
             };
         }
@@ -61,8 +65,9 @@ namespace Cleaning.BLL.Services
                 AddressText = request.AddressText,
                 Latitude = request.Latitude,
                 Longitude = request.Longitude,
+                PropertyType = request.PropertyType,
                 IsDefault = request.IsDefault,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow // Đảm bảo dùng UtcNow cho TIMESTAMPTZ
             };
 
             await _unitOfWork.Repository<UserAddress>().AddAsync(newAddress);
@@ -76,15 +81,19 @@ namespace Cleaning.BLL.Services
                 AddressText = newAddress.AddressText,
                 Latitude = newAddress.Latitude,
                 Longitude = newAddress.Longitude,
+                PropertyType = newAddress.PropertyType,
                 IsDefault = newAddress.IsDefault
             };
         }
 
         public async Task<bool> UpdateAddressAsync(Guid addressId, Guid userId, UpdateUserAddressDto request)
         {
-            var address = await _unitOfWork.Repository<UserAddress>().FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+            var address = await _unitOfWork.Repository<UserAddress>()
+                .FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+
             if (address == null) return false;
 
+            // Nếu update địa chỉ này thành default, cần reset các default cũ
             if (request.IsDefault && !address.IsDefault)
             {
                 await ResetDefaultAddressesAsync(userId);
@@ -94,6 +103,7 @@ namespace Cleaning.BLL.Services
             address.AddressText = request.AddressText;
             address.Latitude = request.Latitude;
             address.Longitude = request.Longitude;
+            address.PropertyType = request.PropertyType;
             address.IsDefault = request.IsDefault;
 
             _unitOfWork.Repository<UserAddress>().Update(address);
@@ -104,7 +114,9 @@ namespace Cleaning.BLL.Services
 
         public async Task<bool> DeleteAddressAsync(Guid addressId, Guid userId)
         {
-            var address = await _unitOfWork.Repository<UserAddress>().FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+            var address = await _unitOfWork.Repository<UserAddress>()
+                .FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+
             if (address == null) return false;
 
             _unitOfWork.Repository<UserAddress>().Remove(address);
@@ -115,8 +127,13 @@ namespace Cleaning.BLL.Services
 
         public async Task<bool> SetDefaultAddressAsync(Guid addressId, Guid userId)
         {
-            var address = await _unitOfWork.Repository<UserAddress>().FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+            var address = await _unitOfWork.Repository<UserAddress>()
+                .FirstOrDefaultAsync(a => a.Id == addressId && a.UserId == userId);
+
             if (address == null) return false;
+
+            // Nếu đã là default rồi thì không cần làm gì thêm
+            if (address.IsDefault) return true;
 
             await ResetDefaultAddressesAsync(userId);
 
@@ -129,7 +146,9 @@ namespace Cleaning.BLL.Services
 
         private async Task ResetDefaultAddressesAsync(Guid userId)
         {
-            var existingDefaults = await _unitOfWork.Repository<UserAddress>().FindAsync(a => a.UserId == userId && a.IsDefault);
+            var existingDefaults = await _unitOfWork.Repository<UserAddress>()
+                .FindAsync(a => a.UserId == userId && a.IsDefault);
+
             foreach (var addr in existingDefaults)
             {
                 addr.IsDefault = false;

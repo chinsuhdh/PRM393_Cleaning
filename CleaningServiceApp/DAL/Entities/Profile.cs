@@ -13,6 +13,8 @@ public partial class Profile
 
     public DateTime CreatedAt { get; set; }
 
+    public DateTime UpdatedAt { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual Account IdNavigation { get; set; } = null!;

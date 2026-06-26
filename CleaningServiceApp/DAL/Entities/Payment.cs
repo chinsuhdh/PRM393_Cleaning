@@ -12,14 +12,17 @@ public partial class Payment
 
     public decimal Amount { get; set; }
 
+    public PaymentMethod Method { get; set; }
+
     public string? TransactionId { get; set; }
+
+    public PaymentStatus Status { get; set; }
 
     public DateTime? PaidAt { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
-    public PaymentMethod Method { get; set; }
-    public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
-
     public virtual Booking Booking { get; set; } = null!;
+
+    public virtual ICollection<Refund> Refunds { get; set; } = new List<Refund>();
 }

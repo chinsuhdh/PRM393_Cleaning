@@ -3,43 +3,32 @@ using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace Cleaning.BLL.Services
 {
     public class BookingService : IBookingService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<BookingService> _logger;
 
-        public BookingService(IUnitOfWork unitOfWork)
+        public BookingService(IUnitOfWork unitOfWork, ILogger<BookingService> logger)
         {
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
         public async Task<BookingDto> CreateBookingAsync(Guid clientId, CreateBookingDto request)
         {
-            // 1. Kiểm tra Dịch vụ có tồn tại không
             var service = await _unitOfWork.Repository<Service>().GetByIdAsync(request.ServiceId)
-                          ?? throw new Exception("Service not found.");
+                          ?? throw new Exception("Không tìm thấy dịch vụ này.");
 
-            // ==========================================
-            // 2. LOGIC CHỐNG DOUBLE BOOKING 
-            // ==========================================
-            var duplicateBookings = await _unitOfWork.Repository<Booking>().FindAsync(b =>
-                b.ClientId == clientId &&
-                b.ServiceId == request.ServiceId &&
-                b.ScheduledTime == request.ScheduledTime &&
-                b.Status != BookingStatus.Cancelled);
-
-            if (duplicateBookings.Any())
-            {
-                throw new Exception("Bạn đã đặt dịch vụ này vào khung giờ này rồi. Vui lòng kiểm tra lại giỏ hàng của bạn!");
-            }
-            // ==========================================
-
-            // 3. Tính toán giá tiền
             decimal unitPrice = service.BasePrice;
-            decimal extraFee = 0; // Logic tính phụ phí (Lễ/Tết) có thể bổ sung sau
-            decimal totalPrice = (unitPrice * request.Quantity) + extraFee;
+            decimal extraFee = 0;
+            decimal discountAmount = request.DiscountAmount;
+            decimal totalPrice = (unitPrice * request.DurationHours) + extraFee - discountAmount;
+
+            if (totalPrice < 0) totalPrice = 0;
 
             using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
@@ -49,14 +38,16 @@ namespace Cleaning.BLL.Services
                     ClientId = clientId,
                     ServiceId = request.ServiceId,
                     AddressId = request.AddressId,
-                    ScheduledTime = request.ScheduledTime,
+                    BookingType = request.BookingType,
+                    ScheduledStartTime = request.ScheduledStartTime,
+                    ScheduledEndTime = request.ScheduledStartTime.AddHours((double)request.DurationHours),
                     DurationHours = request.DurationHours,
-                    Quantity = request.Quantity,
                     UnitPrice = unitPrice,
                     ExtraFee = extraFee,
+                    DiscountAmount = discountAmount,
                     TotalPrice = totalPrice,
-                    Status = BookingStatus.Pending,
-                    Notes = request.Notes,
+                    Status = BookingStatus.PendingPayment,
+                    Notes = request.Notes ?? string.Empty, // Fix: Tránh gán null
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -64,12 +55,11 @@ namespace Cleaning.BLL.Services
                 await _unitOfWork.Repository<Booking>().AddAsync(booking);
                 await _unitOfWork.SaveChangesAsync();
 
-                // Ghi log trạng thái khởi tạo
                 var statusLog = new BookingStatusLog
                 {
                     BookingId = booking.Id,
                     OldStatus = null,
-                    NewStatus = BookingStatus.Pending,
+                    NewStatus = BookingStatus.PendingPayment,
                     ChangedBy = clientId,
                     Reason = "Khách hàng tạo đơn đặt lịch",
                     CreatedAt = DateTime.UtcNow
@@ -80,10 +70,7 @@ namespace Cleaning.BLL.Services
 
                 await transaction.CommitAsync();
 
-                // Nạp thêm thông tin Service để trả về đúng tên dịch vụ ngay lập tức
                 booking.Service = service;
-
-                // Nạp thêm thông tin Address nếu có
                 if (request.AddressId.HasValue)
                 {
                     booking.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(request.AddressId.Value);
@@ -91,10 +78,11 @@ namespace Cleaning.BLL.Services
 
                 return MapToDto(booking);
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                throw;
+                _logger.LogError(ex, "Lỗi xảy ra khi tạo Booking cho ClientId: {ClientId}", clientId);
+                throw new Exception("Lỗi hệ thống khi tạo đơn. Vui lòng thử lại sau.");
             }
         }
 
@@ -102,34 +90,25 @@ namespace Cleaning.BLL.Services
         {
             var bookings = await _unitOfWork.Repository<Booking>().FindAsync(b => b.ClientId == clientId);
 
-            // Nạp thêm dữ liệu Dịch vụ và Địa chỉ
             foreach (var b in bookings)
             {
                 b.Service = await _unitOfWork.Repository<Service>().GetByIdAsync(b.ServiceId);
                 if (b.AddressId.HasValue)
-                {
                     b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
-                }
             }
-
             return bookings.Select(MapToDto).OrderByDescending(b => b.CreatedAt);
         }
 
         public async Task<IEnumerable<BookingDto>> GetWorkerBookingsAsync(Guid workerId)
         {
             var bookings = await _unitOfWork.Repository<Booking>().FindAsync(b => b.WorkerId == workerId);
-
-            // Nạp thêm dữ liệu Dịch vụ và Địa chỉ
             foreach (var b in bookings)
             {
                 b.Service = await _unitOfWork.Repository<Service>().GetByIdAsync(b.ServiceId);
                 if (b.AddressId.HasValue)
-                {
                     b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
-                }
             }
-
-            return bookings.Select(MapToDto).OrderByDescending(b => b.ScheduledTime);
+            return bookings.Select(MapToDto).OrderByDescending(b => b.ScheduledStartTime);
         }
 
         public async Task<bool> UpdateBookingStatusAsync(Guid bookingId, Guid accountId, UpdateBookingStatusDto request)
@@ -146,19 +125,26 @@ namespace Cleaning.BLL.Services
 
                 if (request.NewStatus == BookingStatus.Cancelled)
                 {
-                    booking.CancelReason = request.Reason;
+                    await _unitOfWork.Repository<BookingCancellation>().AddAsync(new BookingCancellation
+                    {
+                        BookingId = booking.Id,
+                        CancelledBy = accountId,
+                        Reason = request.Reason ?? string.Empty, // Fix: Tránh null
+                        CancellationFee = 0,
+                        RefundAmount = 0,
+                        CreatedAt = DateTime.UtcNow
+                    });
                 }
 
                 _unitOfWork.Repository<Booking>().Update(booking);
 
-                // Ghi log sự thay đổi
                 var statusLog = new BookingStatusLog
                 {
                     BookingId = booking.Id,
                     OldStatus = oldStatus,
                     NewStatus = request.NewStatus,
                     ChangedBy = accountId,
-                    Reason = request.Reason,
+                    Reason = request.Reason ?? string.Empty, // Fix: Tránh null
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -168,9 +154,10 @@ namespace Cleaning.BLL.Services
                 await transaction.CommitAsync();
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                _logger.LogError(ex, "Lỗi khi cập nhật trạng thái BookingId: {BookingId}", bookingId);
                 return false;
             }
         }
@@ -182,22 +169,19 @@ namespace Cleaning.BLL.Services
             {
                 var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
 
-                // Kiểm tra xem đơn còn trống không 
-                if (booking == null || booking.WorkerId != null || booking.Status != BookingStatus.Pending)
+                if (booking == null || booking.WorkerId != null || booking.Status != BookingStatus.PaidPendingWorker)
                     return false;
 
-                // Cập nhật thông tin người nhận và trạng thái
                 booking.WorkerId = workerId;
                 booking.Status = BookingStatus.Accepted;
                 booking.UpdatedAt = DateTime.UtcNow;
 
                 _unitOfWork.Repository<Booking>().Update(booking);
 
-                // Ghi log chuyển trạng thái
                 var statusLog = new BookingStatusLog
                 {
                     BookingId = booking.Id,
-                    OldStatus = BookingStatus.Pending,
+                    OldStatus = BookingStatus.PaidPendingWorker,
                     NewStatus = BookingStatus.Accepted,
                     ChangedBy = workerId,
                     Reason = "Thợ đã nhận đơn",
@@ -210,40 +194,34 @@ namespace Cleaning.BLL.Services
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                _logger.LogError(ex, "Lỗi khi thợ {WorkerId} nhận đơn {BookingId}", workerId, bookingId);
                 return false;
             }
         }
 
         public async Task<IEnumerable<BookingDto>> GetAvailableBookingsAsync()
         {
-            // Lấy các đơn hàng Pending và chưa có thợ nhận
             var availableBookings = await _unitOfWork.Repository<Booking>()
-                .FindAsync(b => b.Status == BookingStatus.Pending && b.WorkerId == null);
+                .FindAsync(b => b.Status == BookingStatus.PaidPendingWorker && b.WorkerId == null);
 
-            // Nạp thêm dữ liệu Dịch vụ và Địa chỉ
             foreach (var b in availableBookings)
             {
                 b.Service = await _unitOfWork.Repository<Service>().GetByIdAsync(b.ServiceId);
                 if (b.AddressId.HasValue)
-                {
                     b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
-                }
             }
 
-            return availableBookings.Select(MapToDto).OrderBy(b => b.ScheduledTime);
+            return availableBookings.Select(MapToDto).OrderBy(b => b.ScheduledStartTime);
         }
 
-        // Hàm GetBookingByIdAsync
         public async Task<BookingDto?> GetBookingByIdAsync(Guid bookingId)
         {
             var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
-
             if (booking == null) return null;
 
-            // Nạp thêm dữ liệu Dịch vụ và Địa chỉ
             booking.Service = await _unitOfWork.Repository<Service>().GetByIdAsync(booking.ServiceId);
             if (booking.AddressId.HasValue)
             {
@@ -262,19 +240,19 @@ namespace Cleaning.BLL.Services
                 WorkerId = b.WorkerId,
                 ServiceId = b.ServiceId,
                 AddressId = b.AddressId,
-                ScheduledTime = b.ScheduledTime,
+                BookingType = b.BookingType.ToString(),
+                ScheduledStartTime = b.ScheduledStartTime,
+                ScheduledEndTime = b.ScheduledEndTime,
                 DurationHours = b.DurationHours,
-                Quantity = b.Quantity,
                 UnitPrice = b.UnitPrice,
                 ExtraFee = b.ExtraFee,
+                DiscountAmount = b.DiscountAmount,
                 TotalPrice = b.TotalPrice,
                 Status = b.Status.ToString(),
-                Notes = b.Notes,
+                Notes = b.Notes ?? string.Empty, 
                 CreatedAt = b.CreatedAt,
-
-                // Map thông tin để đẩy xuống App
-                ServiceName = b.Service?.Name,
-                AddressText = b.Address?.AddressText,
+                ServiceName = b.Service?.Name ?? string.Empty, 
+                AddressText = b.Address?.AddressText ?? string.Empty, 
                 Latitude = b.Address?.Latitude,
                 Longitude = b.Address?.Longitude
             };

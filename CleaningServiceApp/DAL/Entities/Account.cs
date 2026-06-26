@@ -16,6 +16,9 @@ public partial class Account
 
     public string? PasswordSalt { get; set; }
 
+    public UserRole Role { get; set; }
+    public AccountStatus Status { get; set; }
+
     public bool IsEmailVerified { get; set; }
 
     public bool IsPhoneVerified { get; set; }
@@ -28,20 +31,23 @@ public partial class Account
 
     public virtual ICollection<AiInferenceLog> AiInferenceLogs { get; set; } = new List<AiInferenceLog>();
 
+    public virtual ICollection<BookingCancellation> BookingCancellations { get; set; } = new List<BookingCancellation>();
+
+    public virtual ICollection<BookingPhoto> BookingPhotos { get; set; } = new List<BookingPhoto>();
+
+    public virtual ICollection<BookingRescheduleRequest> BookingRescheduleRequestRequestedByNavigations { get; set; } = new List<BookingRescheduleRequest>();
+
+    public virtual ICollection<BookingRescheduleRequest> BookingRescheduleRequestRespondedByNavigations { get; set; } = new List<BookingRescheduleRequest>();
+
     public virtual ICollection<BookingStatusLog> BookingStatusLogs { get; set; } = new List<BookingStatusLog>();
 
     public virtual ICollection<ExternalLogin> ExternalLogins { get; set; } = new List<ExternalLogin>();
 
-    public virtual ICollection<LoginHistory> LoginHistories { get; set; } = new List<LoginHistory>();
-
     public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
-
-    public virtual ICollection<OtpVerification> OtpVerifications { get; set; } = new List<OtpVerification>();
 
     public virtual Profile? Profile { get; set; }
 
     public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 
-    public UserRole Role { get; set; } = UserRole.Client;
-    public AccountStatus Status { get; set; } = AccountStatus.PendingVerification;
+    public virtual ICollection<VerificationCode> VerificationCodes { get; set; } = new List<VerificationCode>();
 }

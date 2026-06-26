@@ -2,12 +2,14 @@
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleaningService.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Worker")] // Áp dụng Authorization toàn bộ cho Controller này
     public class WorkersController : ControllerBase
     {
         private readonly IWorkerService _workerService;
@@ -18,18 +20,20 @@ namespace CleaningService.API.Controllers
         }
 
         [HttpGet("me")]
-        [Authorize(Roles = "Worker")]
+        [ProducesResponseType(typeof(WorkerProfileDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetMyWorkerProfile()
         {
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var profile = await _workerService.GetWorkerProfileAsync(workerId);
 
-            if (profile == null) return NotFound();
+            if (profile == null) return NotFound(new { message = "Worker profile not found." });
             return Ok(profile);
         }
 
         [HttpPost("register")]
-        [Authorize(Roles = "Worker")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RegisterWorkerProfile([FromBody] RegisterWorkerProfileDto request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -42,7 +46,9 @@ namespace CleaningService.API.Controllers
         }
 
         [HttpPatch("location")]
-        [Authorize(Roles = "Worker")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateLocation([FromBody] UpdateLocationDto request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -50,12 +56,12 @@ namespace CleaningService.API.Controllers
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _workerService.UpdateLocationAsync(workerId, request);
 
-            if (!result) return NotFound();
+            if (!result) return NotFound(new { message = "Worker profile not found." });
             return Ok(new { message = "Location updated." });
         }
 
         [HttpGet("me/skills")]
-        [Authorize(Roles = "Worker")]
+        [ProducesResponseType(typeof(IEnumerable<WorkerSkillDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetMySkills()
         {
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -64,7 +70,8 @@ namespace CleaningService.API.Controllers
         }
 
         [HttpPost("me/skills")]
-        [Authorize(Roles = "Worker")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> AddOrUpdateSkill([FromBody] WorkerSkillDto request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);

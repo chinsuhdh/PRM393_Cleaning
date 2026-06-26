@@ -2,6 +2,7 @@
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleaningService.API.Controllers
@@ -19,25 +20,39 @@ namespace CleaningService.API.Controllers
         }
 
         [HttpGet("me")]
+        [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetMyProfile()
         {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
 
             var profile = await _profileService.GetProfileAsync(userId);
-            if (profile == null) return NotFound();
+            if (profile == null)
+                return NotFound(new { message = "Profile not found." });
 
             return Ok(profile);
         }
 
         [HttpPut("me")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileDto request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            // [ApiController] tự động validate ModelState, nhưng có thể giữ lại nếu cần handle custom
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
             var result = await _profileService.UpdateProfileAsync(userId, request);
 
-            if (!result) return NotFound();
+            if (!result)
+                return NotFound(new { message = "Profile not found or could not be updated." });
 
             return Ok(new { message = "Profile updated successfully." });
         }

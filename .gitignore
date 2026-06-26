@@ -7,3 +7,4 @@ obj/
 
 # Added by code-review-graph
 .code-review-graph/
+**/.dart_tool/
