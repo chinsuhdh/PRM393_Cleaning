@@ -6,6 +6,7 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
 using Cleaning.DAL.Repositories;
+using CleaningService.API.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -48,8 +49,42 @@ namespace CleaningService.API
             var dataSource = dataSourceBuilder.Build();
 
             // Đăng ký AppDbContext với DI
+            var seedDevelopmentData = builder.Environment.IsDevelopment();
+
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseNpgsql(dataSource));
+                options
+                    .UseNpgsql(dataSource, npgsqlOptions => npgsqlOptions
+                        .MapEnum<UserRole>("user_role")
+                        .MapEnum<AccountStatus>("account_status")
+                        .MapEnum<VerificationPurpose>("verification_purpose")
+                        .MapEnum<PropertyType>("property_type")
+                        .MapEnum<ServiceUnitType>("service_unit_type")
+                        .MapEnum<BookingType>("booking_type")
+                        .MapEnum<BookingStatus>("booking_status")
+                        .MapEnum<WorkerOnlineStatus>("worker_online_status")
+                        .MapEnum<AvailabilityStatus>("availability_status")
+                        .MapEnum<PaymentMethod>("payment_method")
+                        .MapEnum<PaymentStatus>("payment_status")
+                        .MapEnum<PayoutStatus>("payout_status")
+                        .MapEnum<RescheduleStatus>("reschedule_status")
+                        .MapEnum<AiSenderType>("ai_sender_type")
+                        .MapEnum<PhotoType>("photo_type")
+                        .MapEnum<CleanlinessLevel>("cleanliness_level")
+                        .MapEnum<NotificationType>("notification_type"))
+                    .UseSeeding((context, _) =>
+                    {
+                        if (seedDevelopmentData)
+                        {
+                            DatabaseSeeder.Seed((AppDbContext)context);
+                        }
+                    })
+                    .UseAsyncSeeding(async (context, _, cancellationToken) =>
+                    {
+                        if (seedDevelopmentData)
+                        {
+                            await DatabaseSeeder.SeedAsync((AppDbContext)context, cancellationToken);
+                        }
+                    }));
 
             // ==========================================
             // 2. CẤU HÌNH AUTHENTICATION & JWT
