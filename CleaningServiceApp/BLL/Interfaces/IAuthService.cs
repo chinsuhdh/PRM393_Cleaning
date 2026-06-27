@@ -11,5 +11,10 @@ namespace Cleaning.BLL.Interfaces
         Task<bool> ForgotPasswordAsync(ForgotPasswordRequestDto request);
         Task<bool> ResetPasswordAsync(ResetPasswordDto request);
         Task<bool> VerifyAccountAsync(VerifyAccountDto request);
+
+
+        Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordDto request);
+        Task<bool> VerifyPhoneAsync(VerifyPhoneDto request);
+        Task<bool> SendPhoneVerificationOtpAsync(Guid userId);
     }
 }

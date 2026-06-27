@@ -19,13 +19,20 @@ namespace Cleaning.BLL.Services
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
+        private readonly ISmsService _smsService;
         private readonly ILogger<AuthService> _logger;
 
-        public AuthService(AppDbContext context, IConfiguration configuration, IEmailService emailService, ILogger<AuthService> logger)
+        public AuthService(
+            AppDbContext context,
+            IConfiguration configuration,
+            IEmailService emailService,
+            ISmsService smsService,
+            ILogger<AuthService> logger)
         {
             _context = context;
             _configuration = configuration;
             _emailService = emailService;
+            _smsService = smsService;
             _logger = logger;
         }
 
@@ -39,7 +46,6 @@ namespace Cleaning.BLL.Services
             {
                 string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-                // Parse Role từ Request, nếu không hợp lệ thì fallback về Client
                 if (!Enum.TryParse<UserRole>(request.Role, true, out var parsedRole))
                 {
                     parsedRole = UserRole.Client;
@@ -50,7 +56,6 @@ namespace Cleaning.BLL.Services
                     Email = request.Email,
                     PhoneNumber = request.PhoneNumber,
                     PasswordHash = passwordHash,
-                    // BẮT BUỘC có dữ liệu để vượt qua Constraint chk_password_pair trong PostgreSQL
                     PasswordSalt = "BCRYPT_EMBEDDED",
                     Role = parsedRole,
                     Status = AccountStatus.PendingVerification,
@@ -68,10 +73,24 @@ namespace Cleaning.BLL.Services
                     Id = newAccount.Id,
                     FullName = request.FullName,
                     CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow // Bổ sung UpdatedAt
+                    UpdatedAt = DateTime.UtcNow
                 };
-
                 _context.Profiles.Add(newProfile);
+
+                // Khởi tạo Worker Profile nếu role là Worker
+                if (parsedRole == UserRole.Worker)
+                {
+                    var workerProfile = new WorkerProfile
+                    {
+                        UserId = newAccount.Id,
+                        AverageRating = 5.00m,
+                        OnlineStatus = WorkerOnlineStatus.Offline,
+                        ImmediateBookingEnabled = false,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.WorkerProfiles.Add(workerProfile);
+                }
 
                 var otpCode = GenerateSecureOtp();
                 _context.VerificationCodes.Add(new VerificationCode
@@ -120,10 +139,8 @@ namespace Cleaning.BLL.Services
             if (otpRecord == null || otpRecord.ExpiresAt < DateTime.UtcNow) return false;
 
             otpRecord.IsUsed = true;
-
-            // Cập nhật trạng thái và cờ xác thực
             account.Status = AccountStatus.Active;
-            account.IsEmailVerified = true; // Bổ sung field bị thiếu
+            account.IsEmailVerified = true;
             account.UpdatedAt = DateTime.UtcNow;
 
             var oldOtps = await _context.VerificationCodes.Where(o => o.AccountId == account.Id && !o.IsUsed).ToListAsync();
@@ -277,7 +294,6 @@ namespace Cleaning.BLL.Services
             if (otpRecord == null || otpRecord.ExpiresAt < DateTime.UtcNow) return false;
 
             account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-            // Vẫn cần duy trì PasswordSalt do constraint DB
             account.PasswordSalt = "BCRYPT_EMBEDDED";
             account.UpdatedAt = DateTime.UtcNow;
 
@@ -287,9 +303,62 @@ namespace Cleaning.BLL.Services
             return true;
         }
 
-        // ==========================================
-        // PRIVATE HELPER METHODS
-        // ==========================================
+        public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordDto request)
+        {
+            var account = await _context.Accounts.FindAsync(userId);
+            if (account == null) return false;
+
+            if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, account.PasswordHash))
+                return false;
+
+            account.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            account.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<bool> SendPhoneVerificationOtpAsync(Guid userId)
+        {
+            var account = await _context.Accounts.FindAsync(userId);
+            if (account == null || string.IsNullOrEmpty(account.PhoneNumber)) return false;
+
+            var otpCode = GenerateSecureOtp();
+            _context.VerificationCodes.Add(new VerificationCode
+            {
+                AccountId = account.Id,
+                CodeHash = otpCode,
+                Purpose = VerificationPurpose.PhoneVerification,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(5),
+                IsUsed = false,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            await _smsService.SendSmsAsync(account.PhoneNumber, $"[CleanAI] Ma OTP xac thuc so dien thoai cua ban la {otpCode}. Co hieu luc trong 5 phut.");
+            return true;
+        }
+
+        public async Task<bool> VerifyPhoneAsync(VerifyPhoneDto request)
+        {
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.PhoneNumber == request.PhoneNumber);
+            if (account == null) return false;
+
+            var otpRecord = await _context.VerificationCodes
+                .Where(o => o.AccountId == account.Id && o.Purpose == VerificationPurpose.PhoneVerification && o.CodeHash == request.OtpCode && !o.IsUsed)
+                .OrderByDescending(o => o.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (otpRecord == null || otpRecord.ExpiresAt < DateTime.UtcNow) return false;
+
+            otpRecord.IsUsed = true;
+            account.IsPhoneVerified = true;
+            account.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return true;
+        }
 
         private string GenerateJwtToken(Account account)
         {
