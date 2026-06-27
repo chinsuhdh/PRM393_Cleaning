@@ -83,22 +83,23 @@ public partial class AppDbContext : DbContext
     {
         // Cấu hình Map Enum C# với Enum PostgreSQL
         modelBuilder
-            .HasPostgresEnum<AccountStatus>("account_status")
-            .HasPostgresEnum<AiSenderType>("ai_sender_type")
-            .HasPostgresEnum<AvailabilityStatus>("availability_status")
-            .HasPostgresEnum<BookingStatus>("booking_status")
-            .HasPostgresEnum<BookingType>("booking_type")
-            .HasPostgresEnum<CleanlinessLevel>("cleanliness_level")
-            .HasPostgresEnum<NotificationType>("notification_type")
-            .HasPostgresEnum<PaymentMethod>("payment_method")
-            .HasPostgresEnum<PaymentStatus>("payment_status")
-            .HasPostgresEnum<PayoutStatus>("payout_status")
-            .HasPostgresEnum<PhotoType>("photo_type")
-            .HasPostgresEnum<PropertyType>("property_type")
-            .HasPostgresEnum<RescheduleStatus>("reschedule_status")
-            .HasPostgresEnum<ServiceUnitType>("service_unit_type")
-            .HasPostgresEnum<UserRole>("user_role")
-            .HasPostgresEnum<VerificationPurpose>("verification_purpose")
+            .HasPostgresEnum<AccountStatus>(name: "account_status")
+            .HasPostgresEnum<AiSenderType>(name: "ai_sender_type")
+            .HasPostgresEnum<AvailabilityStatus>(name: "availability_status")
+            .HasPostgresEnum<BookingStatus>(name: "booking_status")
+            .HasPostgresEnum<BookingType>(name: "booking_type")
+            .HasPostgresEnum<CleanlinessLevel>(name: "cleanliness_level")
+            .HasPostgresEnum<NotificationType>(name: "notification_type")
+            .HasPostgresEnum<PaymentMethod>(name: "payment_method")
+            .HasPostgresEnum<PaymentStatus>(name: "payment_status")
+            .HasPostgresEnum<PayoutStatus>(name: "payout_status")
+            .HasPostgresEnum<PhotoType>(name: "photo_type")
+            .HasPostgresEnum<PropertyType>(name: "property_type")
+            .HasPostgresEnum<RescheduleStatus>(name: "reschedule_status")
+            .HasPostgresEnum<ServiceUnitType>(name: "service_unit_type")
+            .HasPostgresEnum<UserRole>(name: "user_role")
+            .HasPostgresEnum<VerificationPurpose>(name: "verification_purpose")
+            .HasPostgresEnum<WorkerOnlineStatus>(name: "worker_online_status")
             .HasPostgresExtension("pgcrypto");
 
         modelBuilder.Entity<Account>(entity =>
@@ -133,8 +134,8 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.PhoneNumber).HasColumnName("phone_number");
 
             // Map Enum
-            entity.Property(e => e.Role).HasColumnName("role");
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.Role).HasColumnType("user_role").HasColumnName("role");
+            entity.Property(e => e.Status).HasColumnType("account_status").HasColumnName("status");
 
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("now()")
@@ -155,7 +156,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.BookingPhotoId).HasColumnName("booking_photo_id");
 
             // Map Enum
-            entity.Property(e => e.CleanlinessLevel).HasColumnName("cleanliness_level");
+            entity.Property(e => e.CleanlinessLevel).HasColumnType("cleanliness_level").HasColumnName("cleanliness_level");
 
             entity.Property(e => e.ConfidenceScore)
                 .HasPrecision(5, 4)
@@ -240,7 +241,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Message).HasColumnName("message");
 
             // Map Enum
-            entity.Property(e => e.SenderType).HasColumnName("sender_type");
+            entity.Property(e => e.SenderType).HasColumnType("ai_sender_type").HasColumnName("sender_type");
 
             entity.HasOne(d => d.Conversation).WithMany(p => p.AiMessages)
                 .HasForeignKey(d => d.ConversationId)
@@ -267,8 +268,8 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.AddressId).HasColumnName("address_id");
 
             // Map Enum
-            entity.Property(e => e.BookingType).HasColumnName("booking_type");
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.BookingType).HasColumnType("booking_type").HasColumnName("booking_type");
+            entity.Property(e => e.Status).HasColumnType("booking_status").HasColumnName("status");
 
             entity.Property(e => e.ClientId).HasColumnName("client_id");
             entity.Property(e => e.CreatedAt)
@@ -371,7 +372,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Note).HasColumnName("note");
 
             // Map Enum
-            entity.Property(e => e.PhotoType).HasColumnName("photo_type");
+            entity.Property(e => e.PhotoType).HasColumnType("photo_type").HasColumnName("photo_type");
 
             entity.Property(e => e.PhotoUrl).HasColumnName("photo_url");
             entity.Property(e => e.UploadedBy).HasColumnName("uploaded_by");
@@ -409,7 +410,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.RespondedBy).HasColumnName("responded_by");
 
             // Map Enum
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.Status).HasColumnType("reschedule_status").HasColumnName("status");
 
             entity.HasOne(d => d.Booking).WithMany(p => p.BookingRescheduleRequests)
                 .HasForeignKey(d => d.BookingId)
@@ -444,8 +445,8 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("created_at");
 
             // Map Enum
-            entity.Property(e => e.OldStatus).HasColumnName("old_status");
-            entity.Property(e => e.NewStatus).HasColumnName("new_status");
+            entity.Property(e => e.OldStatus).HasColumnType("booking_status").HasColumnName("old_status");
+            entity.Property(e => e.NewStatus).HasColumnType("booking_status").HasColumnName("new_status");
 
             entity.Property(e => e.Reason).HasColumnName("reason");
 
@@ -525,7 +526,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Title).HasColumnName("title");
 
             // Map Enum
-            entity.Property(e => e.Type).HasColumnName("type");
+            entity.Property(e => e.Type).HasColumnType("notification_type").HasColumnName("type");
 
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
@@ -563,8 +564,8 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("created_at");
 
             // Map Enum
-            entity.Property(e => e.Method).HasColumnName("method");
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.Method).HasColumnType("payment_method").HasColumnName("method");
+            entity.Property(e => e.Status).HasColumnType("payment_status").HasColumnName("status");
 
             entity.Property(e => e.PaidAt).HasColumnName("paid_at");
             entity.Property(e => e.TransactionId).HasColumnName("transaction_id");
@@ -718,8 +719,8 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Name).HasColumnName("name");
 
             // Map Enum
-            entity.Property(e => e.PropertyType).HasColumnName("property_type");
-            entity.Property(e => e.UnitType).HasColumnName("unit_type");
+            entity.Property(e => e.PropertyType).HasColumnType("property_type").HasColumnName("property_type");
+            entity.Property(e => e.UnitType).HasColumnType("service_unit_type").HasColumnName("unit_type");
         });
 
         modelBuilder.Entity<UserAddress>(entity =>
@@ -751,7 +752,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("longitude");
 
             // Map Enum
-            entity.Property(e => e.PropertyType).HasColumnName("property_type");
+            entity.Property(e => e.PropertyType).HasColumnType("property_type").HasColumnName("property_type");
 
             entity.Property(e => e.UserId).HasColumnName("user_id");
 
@@ -816,7 +817,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("is_used");
 
             // Map Enum
-            entity.Property(e => e.Purpose).HasColumnName("purpose");
+            entity.Property(e => e.Purpose).HasColumnType("verification_purpose").HasColumnName("purpose");
 
             entity.HasOne(d => d.Account).WithMany(p => p.VerificationCodes)
                 .HasForeignKey(d => d.AccountId)
@@ -842,7 +843,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.StartTime).HasColumnName("start_time");
 
             // Map Enum
-            entity.Property(e => e.Status).HasColumnName("status");
+            entity.Property(e => e.Status).HasColumnType("availability_status").HasColumnName("status");
 
             entity.Property(e => e.WorkerId).HasColumnName("worker_id");
 
@@ -878,7 +879,7 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("immediate_booking_enabled");
 
             // Map Enum
-            entity.Property(e => e.OnlineStatus).HasColumnName("online_status");
+            entity.Property(e => e.OnlineStatus).HasColumnType("worker_online_status").HasColumnName("online_status");
 
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("now()")
