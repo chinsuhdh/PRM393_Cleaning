@@ -1,6 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
-using Cleaning.DAL.Enums; 
+using Cleaning.DAL.Enums;
 
 namespace Cleaning.BLL.DTOs
 {

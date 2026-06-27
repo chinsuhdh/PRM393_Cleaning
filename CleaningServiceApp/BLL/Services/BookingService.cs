@@ -249,10 +249,10 @@ namespace Cleaning.BLL.Services
                 DiscountAmount = b.DiscountAmount,
                 TotalPrice = b.TotalPrice,
                 Status = b.Status.ToString(),
-                Notes = b.Notes ?? string.Empty, 
+                Notes = b.Notes ?? string.Empty,
                 CreatedAt = b.CreatedAt,
-                ServiceName = b.Service?.Name ?? string.Empty, 
-                AddressText = b.Address?.AddressText ?? string.Empty, 
+                ServiceName = b.Service?.Name ?? string.Empty,
+                AddressText = b.Address?.AddressText ?? string.Empty,
                 Latitude = b.Address?.Latitude,
                 Longitude = b.Address?.Longitude
             };
