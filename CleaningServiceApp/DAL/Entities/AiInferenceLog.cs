@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-
 namespace Cleaning.DAL.Entities;
 
 public partial class AiInferenceLog
 {
     public Guid Id { get; set; }
-
-    public Guid? ModelId { get; set; }
 
     public Guid? UserId { get; set; }
 
@@ -15,11 +10,9 @@ public partial class AiInferenceLog
 
     public string Response { get; set; } = null!;
 
-    public int LatencyMs { get; set; }
+    public int? LatencyMs { get; set; }
 
     public DateTime CreatedAt { get; set; }
-
-    public virtual AiModel? Model { get; set; }
 
     public virtual Account? User { get; set; }
 }

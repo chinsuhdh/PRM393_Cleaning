@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+using Cleaning.DAL.Enums;
 
 namespace Cleaning.DAL.Entities;
 
@@ -16,6 +15,8 @@ public partial class UserAddress
     public decimal? Latitude { get; set; }
 
     public decimal? Longitude { get; set; }
+
+    public PropertyType PropertyType { get; set; } = PropertyType.Apartment;
 
     public bool IsDefault { get; set; }
 

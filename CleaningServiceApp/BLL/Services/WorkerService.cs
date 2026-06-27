@@ -1,7 +1,9 @@
-﻿using Cleaning.BLL.DTOs;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
+using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
+using WorkerServiceEntity = Cleaning.DAL.Entities.WorkerService;
 
 namespace Cleaning.BLL.Services
 {
@@ -22,11 +24,11 @@ namespace Cleaning.BLL.Services
             return new WorkerProfileDto
             {
                 UserId = worker.UserId,
-                IdentityCardNumber = worker.IdentityCardNumber,
                 AverageRating = worker.AverageRating,
-                CompletedJobs = worker.CompletedJobs,
+                OnlineStatus = worker.OnlineStatus.ToString(),
                 CurrentLat = worker.CurrentLat,
                 CurrentLng = worker.CurrentLng,
+                ImmediateBookingEnabled = worker.ImmediateBookingEnabled,
                 VerifiedAt = worker.VerifiedAt
             };
         }
@@ -39,10 +41,11 @@ namespace Cleaning.BLL.Services
             var newWorker = new WorkerProfile
             {
                 UserId = workerId,
-                IdentityCardNumber = request.IdentityCardNumber,
                 AverageRating = 5.0m,
-                CompletedJobs = 0,
-                CreatedAt = DateTime.UtcNow
+                OnlineStatus = WorkerOnlineStatus.Offline,
+                ImmediateBookingEnabled = request.ImmediateBookingEnabled,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             await _unitOfWork.Repository<WorkerProfile>().AddAsync(newWorker);
@@ -58,6 +61,7 @@ namespace Cleaning.BLL.Services
 
             worker.CurrentLat = request.CurrentLat;
             worker.CurrentLng = request.CurrentLng;
+            worker.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Repository<WorkerProfile>().Update(worker);
             await _unitOfWork.SaveChangesAsync();
@@ -67,29 +71,29 @@ namespace Cleaning.BLL.Services
 
         public async Task<IEnumerable<WorkerSkillDto>> GetWorkerSkillsAsync(Guid workerId)
         {
-            var skills = await _unitOfWork.Repository<WorkerSkill>().FindAsync(ws => ws.WorkerId == workerId);
+            var services = await _unitOfWork.Repository<WorkerServiceEntity>().FindAsync(ws => ws.WorkerId == workerId);
 
-            return skills.Select(ws => new WorkerSkillDto
+            return services.Select(ws => new WorkerSkillDto
             {
                 ServiceId = ws.ServiceId,
                 ExperienceMonths = ws.ExperienceMonths,
                 IsVerified = ws.IsVerified
-            }).ToList();
+            });
         }
 
         public async Task<bool> AddOrUpdateWorkerSkillAsync(Guid workerId, WorkerSkillDto request)
         {
-            var skill = await _unitOfWork.Repository<WorkerSkill>()
+            var workerService = await _unitOfWork.Repository<WorkerServiceEntity>()
                 .FirstOrDefaultAsync(ws => ws.WorkerId == workerId && ws.ServiceId == request.ServiceId);
 
-            if (skill != null)
+            if (workerService != null)
             {
-                skill.ExperienceMonths = request.ExperienceMonths;
-                _unitOfWork.Repository<WorkerSkill>().Update(skill);
+                workerService.ExperienceMonths = request.ExperienceMonths;
+                _unitOfWork.Repository<WorkerServiceEntity>().Update(workerService);
             }
             else
             {
-                var newSkill = new WorkerSkill
+                var newWorkerService = new WorkerServiceEntity
                 {
                     WorkerId = workerId,
                     ServiceId = request.ServiceId,
@@ -97,7 +101,7 @@ namespace Cleaning.BLL.Services
                     IsVerified = false,
                     CreatedAt = DateTime.UtcNow
                 };
-                await _unitOfWork.Repository<WorkerSkill>().AddAsync(newSkill);
+                await _unitOfWork.Repository<WorkerServiceEntity>().AddAsync(newWorkerService);
             }
 
             await _unitOfWork.SaveChangesAsync();

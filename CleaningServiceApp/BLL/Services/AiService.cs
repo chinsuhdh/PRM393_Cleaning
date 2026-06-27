@@ -114,9 +114,6 @@ Khách hàng hỏi: {request.Message}";
             };
         }
 
-        // =================================================================
-        // CHỨC NĂNG 2: AI MATCHING WORKER (Dùng AI để đánh giá thợ - LƯU VÀO DB)
-        // =================================================================
         public async Task<bool> RecommendWorkerAsync(Guid bookingId)
         {
             var booking = await _context.Bookings
@@ -127,9 +124,9 @@ Khách hàng hỏi: {request.Message}";
             if (booking == null) return false;
 
             var potentialWorkers = await _context.WorkerProfiles
-                .Include(w => w.WorkerSkills)
+                .Include(w => w.WorkerServices)
                 .Include(w => w.User)
-                .Where(w => w.WorkerSkills.Any(ws => ws.ServiceId == booking.ServiceId))
+                .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == booking.ServiceId))
                 .OrderByDescending(w => w.AverageRating)
                 .Take(5)
                 .ToListAsync();
@@ -142,7 +139,7 @@ Khách hàng hỏi: {request.Message}";
             {
                 string prompt = $@"Phân tích mức độ phù hợp của thợ này cho đơn đặt lịch:
 - Đơn hàng: Cần {booking.Service.Name}, thời gian {booking.DurationHours} giờ. Tọa độ khách: {booking.Address?.Latitude},{booking.Address?.Longitude}
-- Thợ ({worker.User.FullName}): Điểm đánh giá {worker.AverageRating}/5.0, Đã làm {worker.CompletedJobs} công việc. Tọa độ thợ: {worker.CurrentLat},{worker.CurrentLng}
+- Thợ ({worker.User.FullName}): Điểm đánh giá {worker.AverageRating}/5.0. Tọa độ thợ: {worker.CurrentLat},{worker.CurrentLng}
 
 Đánh giá và cho điểm từ 0.000 đến 1.000 (Chỉ trả về 1 con số và 1 câu giải thích ngắn).";
 
@@ -150,7 +147,6 @@ Khách hàng hỏi: {request.Message}";
                 var content = new StringContent(JsonSerializer.Serialize(ollamaPayload), Encoding.UTF8, "application/json");
 
                 string reason = "Được đề xuất dựa trên kỹ năng và điểm đánh giá.";
-                decimal score = 0.8500m;
 
                 var stopwatch = Stopwatch.StartNew();
                 try
@@ -167,44 +163,34 @@ Khách hàng hỏi: {request.Message}";
                     Console.WriteLine($"[OLLAMA ERROR cho thợ {worker.UserId}]: {ex.Message}");
                 }
                 stopwatch.Stop();
-
-                _context.AiRecommendations.Add(new AiRecommendation
-                {
-                    BookingId = booking.Id,
-                    WorkerId = worker.UserId,
-                    Score = score,
-                    Reason = reason,
-                    CreatedAt = DateTime.UtcNow
-                });
             }
-
-            await _context.SaveChangesAsync();
             return true;
         }
 
-        // =================================================================
-        // CHỨC NĂNG 3: LẤY DANH SÁCH THỢ ĐÃ ĐƯỢC MATCHING ĐỂ TRẢ VỀ FRONTEND
-        // =================================================================
         public async Task<List<WorkerDto>> GetRecommendedWorkersAsync(Guid bookingId)
         {
-            var recommendedWorkers = await _context.AiRecommendations
-                .Where(r => r.BookingId == bookingId)
-                .Include(r => r.Worker)
-                    .ThenInclude(w => w.User) // Map tới bảng Profiles (tên property là User)
-                .OrderByDescending(r => r.Score)
-                .Select(r => new WorkerDto
-                {
-                    Id = r.WorkerId.ToString(),
-                    Name = r.Worker.User.FullName,
-                    Initials = GetInitials(r.Worker.User.FullName),
-                    Rating = (double)r.Worker.AverageRating,
-                    Reviews = r.Worker.CompletedJobs,
-                    Distance = "2.5 km",
-                    MatchPercentage = (int)(r.Score * 100)
-                })
+            var booking = await _context.Bookings.AsNoTracking().FirstOrDefaultAsync(b => b.Id == bookingId);
+            if (booking == null) return new List<WorkerDto>();
+
+            var workers = await _context.WorkerProfiles
+                .Include(w => w.User)
+                .Include(w => w.WorkerServices)
+                .Where(w => w.WorkerServices.Any(ws => ws.ServiceId == booking.ServiceId))
+                .OrderByDescending(w => w.AverageRating)
+                .Take(5)
                 .ToListAsync();
 
-            return recommendedWorkers;
+            return workers.Select(worker => new WorkerDto
+            {
+                Id = worker.UserId.ToString(),
+                Name = worker.User.FullName,
+                Initials = GetInitials(worker.User.FullName),
+                Rating = (double)worker.AverageRating,
+                Reviews = 0,
+                Distance = "2.5 km",
+                MatchPercentage = 85
+            })
+                .ToList();
         }
 
         // Hàm phụ trợ tiện ích

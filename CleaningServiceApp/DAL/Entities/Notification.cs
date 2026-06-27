@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+using Cleaning.DAL.Enums;
 
 namespace Cleaning.DAL.Entities;
 
@@ -9,6 +8,10 @@ public partial class Notification
 
     public Guid UserId { get; set; }
 
+    public Guid? BookingId { get; set; }
+
+    public NotificationType Type { get; set; } = NotificationType.System;
+
     public string Title { get; set; } = null!;
 
     public string Content { get; set; } = null!;
@@ -16,6 +19,8 @@ public partial class Notification
     public bool IsRead { get; set; }
 
     public DateTime CreatedAt { get; set; }
+
+    public virtual Booking? Booking { get; set; }
 
     public virtual Account User { get; set; } = null!;
 }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using Cleaning.DAL.Enums;
 
 namespace Cleaning.BLL.DTOs
@@ -10,17 +10,19 @@ namespace Cleaning.BLL.DTOs
         public Guid? WorkerId { get; set; }
         public Guid ServiceId { get; set; }
         public Guid? AddressId { get; set; }
-        public DateTime ScheduledTime { get; set; }
-        public int DurationHours { get; set; }
-        public decimal Quantity { get; set; }
+        public string BookingType { get; set; } = null!;
+        public DateTime ScheduledStartTime { get; set; }
+        public DateTime ScheduledEndTime { get; set; }
+        public DateTime? ActualStartTime { get; set; }
+        public DateTime? ActualEndTime { get; set; }
+        public decimal DurationHours { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal ExtraFee { get; set; }
+        public decimal DiscountAmount { get; set; }
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = null!;
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
-
-        // MỚI THÊM: Truyền thông tin địa chỉ và dịch vụ xuống Frontend
         public string? ServiceName { get; set; }
         public string? AddressText { get; set; }
         public decimal? Latitude { get; set; }
@@ -31,11 +33,19 @@ namespace Cleaning.BLL.DTOs
     {
         [Required]
         public Guid ServiceId { get; set; }
+
         public Guid? AddressId { get; set; }
+
+        public BookingType BookingType { get; set; } = BookingType.Scheduled;
+
         [Required]
-        public DateTime ScheduledTime { get; set; }
-        public int DurationHours { get; set; } = 2;
-        public decimal Quantity { get; set; } = 1;
+        public DateTime ScheduledStartTime { get; set; }
+
+        [Required]
+        public DateTime ScheduledEndTime { get; set; }
+
+        public decimal DurationHours { get; set; } = 2;
+
         public string? Notes { get; set; }
     }
 

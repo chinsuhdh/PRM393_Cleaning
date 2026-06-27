@@ -1,4 +1,4 @@
-﻿using Cleaning.BLL.DTOs;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Interfaces;
@@ -14,49 +14,41 @@ namespace Cleaning.BLL.Services
             _unitOfWork = unitOfWork;
         }
 
-        public async Task<IEnumerable<ServiceCategoryDto>> GetAllCategoriesAsync()
+        public Task<IEnumerable<ServiceCategoryDto>> GetAllCategoriesAsync()
         {
-            var categories = await _unitOfWork.Repository<ServiceCategory>().GetAllAsync();
-
-            return categories.OrderBy(c => c.SortOrder).Select(c => new ServiceCategoryDto
+            var categories = new[]
             {
-                Id = c.Id,
-                Name = c.Name,
-                IconUrl = c.IconUrl,
-                SortOrder = c.SortOrder
-            });
+                new ServiceCategoryDto { Id = Guid.Empty, Name = "Apartment Cleaning", IconUrl = "business", SortOrder = 1 },
+                new ServiceCategoryDto { Id = Guid.Empty, Name = "House Cleaning", IconUrl = "home", SortOrder = 2 }
+            };
+
+            return Task.FromResult<IEnumerable<ServiceCategoryDto>>(categories);
         }
 
         public async Task<IEnumerable<ServiceDto>> GetServicesByCategoryIdAsync(Guid categoryId)
         {
-            var services = await _unitOfWork.Repository<Service>().FindAsync(s => s.CategoryId == categoryId && s.IsActive);
-
-            return services.Select(s => new ServiceDto
-            {
-                Id = s.Id,
-                CategoryId = s.CategoryId,
-                Name = s.Name,
-                Description = s.Description,
-                UnitType = s.UnitType.ToString(),
-                BasePrice = s.BasePrice,
-                IsActive = s.IsActive
-            });
+            var services = await _unitOfWork.Repository<Service>().FindAsync(s => s.IsActive);
+            return services.Select(MapToDto);
         }
 
         public async Task<ServiceDto?> GetServiceByIdAsync(Guid id)
         {
-            var s = await _unitOfWork.Repository<Service>().GetByIdAsync(id);
-            if (s == null || !s.IsActive) return null;
+            var service = await _unitOfWork.Repository<Service>().GetByIdAsync(id);
+            return service == null || !service.IsActive ? null : MapToDto(service);
+        }
 
+        private static ServiceDto MapToDto(Service service)
+        {
             return new ServiceDto
             {
-                Id = s.Id,
-                CategoryId = s.CategoryId,
-                Name = s.Name,
-                Description = s.Description,
-                UnitType = s.UnitType.ToString(),
-                BasePrice = s.BasePrice,
-                IsActive = s.IsActive
+                Id = service.Id,
+                Name = service.Name,
+                Description = service.Description,
+                PropertyType = service.PropertyType.ToString(),
+                UnitType = service.UnitType.ToString(),
+                BasePrice = service.BasePrice,
+                MinimumHours = service.MinimumHours,
+                IsActive = service.IsActive
             };
         }
     }

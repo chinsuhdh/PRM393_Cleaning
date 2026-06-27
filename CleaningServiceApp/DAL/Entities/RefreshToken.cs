@@ -1,6 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-
 namespace Cleaning.DAL.Entities;
 
 public partial class RefreshToken
@@ -9,13 +6,13 @@ public partial class RefreshToken
 
     public Guid AccountId { get; set; }
 
-    public string Token { get; set; } = null!;
+    public string TokenHash { get; set; } = null!;
 
     public DateTime ExpiresAt { get; set; }
 
     public bool IsRevoked { get; set; }
 
-    public string? ReplacedByToken { get; set; }
+    public string? ReplacedByTokenHash { get; set; }
 
     public string? CreatedByIp { get; set; }
 

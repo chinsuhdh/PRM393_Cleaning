@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Npgsql;
+using DotNetEnv;
 
 namespace CleaningService.API
 {
@@ -20,19 +21,28 @@ namespace CleaningService.API
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
+            AddEnvFallbackConfiguration(builder);
 
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 
             dataSourceBuilder.MapEnum<UserRole>("user_role");
             dataSourceBuilder.MapEnum<AccountStatus>("account_status");
+            dataSourceBuilder.MapEnum<VerificationPurpose>("verification_purpose");
+            dataSourceBuilder.MapEnum<PropertyType>("property_type");
             dataSourceBuilder.MapEnum<ServiceUnitType>("service_unit_type");
+            dataSourceBuilder.MapEnum<BookingType>("booking_type");
             dataSourceBuilder.MapEnum<BookingStatus>("booking_status");
+            dataSourceBuilder.MapEnum<WorkerOnlineStatus>("worker_online_status");
+            dataSourceBuilder.MapEnum<AvailabilityStatus>("availability_status");
             dataSourceBuilder.MapEnum<PaymentMethod>("payment_method");
             dataSourceBuilder.MapEnum<PaymentStatus>("payment_status");
+            dataSourceBuilder.MapEnum<PayoutStatus>("payout_status");
+            dataSourceBuilder.MapEnum<RescheduleStatus>("reschedule_status");
             dataSourceBuilder.MapEnum<AiSenderType>("ai_sender_type");
-            dataSourceBuilder.MapEnum<LogLevelType>("log_level_type");
-            dataSourceBuilder.MapEnum<DeployStatusType>("deploy_status_type");
+            dataSourceBuilder.MapEnum<PhotoType>("photo_type");
+            dataSourceBuilder.MapEnum<CleanlinessLevel>("cleanliness_level");
+            dataSourceBuilder.MapEnum<NotificationType>("notification_type");
 
             var dataSource = dataSourceBuilder.Build();
 
@@ -139,6 +149,67 @@ namespace CleaningService.API
             app.MapControllers();
 
             app.Run();
+        }
+
+        private static void AddEnvFallbackConfiguration(WebApplicationBuilder builder)
+        {
+            Env.TraversePath().Load();
+            var fallbackValues = new Dictionary<string, string?>();
+
+            if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+            {
+                fallbackValues["ConnectionStrings:DefaultConnection"] = BuildConnectionString();
+            }
+
+            if (string.IsNullOrWhiteSpace(builder.Configuration["JwtConfig:Secret"])
+                && !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("JWT_SECRET")))
+            {
+                fallbackValues["JwtConfig:Secret"] = Environment.GetEnvironmentVariable("JWT_SECRET");
+            }
+
+            AddIfMissing(builder, fallbackValues, "JwtConfig:Issuer", "CleaningAppBackend");
+            AddIfMissing(builder, fallbackValues, "JwtConfig:Audience", "CleaningAppFlutter");
+            AddIfMissing(builder, fallbackValues, "JwtConfig:AccessTokenExpirationMinutes", "15");
+            AddIfMissing(builder, fallbackValues, "JwtConfig:RefreshTokenExpirationDays", "7");
+            AddIfMissing(builder, fallbackValues, "AiConfig:OllamaUrl", "http://localhost:11434");
+            AddIfMissing(builder, fallbackValues, "AiConfig:DefaultModel", "qwen2.5:1.5b");
+
+            builder.Configuration.AddInMemoryCollection(fallbackValues);
+        }
+
+        private static string BuildConnectionString()
+        {
+            var username = Environment.GetEnvironmentVariable("DB_USER") ?? "postgres";
+            var password = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "postgres";
+            var port = GetConfiguredPort();
+
+            return new NpgsqlConnectionStringBuilder
+            {
+                Host = "localhost",
+                Port = port,
+                Database = "PRM393_Cleaning",
+                Username = username,
+                Password = password
+            }.ConnectionString;
+        }
+
+        private static int GetConfiguredPort()
+        {
+            var configuredPort = Environment.GetEnvironmentVariable("DB_HOST_PORT");
+
+            return int.TryParse(configuredPort, out var port) ? port : 5433;
+        }
+
+        private static void AddIfMissing(
+            WebApplicationBuilder builder,
+            IDictionary<string, string?> fallbackValues,
+            string key,
+            string value)
+        {
+            if (string.IsNullOrWhiteSpace(builder.Configuration[key]))
+            {
+                fallbackValues[key] = value;
+            }
         }
     }
 }

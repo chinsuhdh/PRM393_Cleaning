@@ -29,7 +29,7 @@ namespace CleaningService.API.Controllers
                 var review = await _reviewService.CreateReviewAsync(reviewerId, request);
                 return Ok(review);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return BadRequest(new { message = "Không thể lưu đánh giá. Bạn đã đánh giá đơn hàng này rồi." });
             }
