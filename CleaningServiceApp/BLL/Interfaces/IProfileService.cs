@@ -6,5 +6,7 @@ namespace Cleaning.BLL.Interfaces
     {
         Task<ProfileDto?> GetProfileAsync(Guid userId);
         Task<bool> UpdateProfileAsync(Guid userId, UpdateProfileDto request);
+
+        Task<bool> UpdateAvatarAsync(Guid userId, string avatarUrl);
     }
 }

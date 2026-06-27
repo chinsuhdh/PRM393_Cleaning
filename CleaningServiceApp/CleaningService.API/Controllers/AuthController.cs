@@ -1,5 +1,7 @@
-﻿using Cleaning.BLL.DTOs;
+﻿using System.Security.Claims;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CleaningService.API.Controllers
@@ -43,7 +45,6 @@ namespace CleaningService.API.Controllers
             }
             catch (Exception ex)
             {
-                // Bắt lỗi tài khoản chưa xác thực hoặc bị khóa đã quăng ra từ Service
                 return BadRequest(new { message = ex.Message });
             }
         }
@@ -97,6 +98,45 @@ namespace CleaningService.API.Controllers
             if (!result) return BadRequest(new { message = "Mã OTP không hợp lệ, đã hết hạn hoặc tài khoản không tồn tại." });
 
             return Ok(new { message = "Xác thực tài khoản thành công! Bạn có thể đăng nhập." });
+        }
+
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim, out var userId)) return Unauthorized();
+
+            var result = await _authService.ChangePasswordAsync(userId, request);
+            if (!result) return BadRequest(new { message = "Mật khẩu cũ không đúng hoặc tài khoản không tồn tại." });
+
+            return Ok(new { message = "Thay đổi mật khẩu thành công!" });
+        }
+
+        [HttpPost("send-phone-otp")]
+        [Authorize]
+        public async Task<IActionResult> SendPhoneOtp()
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim, out var userId)) return Unauthorized();
+
+            var result = await _authService.SendPhoneVerificationOtpAsync(userId);
+            if (!result) return BadRequest(new { message = "Không thể gửi OTP. Hãy kiểm tra lại số điện thoại trong hồ sơ." });
+
+            return Ok(new { message = "Mã xác thực SMS đã được gửi." });
+        }
+
+        [HttpPost("verify-phone")]
+        public async Task<IActionResult> VerifyPhone([FromBody] VerifyPhoneDto request)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var result = await _authService.VerifyPhoneAsync(request);
+            if (!result) return BadRequest(new { message = "Mã OTP sai, hết hạn hoặc số điện thoại không tồn tại." });
+
+            return Ok(new { message = "Xác thực số điện thoại thành công!" });
         }
     }
 }

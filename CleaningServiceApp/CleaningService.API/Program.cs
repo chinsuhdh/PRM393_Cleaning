@@ -121,6 +121,10 @@ namespace CleaningService.API
 
             // Business Services
             builder.Services.AddScoped<IEmailService, EmailService>();
+
+            // [ĐÃ THÊM] Đăng ký ISmsService để sửa lỗi DI Crash
+            builder.Services.AddScoped<ISmsService, SmsService>();
+
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IProfileService, ProfileService>();
             builder.Services.AddScoped<IUserAddressService, UserAddressService>();
@@ -152,6 +156,9 @@ namespace CleaningService.API
             {
                 app.UseHttpsRedirection();
             }
+
+            // [ĐÃ THÊM] Cho phép truy cập file tĩnh (Avatar upload)
+            app.UseStaticFiles();
 
             // Lưu ý: UseAuthentication phải nằm TRƯỚC UseAuthorization
             app.UseAuthentication();

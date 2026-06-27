@@ -16,9 +16,11 @@ namespace Cleaning.BLL.Services
 
         public async Task<ProfileDto?> GetProfileAsync(Guid userId)
         {
+            // Lấy cả Profile và Account (vì 2 bảng này dùng chung Id/UserId)
             var profile = await _unitOfWork.Repository<Profile>().GetByIdAsync(userId);
+            var account = await _unitOfWork.Repository<Account>().GetByIdAsync(userId);
 
-            if (profile == null)
+            if (profile == null || account == null)
                 return null;
 
             return new ProfileDto
@@ -26,6 +28,9 @@ namespace Cleaning.BLL.Services
                 Id = profile.Id,
                 FullName = profile.FullName,
                 AvatarUrl = profile.AvatarUrl,
+                Email = account.Email,                   // [THÊM MỚI] Mapping từ Account
+                PhoneNumber = account.PhoneNumber,       // [THÊM MỚI] Mapping từ Account
+                IsPhoneVerified = account.IsPhoneVerified, // [THÊM MỚI] Mapping từ Account
                 CreatedAt = profile.CreatedAt,
                 UpdatedAt = profile.UpdatedAt
             };
@@ -38,14 +43,23 @@ namespace Cleaning.BLL.Services
             if (profile == null)
                 return false;
 
-            // Cập nhật thông tin
             profile.FullName = request.FullName;
             profile.AvatarUrl = request.AvatarUrl;
-            profile.UpdatedAt = DateTime.UtcNow; // Xử lý đồng bộ với TIMESTAMPTZ
+            profile.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Repository<Profile>().Update(profile);
+            return await _unitOfWork.SaveChangesAsync() > 0;
+        }
 
-            // Nếu SaveChangesAsync trả về > 0 nghĩa là update thành công
+        public async Task<bool> UpdateAvatarAsync(Guid userId, string avatarUrl)
+        {
+            var profile = await _unitOfWork.Repository<Profile>().GetByIdAsync(userId);
+            if (profile == null) return false;
+
+            profile.AvatarUrl = avatarUrl;
+            profile.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Repository<Profile>().Update(profile);
             return await _unitOfWork.SaveChangesAsync() > 0;
         }
     }
