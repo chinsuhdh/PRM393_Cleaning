@@ -49,7 +49,7 @@ internal static class DevelopmentSeedData
         Role = role,
         Status = AccountStatus.Active,
         IsEmailVerified = true,
-        IsPhoneVerified = false,
+        IsPhoneVerified = true,
         CreatedAt = now,
         UpdatedAt = now
     };

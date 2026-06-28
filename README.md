@@ -47,9 +47,6 @@ cd .\PRM393_Cleaning\CleaningServiceApp
 
 Create the local Compose environment file:
 
-```powershell
-Copy-Item .env.example .env
-```
 
 Update `.env` with local values:
 
@@ -66,10 +63,6 @@ JWT_SECRET=replace_with_a_long_random_secret
 
 Create the ignored local settings file:
 
-```powershell
-Copy-Item .\CleaningService.API\appsettings_example.json .\CleaningService.API\appsettings.json
-```
-
 Set `ConnectionStrings:DefaultConnection` in `appsettings.json`. The port must match `DB_HOST_PORT` from `.env`:
 
 ```json
@@ -85,20 +78,11 @@ The files are intentionally separate:
 - `.env` configures Docker Compose.
 - `appsettings.json` configures a locally executed API and EF commands.
 
-If the password contains a semicolon, quote it inside the connection string using escaped JSON quotes:
-
-```json
-"DefaultConnection": "Host=localhost;Port=5433;Database=PRM393_Cleaning;Username=postgres;Password=\"password;with;semicolons\""
-```
-
 ## 3. Start PostgreSQL
 
 ```powershell
 docker compose up -d db
-docker compose ps db
 ```
-
-Wait until `cleaning_db` reports `healthy`.
 
 ## 4. Apply Migrations and Seed Development Data
 
