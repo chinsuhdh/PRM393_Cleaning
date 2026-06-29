@@ -64,6 +64,17 @@ jobs:
       - name: Build solution
         run: dotnet build "${{ env.SOLUTION_FILE }}" --configuration Release --no-restore --disable-build-servers /m:1 /p:UseSharedCompilation=false
 
+      - name: Run backend tests
+        run: dotnet test "${{ env.SOLUTION_FILE }}" --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./artifacts/test-results
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: ./artifacts/test-results
+          if-no-files-found: ignore
+
       - name: Publish API
         run: dotnet publish "${{ env.API_PROJECT }}" --configuration Release --no-restore --disable-build-servers /m:1 /p:UseSharedCompilation=false --output ./artifacts/api
 

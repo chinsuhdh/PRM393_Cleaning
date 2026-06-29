@@ -187,7 +187,7 @@ namespace CleaningService.API
                 app.UseSwaggerUI();
             }
 
-            if (!app.Environment.IsDevelopment())
+            if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
             {
                 app.UseHttpsRedirection();
             }
