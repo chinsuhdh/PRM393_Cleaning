@@ -18,6 +18,10 @@ public partial class Review
 
     public DateTime CreatedAt { get; set; }
 
+    public DateTime UpdatedAt { get; set; }
+
+    public DateTime? EditableUntil { get; set; }
+
     public virtual Booking Booking { get; set; } = null!;
 
     public virtual Profile Reviewee { get; set; } = null!;

@@ -19,5 +19,7 @@ public partial class WorkerAvailability
 
     public DateTime CreatedAt { get; set; }
 
+    public DateTime UpdatedAt { get; set; }
+
     public virtual WorkerProfile Worker { get; set; } = null!;
 }

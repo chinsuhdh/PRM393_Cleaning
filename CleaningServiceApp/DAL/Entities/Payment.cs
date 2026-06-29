@@ -21,6 +21,18 @@ public partial class Payment
 
     public DateTime CreatedAt { get; set; }
 
+    public DateTime UpdatedAt { get; set; }
+
+    public string? IdempotencyKey { get; set; }
+
+    public string? ProviderReference { get; set; }
+
+    public string? FailureCode { get; set; }
+
+    public string? FailureMessage { get; set; }
+
+    public DateTime? CallbackVerifiedAt { get; set; }
+
     public virtual Booking Booking { get; set; } = null!;
 
     public virtual ICollection<Refund> Refunds { get; set; } = new List<Refund>();

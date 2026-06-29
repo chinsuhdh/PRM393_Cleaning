@@ -23,6 +23,16 @@ public partial class WorkerProfile
 
     public DateTime UpdatedAt { get; set; }
 
+    public DateTime? LocationUpdatedAt { get; set; }
+
+    public decimal? BaseLatitude { get; set; }
+
+    public decimal? BaseLongitude { get; set; }
+
+    public decimal ServiceRadiusKm { get; set; } = 10;
+
+    public string VerificationStatus { get; set; } = "pending";
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual Profile User { get; set; } = null!;

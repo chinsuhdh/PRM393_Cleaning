@@ -26,6 +26,14 @@ public partial class Account
 
     public DateTime UpdatedAt { get; set; }
 
+    public DateTime? DeletionRequestedAt { get; set; }
+
+    public DateTime? DeletedAt { get; set; }
+
+    public string? DeletionStatus { get; set; }
+
+    public string NotificationPreferences { get; set; } = "{}";
+
     public virtual ICollection<AiConversation> AiConversations { get; set; } = new List<AiConversation>();
 
     public virtual ICollection<AiInferenceLog> AiInferenceLogs { get; set; } = new List<AiInferenceLog>();

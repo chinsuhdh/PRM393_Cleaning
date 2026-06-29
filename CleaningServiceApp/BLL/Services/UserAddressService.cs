@@ -105,6 +105,7 @@ namespace Cleaning.BLL.Services
             address.Longitude = request.Longitude;
             address.PropertyType = request.PropertyType;
             address.IsDefault = request.IsDefault;
+            address.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Repository<UserAddress>().Update(address);
             await _unitOfWork.SaveChangesAsync();
@@ -138,6 +139,7 @@ namespace Cleaning.BLL.Services
             await ResetDefaultAddressesAsync(userId);
 
             address.IsDefault = true;
+            address.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.Repository<UserAddress>().Update(address);
 
             await _unitOfWork.SaveChangesAsync();
@@ -152,6 +154,7 @@ namespace Cleaning.BLL.Services
             foreach (var addr in existingDefaults)
             {
                 addr.IsDefault = false;
+                addr.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.Repository<UserAddress>().Update(addr);
             }
         }

@@ -49,7 +49,8 @@ namespace Cleaning.BLL.Services
                 CurrentLat = request.CurrentLat,
                 CurrentLng = request.CurrentLng,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                LocationUpdatedAt = DateTime.UtcNow
             };
 
             await _unitOfWork.Repository<WorkerProfile>().AddAsync(newWorker);
@@ -65,6 +66,7 @@ namespace Cleaning.BLL.Services
 
             worker.CurrentLat = request.CurrentLat;
             worker.CurrentLng = request.CurrentLng;
+            worker.LocationUpdatedAt = DateTime.UtcNow;
             worker.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Repository<WorkerProfile>().Update(worker);
@@ -96,6 +98,7 @@ namespace Cleaning.BLL.Services
             if (skill != null)
             {
                 skill.ExperienceMonths = request.ExperienceMonths;
+                skill.UpdatedAt = DateTime.UtcNow;
                 _unitOfWork.Repository<DalWorkerService>().Update(skill);
             }
             else
@@ -107,7 +110,8 @@ namespace Cleaning.BLL.Services
                     ServiceId = request.ServiceId,
                     ExperienceMonths = request.ExperienceMonths,
                     IsVerified = false,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 };
                 await _unitOfWork.Repository<DalWorkerService>().AddAsync(newSkill);
             }

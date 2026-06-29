@@ -43,6 +43,16 @@ public partial class Booking
 
     public DateTime UpdatedAt { get; set; }
 
+    public string OptionAnswers { get; set; } = "{}";
+
+    public string PricingBreakdown { get; set; } = "{}";
+
+    public string AddressSnapshot { get; set; } = "{}";
+
+    public string? IdempotencyKey { get; set; }
+
+    public int Version { get; set; } = 1;
+
     public virtual UserAddress? Address { get; set; }
 
     public virtual BookingCancellation? BookingCancellation { get; set; }

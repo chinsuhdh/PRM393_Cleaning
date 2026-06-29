@@ -23,6 +23,8 @@ public partial class UserAddress
 
     public DateTime CreatedAt { get; set; }
 
+    public DateTime UpdatedAt { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual Profile User { get; set; } = null!;

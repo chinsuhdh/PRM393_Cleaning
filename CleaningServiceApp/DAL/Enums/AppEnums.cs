@@ -6,7 +6,7 @@
     public enum PropertyType { Apartment, House }
     public enum ServiceUnitType { Hour }
     public enum BookingType { Scheduled, Immediate }
-    public enum BookingStatus { PendingPayment, PaidPendingWorker, Accepted, RescheduleRequested, InProgress, Completed, Cancelled, Refunded }
+    public enum BookingStatus { PendingPayment, PaidPendingWorker, Accepted, RescheduleRequested, InProgress, Completed, Cancelled, Refunded, AwaitingWorker }
     public enum WorkerOnlineStatus { Offline, Online, Busy }
     public enum AvailabilityStatus { Available, Blocked, Booked }
     public enum PaymentMethod { Cash, Momo, Vnpay, Zalopay, BankTransfer }

@@ -23,6 +23,16 @@ public partial class Service
 
     public DateTime CreatedAt { get; set; }
 
+    public DateTime UpdatedAt { get; set; }
+
+    public string BookingFormSchema { get; set; } = "{}";
+
+    public string OperatingSchedule { get; set; } = "{}";
+
+    public DateTime? ArchivedAt { get; set; }
+
+    public int Version { get; set; } = 1;
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual ICollection<WorkerService> WorkerServices { get; set; } = new List<WorkerService>();

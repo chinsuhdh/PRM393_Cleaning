@@ -43,6 +43,7 @@ namespace Cleaning.BLL.Services
                 paymentRecord.Method = request.Method;
                 paymentRecord.Amount = finalAmount;
                 paymentRecord.Status = PaymentStatus.Pending;
+                paymentRecord.UpdatedAt = DateTime.UtcNow;
 
                 _unitOfWork.Repository<Payment>().Update(paymentRecord);
                 await _unitOfWork.SaveChangesAsync();
@@ -57,7 +58,8 @@ namespace Cleaning.BLL.Services
                 Amount = finalAmount, // Dùng tiền từ DB
                 Method = request.Method,
                 Status = PaymentStatus.Pending,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             await _unitOfWork.Repository<Payment>().AddAsync(payment);
@@ -87,6 +89,7 @@ namespace Cleaning.BLL.Services
 
                 payment.Status = request.Status;
                 payment.TransactionId = request.TransactionId;
+                payment.UpdatedAt = DateTime.UtcNow;
 
                 if (request.Status == PaymentStatus.Success)
                 {

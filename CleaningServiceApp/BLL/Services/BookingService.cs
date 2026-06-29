@@ -169,9 +169,10 @@ namespace Cleaning.BLL.Services
             {
                 var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
 
-                if (booking == null || booking.WorkerId != null || booking.Status != BookingStatus.PaidPendingWorker)
+                if (booking == null || booking.WorkerId != null || !IsAwaitingWorker(booking.Status))
                     return false;
 
+                var oldStatus = booking.Status;
                 booking.WorkerId = workerId;
                 booking.Status = BookingStatus.Accepted;
                 booking.UpdatedAt = DateTime.UtcNow;
@@ -181,7 +182,7 @@ namespace Cleaning.BLL.Services
                 var statusLog = new BookingStatusLog
                 {
                     BookingId = booking.Id,
-                    OldStatus = BookingStatus.PaidPendingWorker,
+                    OldStatus = oldStatus,
                     NewStatus = BookingStatus.Accepted,
                     ChangedBy = workerId,
                     Reason = "Thợ đã nhận đơn",
@@ -205,7 +206,8 @@ namespace Cleaning.BLL.Services
         public async Task<IEnumerable<BookingDto>> GetAvailableBookingsAsync()
         {
             var availableBookings = await _unitOfWork.Repository<Booking>()
-                .FindAsync(b => b.Status == BookingStatus.PaidPendingWorker && b.WorkerId == null);
+                .FindAsync(b => (b.Status == BookingStatus.PaidPendingWorker || b.Status == BookingStatus.AwaitingWorker)
+                                && b.WorkerId == null);
 
             foreach (var b in availableBookings)
             {
@@ -230,6 +232,9 @@ namespace Cleaning.BLL.Services
 
             return MapToDto(booking);
         }
+
+        private static bool IsAwaitingWorker(BookingStatus status) =>
+            status is BookingStatus.PaidPendingWorker or BookingStatus.AwaitingWorker;
 
         private static BookingDto MapToDto(Booking b)
         {

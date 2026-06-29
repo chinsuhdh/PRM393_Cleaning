@@ -25,7 +25,8 @@ internal static class DevelopmentSeedData
         BasePrice = 120_000m,
         MinimumHours = 2,
         IsActive = true,
-        CreatedAt = now
+        CreatedAt = now,
+        UpdatedAt = now
     };
 
     internal static Service CreateHouseService(DateTime now) => new()
@@ -38,7 +39,8 @@ internal static class DevelopmentSeedData
         BasePrice = 150_000m,
         MinimumHours = 3,
         IsActive = true,
-        CreatedAt = now
+        CreatedAt = now,
+        UpdatedAt = now
     };
 
     internal static Account CreateAccount(Guid id, string email, UserRole role, DateTime now) => new()
@@ -72,7 +74,8 @@ internal static class DevelopmentSeedData
         Longitude = 106.7030m,
         PropertyType = PropertyType.Apartment,
         IsDefault = true,
-        CreatedAt = now
+        CreatedAt = now,
+        UpdatedAt = now
     };
 
     internal static WorkerProfile CreateWorkerProfile(DateTime now) => new()
@@ -82,8 +85,13 @@ internal static class DevelopmentSeedData
         OnlineStatus = WorkerOnlineStatus.Online,
         CurrentLat = 10.7769m,
         CurrentLng = 106.7009m,
+        LocationUpdatedAt = now,
+        BaseLatitude = 10.7769m,
+        BaseLongitude = 106.7009m,
+        ServiceRadiusKm = 10m,
         ImmediateBookingEnabled = true,
         VerifiedAt = now,
+        VerificationStatus = "approved",
         CreatedAt = now,
         UpdatedAt = now
     };
@@ -94,7 +102,9 @@ internal static class DevelopmentSeedData
         ServiceId = serviceId,
         ExperienceMonths = experienceMonths,
         IsVerified = true,
-        CreatedAt = now
+        VerifiedAt = now,
+        CreatedAt = now,
+        UpdatedAt = now
     };
 
     internal static WorkerAvailability CreateWorkerAvailability(DateTime now) => new()
@@ -105,7 +115,8 @@ internal static class DevelopmentSeedData
         EndTime = now.Date.AddDays(30).AddHours(18),
         Status = AvailabilityStatus.Available,
         Note = "Development seed availability",
-        CreatedAt = now
+        CreatedAt = now,
+        UpdatedAt = now
     };
 
     internal static IEnumerable<KnowledgeDocument> CreateKnowledgeDocuments(DateTime now)

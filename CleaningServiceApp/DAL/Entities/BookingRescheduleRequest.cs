@@ -29,6 +29,12 @@ public partial class BookingRescheduleRequest
 
     public DateTime CreatedAt { get; set; }
 
+    public DateTime? ExpiresAt { get; set; }
+
+    public decimal PriceDifference { get; set; }
+
+    public int Version { get; set; } = 1;
+
     public virtual Booking Booking { get; set; } = null!;
 
     public virtual Account RequestedByNavigation { get; set; } = null!;
