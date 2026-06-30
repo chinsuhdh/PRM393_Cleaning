@@ -2,6 +2,7 @@
 **/appsettings.Development.json
 bin/
 obj/
+artifacts/
 .vs/
 .env
 
