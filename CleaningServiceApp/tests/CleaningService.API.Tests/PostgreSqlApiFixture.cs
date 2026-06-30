@@ -3,11 +3,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
 using Npgsql;
 using Respawn;
 using Respawn.Graph;
 using Testcontainers.PostgreSql;
-
 namespace CleaningService.API.Tests;
 
 public sealed class PostgreSqlApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
@@ -26,6 +26,18 @@ public sealed class PostgreSqlApiFixture : WebApplicationFactory<Program>, IAsyn
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            configuration.AddInMemoryCollection(
+                new Dictionary<string, string?>
+                {
+                    ["JwtConfig:Secret"] =
+                        "3YlcESfqMCfUbxi5yDM0lAb7oh6XiOAniuq4Nm50Gjw=",
+                    ["JwtConfig:Issuer"] = "CleaningService.Api.Tests",
+                    ["JwtConfig:Audience"] = "CleaningService.Api.Tests"
+                });
+        });
     }
 
     public async Task InitializeAsync()
