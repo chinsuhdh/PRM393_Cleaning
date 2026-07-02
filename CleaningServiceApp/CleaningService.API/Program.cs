@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
+using Cleaning.BLL.Mapping;
 using Cleaning.BLL.Services;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
@@ -106,6 +107,8 @@ namespace CleaningService.API
                 });
 
             builder.Services.AddControllers();
+            builder.Services.AddAutoMapper(configuration =>
+                configuration.AddProfile<BookingMappingProfile>());
             builder.Services.AddEndpointsApiExplorer();
 
             // ==========================================
@@ -169,6 +172,8 @@ namespace CleaningService.API
 
             builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
+            builder.Services.AddScoped<IBookingAvailabilityService, BookingAvailabilityService>();
+            builder.Services.AddScoped<IBookingCreationService, BookingCreationService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
