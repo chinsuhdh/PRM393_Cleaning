@@ -54,7 +54,5 @@ namespace Cleaning.BLL.DTOs
         public int Reviews { get; set; }
         public string Distance { get; set; } = "Unknown";
         public int MatchPercentage { get; set; }
-        public double? Latitude { get; set; }
-        public double? Longitude { get; set; }
     }
 }

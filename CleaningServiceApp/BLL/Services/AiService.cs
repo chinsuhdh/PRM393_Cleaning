@@ -165,9 +165,7 @@ Yêu cầu: Trả lời ngắn gọn, lịch sự, chuyên nghiệp bằng tiế
                         Rating = (double)(worker.AverageRating ?? 5.0m),
                         Reviews = new Random().Next(10, 100),
                         Distance = distanceKm < 0 ? "Không xác định" : $"{Math.Round(distanceKm, 1)} km",
-                        MatchPercentage = CalculateMatchPercentage(distanceKm, (double)(worker.AverageRating ?? 5.0m)),
-                        Latitude = worker.CurrentLat.HasValue ? (double)worker.CurrentLat.Value : null,
-                        Longitude = worker.CurrentLng.HasValue ? (double)worker.CurrentLng.Value : null
+                        MatchPercentage = CalculateMatchPercentage(distanceKm, (double)(worker.AverageRating ?? 5.0m))
                     });
                 }
             }
@@ -198,7 +196,7 @@ Yêu cầu: Trả lời ngắn gọn, lịch sự, chuyên nghiệp bằng tiế
                 }
             }
 
-            return recommendedWorkers.OrderByDescending(w => w.MatchPercentage).ToList();
+            return recommendedWorkers.OrderByDescending(w => w.MatchPercentage).Take(5).ToList();
         }
 
         private static string GetInitials(string fullName)

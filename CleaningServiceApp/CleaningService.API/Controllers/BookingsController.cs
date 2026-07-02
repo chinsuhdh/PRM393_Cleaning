@@ -1,6 +1,5 @@
 ﻿using System.Security.Claims;
 using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Common;
 using Cleaning.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,38 +18,6 @@ namespace CleaningService.API.Controllers
             _bookingService = bookingService;
         }
 
-        [HttpPost("availability")]
-        [Authorize(Roles = "Client")]
-        public async Task<IActionResult> GetAvailability([FromBody] BookingAvailabilityRequestDto request)
-        {
-            if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            try
-            {
-                var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                return Ok(await _bookingService.GetAvailabilityAsync(clientId, request));
-            }
-            catch (AppException ex)
-            {
-                return StatusCode(ex.StatusCode, new { code = ex.Code, message = ex.Message, correlationId = HttpContext.TraceIdentifier });
-            }
-        }
-
-        [HttpPost("quote")]
-        [Authorize(Roles = "Client")]
-        public async Task<IActionResult> GetQuote([FromBody] BookingQuoteRequestDto request)
-        {
-            if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            try
-            {
-                var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                return Ok(await _bookingService.GetQuoteAsync(clientId, request));
-            }
-            catch (AppException ex)
-            {
-                return StatusCode(ex.StatusCode, new { code = ex.Code, message = ex.Message, correlationId = HttpContext.TraceIdentifier });
-            }
-        }
-
         [HttpPost]
         [Authorize(Roles = "Client")]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDto request)
@@ -60,15 +27,14 @@ namespace CleaningService.API.Controllers
             try
             {
                 var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                if (!Request.Headers.TryGetValue("Idempotency-Key", out var key))
-                    throw new AppException(AppErrors.IdempotencyKeyRequired);
-                var booking = await _bookingService.CreateBookingAsync(clientId, key.ToString(), request);
+                var booking = await _bookingService.CreateBookingAsync(clientId, request);
 
                 return Ok(booking);
             }
-            catch (AppException ex)
+            catch (Exception ex)
             {
-                return StatusCode(ex.StatusCode, new { code = ex.Code, message = ex.Message, correlationId = HttpContext.TraceIdentifier });
+                // Trả về BadRequest kèm lỗi (ví dụ: Không tìm thấy Service)
+                return BadRequest(new { message = ex.Message });
             }
         }
 
@@ -109,8 +75,7 @@ namespace CleaningService.API.Controllers
         [Authorize(Roles = "Worker")]
         public async Task<IActionResult> GetAvailableBookings()
         {
-            var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var bookings = await _bookingService.GetAvailableBookingsAsync(workerId);
+            var bookings = await _bookingService.GetAvailableBookingsAsync();
             return Ok(bookings);
         }
 

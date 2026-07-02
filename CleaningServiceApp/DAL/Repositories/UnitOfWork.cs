@@ -3,7 +3,6 @@ using System.Collections;
 using System.Threading.Tasks;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Cleaning.DAL.Repositories
@@ -38,11 +37,6 @@ namespace Cleaning.DAL.Repositories
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {
             return await _context.Database.BeginTransactionAsync();
-        }
-
-        public async Task<IDbContextTransaction> BeginTransactionAsync(System.Data.IsolationLevel isolationLevel)
-        {
-            return await _context.Database.BeginTransactionAsync(isolationLevel);
         }
 
         public async Task<int> SaveChangesAsync()
