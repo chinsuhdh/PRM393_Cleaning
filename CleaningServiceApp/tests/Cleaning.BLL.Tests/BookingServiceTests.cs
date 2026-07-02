@@ -260,14 +260,14 @@ public sealed class BookingServiceTests
             BookingType bookingType,
             DateTime? from = null,
             DateTime? to = null) => new()
-        {
-            ServiceId = ServiceEntity.Id,
-            AddressId = Address.Id,
-            BookingType = bookingType,
-            DurationHours = 2,
-            From = from ?? new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc),
-            To = to ?? new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc)
-        };
+            {
+                ServiceId = ServiceEntity.Id,
+                AddressId = Address.Id,
+                BookingType = bookingType,
+                DurationHours = 2,
+                From = from ?? new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc),
+                To = to ?? new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc)
+            };
 
         public CreateBookingDto CreateRequest(BookingType bookingType, DateTime? start = null) => new()
         {

@@ -295,14 +295,14 @@ public sealed class BookingOptionsPricingTests
             DateTime? start = null,
             decimal discount = 0,
             Dictionary<string, JsonElement>? answers = null) => new()
-        {
-            ServiceId = ServiceEntity.Id,
-            AddressId = Address.Id,
-            BookingType = bookingType,
-            ScheduledStartTime = start,
-            DurationHours = 2,
-            DiscountAmount = discount,
-            OptionAnswers = answers
-        };
+            {
+                ServiceId = ServiceEntity.Id,
+                AddressId = Address.Id,
+                BookingType = bookingType,
+                ScheduledStartTime = start,
+                DurationHours = 2,
+                DiscountAmount = discount,
+                OptionAnswers = answers
+            };
     }
 }

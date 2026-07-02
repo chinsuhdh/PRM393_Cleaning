@@ -271,32 +271,53 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
             BookingApiTestData.Profile(WorkerId, "Booking Worker", now));
         db.Services.Add(new Service
         {
-            Id = ServiceId, Name = "Booking Test Service", PropertyType = PropertyType.Apartment,
-            UnitType = ServiceUnitType.Hour, BasePrice = 100_000, MinimumHours = 2,
-            IsActive = true, CreatedAt = now, UpdatedAt = now
+            Id = ServiceId,
+            Name = "Booking Test Service",
+            PropertyType = PropertyType.Apartment,
+            UnitType = ServiceUnitType.Hour,
+            BasePrice = 100_000,
+            MinimumHours = 2,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.UserAddresses.Add(new UserAddress
         {
-            Id = AddressId, UserId = ClientId, Label = "Home", AddressText = "Test address",
-            PropertyType = PropertyType.Apartment, CreatedAt = now, UpdatedAt = now
+            Id = AddressId,
+            UserId = ClientId,
+            Label = "Home",
+            AddressText = "Test address",
+            PropertyType = PropertyType.Apartment,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.WorkerProfiles.Add(new WorkerProfile
         {
-            UserId = WorkerId, OnlineStatus = WorkerOnlineStatus.Online,
-            ImmediateBookingEnabled = true, VerificationStatus = "approved",
+            UserId = WorkerId,
+            OnlineStatus = WorkerOnlineStatus.Online,
+            ImmediateBookingEnabled = true,
+            VerificationStatus = "approved",
             LocationUpdatedAt = now,
-            CreatedAt = now, UpdatedAt = now
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.WorkerServices.Add(new Cleaning.DAL.Entities.WorkerService
         {
-            WorkerId = WorkerId, ServiceId = ServiceId, IsVerified = true,
-            CreatedAt = now, UpdatedAt = now
+            WorkerId = WorkerId,
+            ServiceId = ServiceId,
+            IsVerified = true,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.WorkerAvailabilities.Add(new WorkerAvailability
         {
-            Id = Guid.NewGuid(), WorkerId = WorkerId,
-            StartTime = now.Date.AddDays(1), EndTime = now.Date.AddDays(2),
-            Status = AvailabilityStatus.Available, CreatedAt = now, UpdatedAt = now
+            Id = Guid.NewGuid(),
+            WorkerId = WorkerId,
+            StartTime = now.Date.AddDays(1),
+            EndTime = now.Date.AddDays(2),
+            Status = AvailabilityStatus.Available,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         await db.SaveChangesAsync();
     }
