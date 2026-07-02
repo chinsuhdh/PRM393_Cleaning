@@ -119,10 +119,7 @@ public sealed class BookingCreationService(
             await transaction.CommitAsync();
 
             booking.Service = service;
-            if (request.AddressId.HasValue)
-            {
-                booking.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(request.AddressId.Value);
-            }
+            booking.Address = addressEntity;
 
             return _mapper.Map<BookingDto>(booking);
         }

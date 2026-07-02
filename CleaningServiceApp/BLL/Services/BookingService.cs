@@ -37,26 +37,15 @@ namespace Cleaning.BLL.Services
 
         public async Task<IEnumerable<BookingDto>> GetClientBookingsAsync(Guid clientId)
         {
-            var bookings = await _unitOfWork.Repository<Booking>().FindAsync(b => b.ClientId == clientId);
-
-            foreach (var b in bookings)
-            {
-                b.Service = await _unitOfWork.Repository<Service>().GetByIdAsync(b.ServiceId);
-                if (b.AddressId.HasValue)
-                    b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
-            }
+            var bookings = (await _unitOfWork.Repository<Booking>().FindAsync(b => b.ClientId == clientId)).ToList();
+            await HydrateAsync(bookings);
             return bookings.Select(_mapper.Map<BookingDto>).OrderByDescending(b => b.CreatedAt);
         }
 
         public async Task<IEnumerable<BookingDto>> GetWorkerBookingsAsync(Guid workerId)
         {
-            var bookings = await _unitOfWork.Repository<Booking>().FindAsync(b => b.WorkerId == workerId);
-            foreach (var b in bookings)
-            {
-                b.Service = await _unitOfWork.Repository<Service>().GetByIdAsync(b.ServiceId);
-                if (b.AddressId.HasValue)
-                    b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
-            }
+            var bookings = (await _unitOfWork.Repository<Booking>().FindAsync(b => b.WorkerId == workerId)).ToList();
+            await HydrateAsync(bookings);
             return bookings.Select(_mapper.Map<BookingDto>).OrderByDescending(b => b.ScheduledStartTime);
         }
 
@@ -67,6 +56,9 @@ namespace Cleaning.BLL.Services
             {
                 var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
                 if (booking == null) return false;
+
+                if (booking.ClientId != accountId && booking.WorkerId != accountId)
+                    return false;
 
                 var oldStatus = booking.Status;
                 booking.Status = request.NewStatus;
@@ -167,12 +159,7 @@ namespace Cleaning.BLL.Services
                 .Where(b => verifiedServiceIds.Contains(b.ServiceId))
                 .ToList();
 
-            foreach (var b in availableBookings)
-            {
-                b.Service = await _unitOfWork.Repository<Service>().GetByIdAsync(b.ServiceId);
-                if (b.AddressId.HasValue)
-                    b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
-            }
+            await HydrateAsync(availableBookings);
 
             return availableBookings.Select(_mapper.Map<BookingDto>).OrderBy(b => b.ScheduledStartTime);
         }
@@ -182,13 +169,33 @@ namespace Cleaning.BLL.Services
             var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
             if (booking == null) return null;
 
-            booking.Service = await _unitOfWork.Repository<Service>().GetByIdAsync(booking.ServiceId);
-            if (booking.AddressId.HasValue)
-            {
-                booking.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(booking.AddressId.Value);
-            }
+            await HydrateAsync([booking]);
 
             return _mapper.Map<BookingDto>(booking);
+        }
+
+        private async Task HydrateAsync(IReadOnlyCollection<Booking> bookings)
+        {
+            if (bookings.Count == 0) return;
+
+            var serviceIds = bookings.Select(b => b.ServiceId).Distinct().ToHashSet();
+            var services = (await _unitOfWork.Repository<Service>().FindAsync(s => serviceIds.Contains(s.Id)))
+                .ToDictionary(s => s.Id);
+
+            var addressIds = bookings.Where(b => b.AddressId.HasValue)
+                .Select(b => b.AddressId!.Value).Distinct().ToHashSet();
+            var addresses = addressIds.Count == 0
+                ? new Dictionary<Guid, UserAddress>()
+                : (await _unitOfWork.Repository<UserAddress>().FindAsync(a => addressIds.Contains(a.Id)))
+                    .ToDictionary(a => a.Id);
+
+            foreach (var b in bookings)
+            {
+                if (services.TryGetValue(b.ServiceId, out var service))
+                    b.Service = service;
+                if (b.AddressId.HasValue && addresses.TryGetValue(b.AddressId.Value, out var address))
+                    b.Address = address;
+            }
         }
 
         private static bool IsAwaitingWorker(BookingStatus status) =>
