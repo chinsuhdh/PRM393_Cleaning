@@ -7,5 +7,6 @@ namespace Cleaning.DAL.Interfaces
         IGenericRepository<T> Repository<T>() where T : class;
         Task<int> SaveChangesAsync();
         Task<IDbContextTransaction> BeginTransactionAsync();
+        Task<IDbContextTransaction> BeginTransactionAsync(System.Data.IsolationLevel isolationLevel);
     }
 }

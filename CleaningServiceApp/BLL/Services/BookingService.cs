@@ -1,4 +1,5 @@
-﻿using Cleaning.BLL.DTOs;
+using AutoMapper;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -9,82 +10,30 @@ namespace Cleaning.BLL.Services
 {
     public class BookingService : IBookingService
     {
+
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<BookingService> _logger;
+        private readonly IBookingAvailabilityService _availabilityService;
+        private readonly IBookingCreationService _creationService;
+        private readonly IMapper _mapper;
 
-        public BookingService(IUnitOfWork unitOfWork, ILogger<BookingService> logger)
+        public BookingService(IUnitOfWork unitOfWork, ILogger<BookingService> logger, IBookingAvailabilityService availabilityService, IBookingCreationService creationService, IMapper mapper)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _availabilityService = availabilityService;
+            _creationService = creationService;
+            _mapper = mapper;
         }
 
-        public async Task<BookingDto> CreateBookingAsync(Guid clientId, CreateBookingDto request)
-        {
-            var service = await _unitOfWork.Repository<Service>().GetByIdAsync(request.ServiceId)
-                          ?? throw new Exception("Không tìm thấy dịch vụ này.");
+        public Task<BookingAvailabilityDto> GetAvailabilityAsync(Guid clientId, BookingAvailabilityRequestDto request) =>
+            _availabilityService.GetAsync(clientId, request);
 
-            decimal unitPrice = service.BasePrice;
-            decimal extraFee = 0;
-            decimal discountAmount = request.DiscountAmount;
-            decimal totalPrice = (unitPrice * request.DurationHours) + extraFee - discountAmount;
+        public Task<PricingBreakdownDto> GetQuoteAsync(Guid clientId, BookingQuoteRequestDto request) =>
+            _creationService.GetQuoteAsync(clientId, request);
 
-            if (totalPrice < 0) totalPrice = 0;
-
-            using var transaction = await _unitOfWork.BeginTransactionAsync();
-            try
-            {
-                var booking = new Booking
-                {
-                    ClientId = clientId,
-                    ServiceId = request.ServiceId,
-                    AddressId = request.AddressId,
-                    BookingType = request.BookingType,
-                    ScheduledStartTime = request.ScheduledStartTime,
-                    ScheduledEndTime = request.ScheduledStartTime.AddHours((double)request.DurationHours),
-                    DurationHours = request.DurationHours,
-                    UnitPrice = unitPrice,
-                    ExtraFee = extraFee,
-                    DiscountAmount = discountAmount,
-                    TotalPrice = totalPrice,
-                    Status = BookingStatus.PendingPayment,
-                    Notes = request.Notes ?? string.Empty, // Fix: Tránh gán null
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                await _unitOfWork.Repository<Booking>().AddAsync(booking);
-                await _unitOfWork.SaveChangesAsync();
-
-                var statusLog = new BookingStatusLog
-                {
-                    BookingId = booking.Id,
-                    OldStatus = null,
-                    NewStatus = BookingStatus.PendingPayment,
-                    ChangedBy = clientId,
-                    Reason = "Khách hàng tạo đơn đặt lịch",
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await _unitOfWork.Repository<BookingStatusLog>().AddAsync(statusLog);
-                await _unitOfWork.SaveChangesAsync();
-
-                await transaction.CommitAsync();
-
-                booking.Service = service;
-                if (request.AddressId.HasValue)
-                {
-                    booking.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(request.AddressId.Value);
-                }
-
-                return MapToDto(booking);
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Lỗi xảy ra khi tạo Booking cho ClientId: {ClientId}", clientId);
-                throw new Exception("Lỗi hệ thống khi tạo đơn. Vui lòng thử lại sau.");
-            }
-        }
+        public Task<BookingDto> CreateBookingAsync(Guid clientId, string idempotencyKey, CreateBookingDto request) =>
+            _creationService.CreateAsync(clientId, idempotencyKey, request);
 
         public async Task<IEnumerable<BookingDto>> GetClientBookingsAsync(Guid clientId)
         {
@@ -96,7 +45,7 @@ namespace Cleaning.BLL.Services
                 if (b.AddressId.HasValue)
                     b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
             }
-            return bookings.Select(MapToDto).OrderByDescending(b => b.CreatedAt);
+            return bookings.Select(_mapper.Map<BookingDto>).OrderByDescending(b => b.CreatedAt);
         }
 
         public async Task<IEnumerable<BookingDto>> GetWorkerBookingsAsync(Guid workerId)
@@ -108,7 +57,7 @@ namespace Cleaning.BLL.Services
                 if (b.AddressId.HasValue)
                     b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
             }
-            return bookings.Select(MapToDto).OrderByDescending(b => b.ScheduledStartTime);
+            return bookings.Select(_mapper.Map<BookingDto>).OrderByDescending(b => b.ScheduledStartTime);
         }
 
         public async Task<bool> UpdateBookingStatusAsync(Guid bookingId, Guid accountId, UpdateBookingStatusDto request)
@@ -203,11 +152,20 @@ namespace Cleaning.BLL.Services
             }
         }
 
-        public async Task<IEnumerable<BookingDto>> GetAvailableBookingsAsync()
+        public async Task<IEnumerable<BookingDto>> GetAvailableBookingsAsync(Guid workerId)
         {
-            var availableBookings = await _unitOfWork.Repository<Booking>()
-                .FindAsync(b => (b.Status == BookingStatus.PaidPendingWorker || b.Status == BookingStatus.AwaitingWorker)
-                                && b.WorkerId == null);
+            // Dispatch: only surface jobs the worker is actually eligible for — services they are
+            // verified to perform — so the "correct" workers see the incoming task on their screen.
+            var verifiedServiceIds = (await _unitOfWork.Repository<Cleaning.DAL.Entities.WorkerService>()
+                    .FindAsync(ws => ws.WorkerId == workerId && ws.IsVerified))
+                .Select(ws => ws.ServiceId)
+                .ToHashSet();
+
+            var availableBookings = (await _unitOfWork.Repository<Booking>()
+                    .FindAsync(b => (b.Status == BookingStatus.PaidPendingWorker || b.Status == BookingStatus.AwaitingWorker)
+                                    && b.WorkerId == null))
+                .Where(b => verifiedServiceIds.Contains(b.ServiceId))
+                .ToList();
 
             foreach (var b in availableBookings)
             {
@@ -216,7 +174,7 @@ namespace Cleaning.BLL.Services
                     b.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(b.AddressId.Value);
             }
 
-            return availableBookings.Select(MapToDto).OrderBy(b => b.ScheduledStartTime);
+            return availableBookings.Select(_mapper.Map<BookingDto>).OrderBy(b => b.ScheduledStartTime);
         }
 
         public async Task<BookingDto?> GetBookingByIdAsync(Guid bookingId)
@@ -230,37 +188,11 @@ namespace Cleaning.BLL.Services
                 booking.Address = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(booking.AddressId.Value);
             }
 
-            return MapToDto(booking);
+            return _mapper.Map<BookingDto>(booking);
         }
 
         private static bool IsAwaitingWorker(BookingStatus status) =>
             status is BookingStatus.PaidPendingWorker or BookingStatus.AwaitingWorker;
 
-        private static BookingDto MapToDto(Booking b)
-        {
-            return new BookingDto
-            {
-                Id = b.Id,
-                ClientId = b.ClientId,
-                WorkerId = b.WorkerId,
-                ServiceId = b.ServiceId,
-                AddressId = b.AddressId,
-                BookingType = b.BookingType.ToString(),
-                ScheduledStartTime = b.ScheduledStartTime,
-                ScheduledEndTime = b.ScheduledEndTime,
-                DurationHours = b.DurationHours,
-                UnitPrice = b.UnitPrice,
-                ExtraFee = b.ExtraFee,
-                DiscountAmount = b.DiscountAmount,
-                TotalPrice = b.TotalPrice,
-                Status = b.Status.ToString(),
-                Notes = b.Notes ?? string.Empty,
-                CreatedAt = b.CreatedAt,
-                ServiceName = b.Service?.Name ?? string.Empty,
-                AddressText = b.Address?.AddressText ?? string.Empty,
-                Latitude = b.Address?.Latitude,
-                Longitude = b.Address?.Longitude
-            };
-        }
     }
 }
