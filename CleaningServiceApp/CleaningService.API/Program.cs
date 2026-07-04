@@ -1,4 +1,6 @@
 ﻿using System.Text;
+using System.Text.Json.Serialization;
+using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.BLL.Mapping;
@@ -7,8 +9,10 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
 using Cleaning.DAL.Repositories;
+using CleaningService.API.Common;
 using CleaningService.API.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -106,7 +110,32 @@ namespace CleaningService.API
                     };
                 });
 
-            builder.Services.AddControllers();
+            builder.Services.AddControllers(options =>
+                {
+                    options.Filters.Add<ApiResponseWrapperFilter>();
+                })
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                });
+
+            builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+            builder.Services.AddProblemDetails();
+
+            builder.Services.Configure<ApiBehaviorOptions>(options =>
+            {
+                options.InvalidModelStateResponseFactory = context =>
+                {
+                    var errors = context.ModelState
+                        .Where(kvp => kvp.Value is { Errors.Count: > 0 })
+                        .ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray());
+                    return new BadRequestObjectResult(
+                        ApiResponse.Fail(ResponseMessages.ValidationFailed, AppErrors.ValidationError.Code, errors));
+                };
+            });
+
             builder.Services.AddAutoMapper(configuration =>
                 configuration.AddProfile<BookingMappingProfile>());
             builder.Services.AddEndpointsApiExplorer();
@@ -185,6 +214,8 @@ namespace CleaningService.API
             // 6. KHỞI TẠO APP VÀ PIPELINE
             // ==========================================
             var app = builder.Build();
+
+            app.UseExceptionHandler();
 
             if (app.Environment.IsDevelopment())
             {

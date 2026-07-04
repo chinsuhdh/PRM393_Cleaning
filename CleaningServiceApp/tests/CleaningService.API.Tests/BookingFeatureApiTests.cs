@@ -49,7 +49,7 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
             DiscountAmount = 50_000
         });
         Assert.Equal(HttpStatusCode.OK, quoteResponse.StatusCode);
-        var quote = await quoteResponse.Content.ReadFromJsonAsync<PricingBreakdownDto>();
+        var quote = await quoteResponse.Content.ReadDataAsync<PricingBreakdownDto>();
         Assert.NotNull(quote);
         Assert.Equal(200_000m, quote!.LineTotal);
         Assert.Equal(150_000m, quote.TotalPrice);
@@ -68,7 +68,7 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
         });
         var response = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var booking = await response.Content.ReadFromJsonAsync<BookingDto>();
+        var booking = await response.Content.ReadDataAsync<BookingDto>();
         Assert.NotNull(booking);
         Assert.NotNull(booking!.PricingBreakdown);
         Assert.Equal(150_000m, booking.PricingBreakdown!.TotalPrice);
@@ -97,7 +97,7 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
 
         var response = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var booking = await response.Content.ReadFromJsonAsync<BookingDto>();
+        var booking = await response.Content.ReadDataAsync<BookingDto>();
 
         await using var scope = fixture.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -126,7 +126,7 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
         var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal("BOOKING_OPTION_ANSWERS_INVALID", body.GetProperty("code").GetString());
+        Assert.Equal("BOOKING_OPTION_ANSWERS_INVALID", body.GetProperty("errorCode").GetString());
 
         await using var scope = fixture.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

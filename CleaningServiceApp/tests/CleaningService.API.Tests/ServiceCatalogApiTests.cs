@@ -15,7 +15,7 @@ public sealed class ServiceCatalogApiTests(PostgreSqlApiFixture fixture) : IAsyn
     public async Task GetCategories_ReturnsConfiguredCategories()
     {
         var response = await fixture.Client.GetAsync("/api/ServiceCatalog/categories");
-        var categories = await response.Content.ReadFromJsonAsync<List<ServiceCategoryDto>>();
+        var categories = await response.Content.ReadDataAsync<List<ServiceCategoryDto>>();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(categories);

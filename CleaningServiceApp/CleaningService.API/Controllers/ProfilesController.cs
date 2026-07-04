@@ -1,6 +1,8 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
+using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
+using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -28,11 +30,11 @@ namespace CleaningService.API.Controllers
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdClaim, out var userId))
-                return Unauthorized();
+                throw new AppException(AppErrors.Unauthorized);
 
             var profile = await _profileService.GetProfileAsync(userId);
             if (profile == null)
-                return NotFound(new { message = "Profile not found." });
+                throw new AppException(AppErrors.ProfileNotFound);
 
             return Ok(profile);
         }
@@ -43,19 +45,16 @@ namespace CleaningService.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileDto request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdClaim, out var userId))
-                return Unauthorized();
+                throw new AppException(AppErrors.Unauthorized);
 
             var result = await _profileService.UpdateProfileAsync(userId, request);
 
             if (!result)
-                return NotFound(new { message = "Profile not found or could not be updated." });
+                throw new AppException(AppErrors.ProfileUpdateFailed);
 
-            return Ok(new { message = "Profile updated successfully." });
+            return Ok(ApiResponse.Message(ResponseMessages.ProfileUpdated));
         }
 
         [HttpPost("me/avatar")]
@@ -64,15 +63,16 @@ namespace CleaningService.API.Controllers
         public async Task<IActionResult> UploadAvatar(IFormFile file)
         {
             if (file == null || file.Length == 0)
-                return BadRequest(new { message = "Vui lòng chọn một file ảnh hợp lệ." });
+                throw new AppException(AppErrors.AvatarFileRequired);
 
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png" };
             var extension = Path.GetExtension(file.FileName).ToLower();
             if (!allowedExtensions.Contains(extension))
-                return BadRequest(new { message = "Chỉ chấp nhận các định dạng file .jpg, .jpeg, .png" });
+                throw new AppException(AppErrors.AvatarFileTypeInvalid);
 
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (!Guid.TryParse(userIdClaim, out var userId)) return Unauthorized();
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                throw new AppException(AppErrors.Unauthorized);
 
             try
             {
@@ -99,11 +99,11 @@ namespace CleaningService.API.Controllers
 
                 await _profileService.UpdateAvatarAsync(userId, avatarUrl);
 
-                return Ok(new { avatarUrl = avatarUrl, message = "Upload ảnh đại diện thành công!" });
+                return Ok(ApiResponse.Ok(new { avatarUrl }, ResponseMessages.AvatarUploaded));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Lỗi hệ thống khi lưu file.", error = ex.Message });
+                throw new AppException(AppErrors.AvatarUploadFailed);
             }
         }
     }

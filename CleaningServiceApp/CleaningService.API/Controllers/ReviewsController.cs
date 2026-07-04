@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
+using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -25,12 +26,9 @@ namespace CleaningService.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> CreateReview([FromBody] CreateReviewDto request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdClaim, out var reviewerId))
-                return Unauthorized();
+                throw new AppException(AppErrors.Unauthorized);
 
             try
             {
@@ -40,12 +38,12 @@ namespace CleaningService.API.Controllers
             catch (ArgumentException ex)
             {
                 // Xảy ra khi không tìm thấy Booking
-                return NotFound(new { message = ex.Message });
+                throw new AppException(new AppError(AppErrors.NotFound.Code, ex.Message, 404));
             }
             catch (InvalidOperationException ex)
             {
                 // Xảy ra khi vi phạm Business Rules (booking chưa xong, tự review, review 2 lần...)
-                return BadRequest(new { message = ex.Message });
+                throw new AppException(new AppError(AppErrors.ValidationError.Code, ex.Message, 400));
             }
         }
 

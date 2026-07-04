@@ -24,10 +24,77 @@ public static class AppErrors
         "BOOKING_OUTSIDE_OPERATING_HOURS", "Thời gian đã chọn nằm ngoài giờ hoạt động của dịch vụ.");
     public static readonly AppError NoAvailableWorker = new(
         "BOOKING_NO_AVAILABLE_WORKER", "Không có nhân viên phù hợp trong thời gian đã chọn.", 409);
-    public static readonly AppError SlotUnavailable = new(
-        "BOOKING_SLOT_UNAVAILABLE", "Khung giờ đã chọn không còn khả dụng.", 409);
     public static readonly AppError BookingConflict = new(
         "BOOKING_CONFLICT", "Dữ liệu đặt dịch vụ đã thay đổi. Vui lòng thử lại.", 409);
     public static readonly AppError BookingCreateFailed = new(
         "BOOKING_CREATE_FAILED", "Không thể tạo đơn đặt dịch vụ. Vui lòng thử lại sau.", 500);
+
+    public static readonly AppError ValidationError = new(
+        "VALIDATION_ERROR", "Dữ liệu không hợp lệ.", 400);
+    public static readonly AppError Unauthorized = new(
+        "UNAUTHORIZED", "Bạn cần đăng nhập để thực hiện thao tác này.", 401);
+    public static readonly AppError Forbidden = new(
+        "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này.", 403);
+    public static readonly AppError NotFound = new(
+        "NOT_FOUND", "Không tìm thấy dữ liệu yêu cầu.", 404);
+    public static readonly AppError InternalError = new(
+        "INTERNAL_ERROR", "Đã xảy ra lỗi, vui lòng thử lại.", 500);
+
+    public static readonly AppError BookingNotFound = new(
+        "BOOKING_NOT_FOUND", "Không tìm thấy đơn đặt lịch này.", 404);
+    public static readonly AppError BookingStatusUpdateFailed = new(
+        "BOOKING_STATUS_UPDATE_FAILED", "Không tìm thấy đơn đặt lịch này hoặc có lỗi xảy ra.", 404);
+    public static readonly AppError BookingAcceptFailed = new(
+        "BOOKING_ACCEPT_FAILED", "Đơn hàng này không hợp lệ, hoặc đã có thợ khác nhanh tay nhận mất rồi.", 409);
+
+    public static readonly AppError AuthRegisterFailed = new(
+        "AUTH_REGISTER_FAILED", "Email hoặc số điện thoại đã tồn tại, hoặc có lỗi hệ thống xảy ra.", 400);
+    public static readonly AppError AuthInvalidCredentials = new(
+        "AUTH_INVALID_CREDENTIALS", "Sai tài khoản hoặc mật khẩu.", 401);
+    public static readonly AppError AuthInvalidRefreshToken = new(
+        "AUTH_INVALID_REFRESH_TOKEN", "Refresh token không hợp lệ hoặc đã hết hạn.", 401);
+    public static readonly AppError AuthEmailNotFound = new(
+        "AUTH_EMAIL_NOT_FOUND", "Không tìm thấy email trong hệ thống.", 404);
+    public static readonly AppError AuthResetPasswordFailed = new(
+        "AUTH_RESET_PASSWORD_FAILED", "OTP sai, đã hết hạn hoặc đã được sử dụng.", 400);
+    public static readonly AppError AuthVerifyAccountFailed = new(
+        "AUTH_VERIFY_ACCOUNT_FAILED", "Mã OTP không hợp lệ, đã hết hạn hoặc tài khoản không tồn tại.", 400);
+    public static readonly AppError AuthChangePasswordFailed = new(
+        "AUTH_CHANGE_PASSWORD_FAILED", "Mật khẩu cũ không đúng hoặc tài khoản không tồn tại.", 400);
+    public static readonly AppError AuthSendPhoneOtpFailed = new(
+        "AUTH_SEND_PHONE_OTP_FAILED", "Không thể gửi OTP. Hãy kiểm tra lại số điện thoại trong hồ sơ.", 400);
+    public static readonly AppError AuthVerifyPhoneFailed = new(
+        "AUTH_VERIFY_PHONE_FAILED", "Mã OTP sai, hết hạn hoặc số điện thoại không tồn tại.", 400);
+
+    public static readonly AppError AiMessageRequired = new(
+        "AI_MESSAGE_REQUIRED", "Tin nhắn không được để trống.", 400);
+    public static readonly AppError AiMatchingFailed = new(
+        "AI_MATCHING_FAILED", "Không thể phân tích hoặc không tìm thấy thợ phù hợp.", 400);
+
+    public static readonly AppError PaymentNotFound = new(
+        "PAYMENT_NOT_FOUND", "Không tìm thấy thông tin thanh toán cho đơn này.", 404);
+    public static readonly AppError PaymentCallbackFailed = new(
+        "PAYMENT_CALLBACK_FAILED", "Không tìm thấy giao dịch hoặc lỗi hệ thống.", 404);
+
+    public static readonly AppError ProfileNotFound = new(
+        "PROFILE_NOT_FOUND", "Profile not found.", 404);
+    public static readonly AppError ProfileUpdateFailed = new(
+        "PROFILE_UPDATE_FAILED", "Profile not found or could not be updated.", 404);
+    public static readonly AppError AvatarFileRequired = new(
+        "AVATAR_FILE_REQUIRED", "Vui lòng chọn một file ảnh hợp lệ.", 400);
+    public static readonly AppError AvatarFileTypeInvalid = new(
+        "AVATAR_FILE_TYPE_INVALID", "Chỉ chấp nhận các định dạng file .jpg, .jpeg, .png", 400);
+    public static readonly AppError AvatarUploadFailed = new(
+        "AVATAR_UPLOAD_FAILED", "Lỗi hệ thống khi lưu file.", 500);
+
+    public static readonly AppError ServiceNotFound = new(
+        "SERVICE_NOT_FOUND", "Không tìm thấy dịch vụ hoặc dịch vụ đang tạm ngưng.", 404);
+
+    public static readonly AppError AddressNotFound = new(
+        "ADDRESS_NOT_FOUND", "Address not found.", 404);
+
+    public static readonly AppError WorkerProfileNotFound = new(
+        "WORKER_PROFILE_NOT_FOUND", "Worker profile not found.", 404);
+    public static readonly AppError WorkerProfileExists = new(
+        "WORKER_PROFILE_EXISTS", "Worker profile already exists.", 400);
 }
