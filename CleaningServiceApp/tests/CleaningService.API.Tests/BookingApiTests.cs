@@ -39,7 +39,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         var start = DateTime.UtcNow.Date.AddDays(1).AddHours(2);
         var availability = await client.PostAsJsonAsync("/api/Bookings/availability",
             AvailabilityRequest(start));
-        var available = await availability.Content.ReadFromJsonAsync<BookingAvailabilityDto>();
+        var available = await availability.Content.ReadDataAsync<BookingAvailabilityDto>();
         Assert.Equal(HttpStatusCode.OK, availability.StatusCode);
         Assert.NotNull(available);
         Assert.Single(available.Slots);
@@ -48,7 +48,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         request.Headers.Add("Idempotency-Key", "it-book-001-happy");
         request.Content = JsonContent.Create(CreateRequest(start));
         var response = await client.SendAsync(request);
-        var booking = await response.Content.ReadFromJsonAsync<BookingDto>();
+        var booking = await response.Content.ReadDataAsync<BookingDto>();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(booking);
@@ -77,7 +77,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         });
 
         var response = await client.SendAsync(request);
-        var booking = await response.Content.ReadFromJsonAsync<BookingDto>();
+        var booking = await response.Content.ReadDataAsync<BookingDto>();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(booking);
@@ -112,7 +112,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         });
 
         var response = await client.SendAsync(request);
-        var booking = await response.Content.ReadFromJsonAsync<BookingDto>();
+        var booking = await response.Content.ReadDataAsync<BookingDto>();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(booking);
@@ -157,8 +157,8 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         var retry = await CreateAsync("it-book-001-retry", CreateRequest(start));
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
-        var firstBooking = await first.Content.ReadFromJsonAsync<BookingDto>();
-        var retryBooking = await retry.Content.ReadFromJsonAsync<BookingDto>();
+        var firstBooking = await first.Content.ReadDataAsync<BookingDto>();
+        var retryBooking = await retry.Content.ReadDataAsync<BookingDto>();
         Assert.Equal(firstBooking!.Id, retryBooking!.Id);
 
         // New flow: no worker slot is reserved at create time, so two bookings for the same time both
@@ -191,7 +191,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
                 CreateRequest(start.AddHours(7)));
             Assert.Equal(HttpStatusCode.InternalServerError, transactionFailure.StatusCode);
             var error = JsonDocument.Parse(await transactionFailure.Content.ReadAsStringAsync()).RootElement;
-            Assert.Equal("BOOKING_CREATE_FAILED", error.GetProperty("code").GetString());
+            Assert.Equal("BOOKING_CREATE_FAILED", error.GetProperty("errorCode").GetString());
         }
         finally
         {
@@ -205,7 +205,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         await db.SaveChangesAsync();
         var stale = await client.PostAsJsonAsync("/api/Bookings/availability",
             AvailabilityRequest(start.AddHours(2)));
-        var staleBody = await stale.Content.ReadFromJsonAsync<BookingAvailabilityDto>();
+        var staleBody = await stale.Content.ReadDataAsync<BookingAvailabilityDto>();
         Assert.Equal(HttpStatusCode.OK, stale.StatusCode);
         Assert.Empty(staleBody!.Slots);
         Assert.Equal("BOOKING_NO_AVAILABLE_WORKER", staleBody.EmptyReasonCode);

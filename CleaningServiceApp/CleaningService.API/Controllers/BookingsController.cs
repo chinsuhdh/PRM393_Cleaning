@@ -1,7 +1,8 @@
-﻿using System.Security.Claims;
-using Cleaning.BLL.DTOs;
+using System.Security.Claims;
 using Cleaning.BLL.Common;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
+using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -23,53 +24,28 @@ namespace CleaningService.API.Controllers
         [Authorize(Roles = "Client")]
         public async Task<IActionResult> GetAvailability([FromBody] BookingAvailabilityRequestDto request)
         {
-            if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            try
-            {
-                var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                return Ok(await _bookingService.GetAvailabilityAsync(clientId, request));
-            }
-            catch (AppException ex)
-            {
-                return StatusCode(ex.StatusCode, new { code = ex.Code, message = ex.Message, correlationId = HttpContext.TraceIdentifier });
-            }
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return Ok(await _bookingService.GetAvailabilityAsync(clientId, request));
         }
 
         [HttpPost("quote")]
         [Authorize(Roles = "Client")]
         public async Task<IActionResult> GetQuote([FromBody] BookingQuoteRequestDto request)
         {
-            if (!ModelState.IsValid) return ValidationProblem(ModelState);
-            try
-            {
-                var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                return Ok(await _bookingService.GetQuoteAsync(clientId, request));
-            }
-            catch (AppException ex)
-            {
-                return StatusCode(ex.StatusCode, new { code = ex.Code, message = ex.Message, correlationId = HttpContext.TraceIdentifier });
-            }
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return Ok(await _bookingService.GetQuoteAsync(clientId, request));
         }
 
         [HttpPost]
         [Authorize(Roles = "Client")]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDto request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            if (!Request.Headers.TryGetValue("Idempotency-Key", out var key))
+                throw new AppException(AppErrors.IdempotencyKeyRequired);
 
-            try
-            {
-                var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                if (!Request.Headers.TryGetValue("Idempotency-Key", out var key))
-                    throw new AppException(AppErrors.IdempotencyKeyRequired);
-                var booking = await _bookingService.CreateBookingAsync(clientId, key.ToString(), request);
-
-                return Ok(booking);
-            }
-            catch (AppException ex)
-            {
-                return StatusCode(ex.StatusCode, new { code = ex.Code, message = ex.Message, correlationId = HttpContext.TraceIdentifier });
-            }
+            var booking = await _bookingService.CreateBookingAsync(clientId, key.ToString(), request);
+            return Ok(booking);
         }
 
         [HttpGet("client")]
@@ -95,14 +71,12 @@ namespace CleaningService.API.Controllers
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateBookingStatus(Guid id, [FromBody] UpdateBookingStatusDto request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
             var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _bookingService.UpdateBookingStatusAsync(id, accountId, request);
 
-            if (!result) return NotFound(new { message = "Không tìm thấy đơn đặt lịch này hoặc có lỗi xảy ra." });
+            if (!result) throw new AppException(AppErrors.BookingStatusUpdateFailed);
 
-            return Ok(new { message = "Cập nhật trạng thái đơn thành công." });
+            return Ok(ApiResponse.Message(ResponseMessages.BookingStatusUpdated));
         }
 
         [HttpGet("available")]
@@ -121,9 +95,9 @@ namespace CleaningService.API.Controllers
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _bookingService.AcceptBookingAsync(id, workerId);
 
-            if (!result) return BadRequest(new { message = "Đơn hàng này không hợp lệ, hoặc đã có thợ khác nhanh tay nhận mất rồi." });
+            if (!result) throw new AppException(AppErrors.BookingAcceptFailed);
 
-            return Ok(new { message = "Nhận đơn đặt lịch thành công!" });
+            return Ok(ApiResponse.Message(ResponseMessages.BookingAccepted));
         }
 
         [HttpGet("{id}")]
@@ -131,10 +105,7 @@ namespace CleaningService.API.Controllers
         {
             var booking = await _bookingService.GetBookingByIdAsync(id);
 
-            if (booking == null)
-            {
-                return NotFound(new { message = "Không tìm thấy đơn đặt lịch này." });
-            }
+            if (booking == null) throw new AppException(AppErrors.BookingNotFound);
 
             return Ok(booking);
         }

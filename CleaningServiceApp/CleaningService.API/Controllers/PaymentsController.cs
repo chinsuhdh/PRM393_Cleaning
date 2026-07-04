@@ -1,5 +1,7 @@
-﻿using Cleaning.BLL.DTOs;
+using Cleaning.BLL.Common;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
+using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,17 +22,8 @@ namespace CleaningService.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentDto request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            try
-            {
-                var payment = await _paymentService.CreatePaymentAsync(request);
-                return Ok(payment);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+            var payment = await _paymentService.CreatePaymentAsync(request);
+            return Ok(payment);
         }
 
         [HttpGet("booking/{bookingId}")]
@@ -38,8 +31,7 @@ namespace CleaningService.API.Controllers
         {
             var payment = await _paymentService.GetPaymentByBookingAsync(bookingId);
 
-            if (payment == null)
-                return NotFound(new { message = "Không tìm thấy thông tin thanh toán cho đơn này." });
+            if (payment == null) throw new AppException(AppErrors.PaymentNotFound);
 
             return Ok(payment);
         }
@@ -51,9 +43,9 @@ namespace CleaningService.API.Controllers
         {
             var result = await _paymentService.ProcessPaymentCallbackAsync(id, request);
 
-            if (!result) return NotFound(new { message = "Không tìm thấy giao dịch hoặc lỗi hệ thống." });
+            if (!result) throw new AppException(AppErrors.PaymentCallbackFailed);
 
-            return Ok(new { message = "Đã cập nhật trạng thái thanh toán." });
+            return Ok(ApiResponse.Message(ResponseMessages.PaymentCallbackProcessed));
         }
     }
 }

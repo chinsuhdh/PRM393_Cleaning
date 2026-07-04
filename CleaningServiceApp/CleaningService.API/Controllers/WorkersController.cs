@@ -1,6 +1,8 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
+using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
+using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -27,7 +29,7 @@ namespace CleaningService.API.Controllers
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var profile = await _workerService.GetWorkerProfileAsync(workerId);
 
-            if (profile == null) return NotFound(new { message = "Worker profile not found." });
+            if (profile == null) throw new AppException(AppErrors.WorkerProfileNotFound);
             return Ok(profile);
         }
 
@@ -36,13 +38,11 @@ namespace CleaningService.API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RegisterWorkerProfile([FromBody] RegisterWorkerProfileDto request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _workerService.RegisterWorkerProfileAsync(workerId, request);
 
-            if (!result) return BadRequest(new { message = "Worker profile already exists." });
-            return Ok(new { message = "Worker profile registered successfully." });
+            if (!result) throw new AppException(AppErrors.WorkerProfileExists);
+            return Ok(ApiResponse.Message(ResponseMessages.WorkerRegistered));
         }
 
         [HttpPatch("location")]
@@ -51,13 +51,11 @@ namespace CleaningService.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateLocation([FromBody] UpdateLocationDto request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _workerService.UpdateLocationAsync(workerId, request);
 
-            if (!result) return NotFound(new { message = "Worker profile not found." });
-            return Ok(new { message = "Location updated." });
+            if (!result) throw new AppException(AppErrors.WorkerProfileNotFound);
+            return Ok(ApiResponse.Message(ResponseMessages.WorkerLocationUpdated));
         }
 
         [HttpGet("me/skills")]
@@ -74,12 +72,10 @@ namespace CleaningService.API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> AddOrUpdateSkill([FromBody] WorkerSkillDto request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _workerService.AddOrUpdateWorkerSkillAsync(workerId, request);
 
-            return Ok(new { message = "Skill updated successfully." });
+            return Ok(ApiResponse.Message(ResponseMessages.WorkerSkillUpdated));
         }
     }
 }
