@@ -4,6 +4,7 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cleaning.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260704234249_BookingStateMachineRework")]
+    partial class BookingStateMachineRework
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -28,8 +31,9 @@ namespace Cleaning.DAL.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "booking_type", new[] { "scheduled", "immediate" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "cleanliness_level", new[] { "clean", "light", "medium", "heavy" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "notification_type", new[] { "booking", "payment", "schedule", "system", "ai" });
-            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_method", new[] { "cash", "vnpay" });
-            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_status", new[] { "pending", "success", "failed" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_method", new[] { "cash", "momo", "vnpay", "zalopay", "bank_transfer" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_status", new[] { "pending", "success", "failed", "refunded", "partially_refunded" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payout_status", new[] { "pending", "paid", "failed" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "photo_type", new[] { "before", "after", "issue", "ai_reference" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "property_type", new[] { "apartment", "house" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "reschedule_status", new[] { "pending", "accepted", "rejected", "cancelled" });
@@ -81,6 +85,13 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("is_phone_verified");
+
+                    b.Property<string>("NotificationPreferences")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("notification_preferences")
+                        .HasDefaultValueSql("'{}'::jsonb");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text")
@@ -483,13 +494,14 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnName("id")
                         .HasDefaultValueSql("gen_random_uuid()");
 
-                    b.Property<UserRole>("ActorRole")
-                        .HasColumnType("user_role")
-                        .HasColumnName("actor_role");
-
                     b.Property<Guid>("BookingId")
                         .HasColumnType("uuid")
                         .HasColumnName("booking_id");
+
+                    b.Property<decimal>("CancellationFee")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("cancellation_fee");
 
                     b.Property<Guid>("CancelledBy")
                         .HasColumnType("uuid")
@@ -505,10 +517,10 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("text")
                         .HasColumnName("reason");
 
-                    b.Property<string>("ReasonCode")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
-                        .HasColumnName("reason_code");
+                    b.Property<decimal>("RefundAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("refund_amount");
 
                     b.HasKey("Id")
                         .HasName("booking_cancellations_pkey");
@@ -517,8 +529,6 @@ namespace Cleaning.DAL.Migrations
 
                     b.HasIndex(new[] { "BookingId" }, "booking_cancellations_booking_id_key")
                         .IsUnique();
-
-                    b.HasIndex(new[] { "CreatedAt" }, "idx_booking_cancellations_created_at");
 
                     b.ToTable("booking_cancellations", (string)null);
                 });
@@ -736,6 +746,62 @@ namespace Cleaning.DAL.Migrations
                     b.HasIndex(new[] { "BookingId" }, "idx_booking_logs_booking");
 
                     b.ToTable("booking_status_logs", (string)null);
+                });
+
+            modelBuilder.Entity("Cleaning.DAL.Entities.BookingWorkerOffer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("booking_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<decimal>("RankScore")
+                        .HasPrecision(10, 4)
+                        .HasColumnType("numeric(10,4)")
+                        .HasColumnName("rank_score");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("pending")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("WorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId")
+                        .IsUnique()
+                        .HasFilter("status = 'accepted'");
+
+                    b.HasIndex("WorkerId");
+
+                    b.HasIndex("BookingId", "WorkerId")
+                        .IsUnique();
+
+                    b.ToTable("booking_worker_offers", (string)null);
                 });
 
             modelBuilder.Entity("Cleaning.DAL.Entities.DeviceToken", b =>
@@ -1135,10 +1201,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("text")
                         .HasColumnName("full_name");
 
-                    b.Property<DateTime?>("OnboardingCompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("onboarding_completed_at");
-
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1163,13 +1225,17 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("archived_at");
 
-                    b.Property<string>("BannerImageUrl")
+                    b.Property<string>("Code")
+                        .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("banner_image_url");
+                        .HasColumnName("code");
 
-                    b.Property<string>("BannerTitle")
-                        .HasColumnType("text")
-                        .HasColumnName("banner_title");
+                    b.Property<string>("Conditions")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("conditions")
+                        .HasDefaultValueSql("'{}'::jsonb");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1195,14 +1261,30 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ends_at");
 
+                    b.Property<decimal?>("MaximumDiscountAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("maximum_discount_amount");
+
+                    b.Property<decimal>("MinimumBookingAmount")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("minimum_booking_amount");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
 
-                    b.Property<Guid>("ServiceId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("service_id");
+                    b.Property<int>("PerUserQuota")
+                        .HasColumnType("integer")
+                        .HasColumnName("per_user_quota");
+
+                    b.Property<int>("RedeemedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("redeemed_count");
 
                     b.Property<DateTime>("StartsAt")
                         .HasColumnType("timestamp with time zone")
@@ -1212,6 +1294,10 @@ namespace Cleaning.DAL.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("status");
+
+                    b.Property<int?>("TotalQuota")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_quota");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -1228,9 +1314,53 @@ namespace Cleaning.DAL.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ServiceId", "StartsAt", "EndsAt");
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.ToTable("promotions", (string)null);
+                });
+
+            modelBuilder.Entity("Cleaning.DAL.Entities.PromotionRedemption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("booking_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("discount_amount");
+
+                    b.Property<Guid>("PromotionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("promotion_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("PromotionId", "UserId");
+
+                    b.ToTable("promotion_redemptions", (string)null);
                 });
 
             modelBuilder.Entity("Cleaning.DAL.Entities.RefreshToken", b =>
@@ -1293,6 +1423,76 @@ namespace Cleaning.DAL.Migrations
                         .IsUnique();
 
                     b.ToTable("refresh_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Cleaning.DAL.Entities.Refund", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("IdempotencyKey")
+                        .HasColumnType("text")
+                        .HasColumnName("idempotency_key");
+
+                    b.Property<Guid>("PaymentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("payment_id");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.Property<string>("ProviderRefundId")
+                        .HasColumnType("text")
+                        .HasColumnName("provider_refund_id");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid?>("RequestedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("requested_by");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("pending")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("refunds_pkey");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasFilter("idempotency_key IS NOT NULL");
+
+                    b.HasIndex("PaymentId");
+
+                    b.HasIndex("RequestedBy");
+
+                    b.ToTable("refunds", (string)null);
                 });
 
             modelBuilder.Entity("Cleaning.DAL.Entities.Review", b =>
@@ -1522,10 +1722,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("numeric(3,2)")
                         .HasColumnName("average_rating");
 
-                    b.Property<Guid?>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
-
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_time");
@@ -1557,10 +1753,6 @@ namespace Cleaning.DAL.Migrations
                         .HasPrecision(3, 2)
                         .HasColumnType("numeric(3,2)")
                         .HasColumnName("average_rating");
-
-                    b.Property<Guid?>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
 
                     b.Property<decimal?>("CurrentLat")
                         .HasPrecision(10, 7)
@@ -1814,29 +2006,6 @@ namespace Cleaning.DAL.Migrations
                     b.ToTable("worker_earnings", (string)null);
                 });
 
-            modelBuilder.Entity("Cleaning.DAL.Entities.WorkerHiddenBooking", b =>
-                {
-                    b.Property<Guid>("WorkerId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("worker_id");
-
-                    b.Property<Guid>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("WorkerId", "BookingId");
-
-                    b.HasIndex("BookingId");
-
-                    b.ToTable("worker_hidden_bookings", (string)null);
-                });
-
             modelBuilder.Entity("Cleaning.DAL.Entities.WorkerProfile", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1876,6 +2045,12 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("numeric(10,7)")
                         .HasColumnName("current_lng");
 
+                    b.Property<bool>("ImmediateBookingEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("immediate_booking_enabled");
+
                     b.Property<DateTime?>("LocationUpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("location_updated_at");
@@ -1890,10 +2065,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("numeric(6,2)")
                         .HasDefaultValue(10m)
                         .HasColumnName("service_radius_km");
-
-                    b.Property<DateTime?>("SuspendedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("suspended_at");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -2172,6 +2343,21 @@ namespace Cleaning.DAL.Migrations
                     b.Navigation("ChangedByNavigation");
                 });
 
+            modelBuilder.Entity("Cleaning.DAL.Entities.BookingWorkerOffer", b =>
+                {
+                    b.HasOne("Cleaning.DAL.Entities.Booking", null)
+                        .WithMany()
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Cleaning.DAL.Entities.WorkerProfile", null)
+                        .WithMany()
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Cleaning.DAL.Entities.DeviceToken", b =>
                 {
                     b.HasOne("Cleaning.DAL.Entities.Account", null)
@@ -2251,11 +2437,23 @@ namespace Cleaning.DAL.Migrations
                     b.Navigation("IdNavigation");
                 });
 
-            modelBuilder.Entity("Cleaning.DAL.Entities.Promotion", b =>
+            modelBuilder.Entity("Cleaning.DAL.Entities.PromotionRedemption", b =>
                 {
-                    b.HasOne("Cleaning.DAL.Entities.Service", null)
+                    b.HasOne("Cleaning.DAL.Entities.Booking", null)
                         .WithMany()
-                        .HasForeignKey("ServiceId")
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Cleaning.DAL.Entities.Promotion", null)
+                        .WithMany()
+                        .HasForeignKey("PromotionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Cleaning.DAL.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
@@ -2270,6 +2468,23 @@ namespace Cleaning.DAL.Migrations
                         .HasConstraintName("refresh_tokens_account_id_fkey");
 
                     b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("Cleaning.DAL.Entities.Refund", b =>
+                {
+                    b.HasOne("Cleaning.DAL.Entities.Payment", "Payment")
+                        .WithMany("Refunds")
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("refunds_payment_id_fkey");
+
+                    b.HasOne("Cleaning.DAL.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("RequestedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Payment");
                 });
 
             modelBuilder.Entity("Cleaning.DAL.Entities.Review", b =>
@@ -2367,21 +2582,6 @@ namespace Cleaning.DAL.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Cleaning.DAL.Entities.WorkerHiddenBooking", b =>
-                {
-                    b.HasOne("Cleaning.DAL.Entities.Booking", null)
-                        .WithMany()
-                        .HasForeignKey("BookingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Cleaning.DAL.Entities.WorkerProfile", null)
-                        .WithMany()
-                        .HasForeignKey("WorkerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("Cleaning.DAL.Entities.WorkerProfile", b =>
                 {
                     b.HasOne("Cleaning.DAL.Entities.Profile", "User")
@@ -2472,6 +2672,11 @@ namespace Cleaning.DAL.Migrations
             modelBuilder.Entity("Cleaning.DAL.Entities.BookingPhoto", b =>
                 {
                     b.Navigation("AiCleanlinessAnalyses");
+                });
+
+            modelBuilder.Entity("Cleaning.DAL.Entities.Payment", b =>
+                {
+                    b.Navigation("Refunds");
                 });
 
             modelBuilder.Entity("Cleaning.DAL.Entities.Profile", b =>

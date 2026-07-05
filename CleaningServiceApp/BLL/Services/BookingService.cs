@@ -70,9 +70,8 @@ namespace Cleaning.BLL.Services
                     {
                         BookingId = booking.Id,
                         CancelledBy = accountId,
+                        ActorRole = booking.ClientId == accountId ? UserRole.Client : UserRole.Worker,
                         Reason = request.Reason ?? string.Empty, // Fix: Tránh null
-                        CancellationFee = 0,
-                        RefundAmount = 0,
                         CreatedAt = DateTime.UtcNow
                     });
                 }
@@ -154,7 +153,7 @@ namespace Cleaning.BLL.Services
                 .ToHashSet();
 
             var availableBookings = (await _unitOfWork.Repository<Booking>()
-                    .FindAsync(b => (b.Status == BookingStatus.PaidPendingWorker || b.Status == BookingStatus.AwaitingWorker)
+                    .FindAsync(b => b.Status == BookingStatus.AwaitingWorker
                                     && b.WorkerId == null))
                 .Where(b => verifiedServiceIds.Contains(b.ServiceId))
                 .ToList();
@@ -199,7 +198,7 @@ namespace Cleaning.BLL.Services
         }
 
         private static bool IsAwaitingWorker(BookingStatus status) =>
-            status is BookingStatus.PaidPendingWorker or BookingStatus.AwaitingWorker;
+            status is BookingStatus.AwaitingWorker;
 
     }
 }

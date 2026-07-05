@@ -1,4 +1,5 @@
 ﻿
+using Cleaning.DAL.Enums;
 
 namespace Cleaning.DAL.Entities;
 
@@ -10,11 +11,11 @@ public partial class BookingCancellation
 
     public Guid CancelledBy { get; set; }
 
+    public UserRole ActorRole { get; set; }
+
+    public string? ReasonCode { get; set; }
+
     public string? Reason { get; set; }
-
-    public decimal CancellationFee { get; set; }
-
-    public decimal RefundAmount { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

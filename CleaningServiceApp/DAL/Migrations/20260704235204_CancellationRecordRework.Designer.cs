@@ -4,6 +4,7 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cleaning.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260704235204_CancellationRecordRework")]
+    partial class CancellationRecordRework
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -81,6 +84,13 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(false)
                         .HasColumnName("is_phone_verified");
+
+                    b.Property<string>("NotificationPreferences")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("notification_preferences")
+                        .HasDefaultValueSql("'{}'::jsonb");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text")
@@ -1135,10 +1145,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("text")
                         .HasColumnName("full_name");
 
-                    b.Property<DateTime?>("OnboardingCompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("onboarding_completed_at");
-
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1522,10 +1528,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("numeric(3,2)")
                         .HasColumnName("average_rating");
 
-                    b.Property<Guid?>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
-
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_time");
@@ -1557,10 +1559,6 @@ namespace Cleaning.DAL.Migrations
                         .HasPrecision(3, 2)
                         .HasColumnType("numeric(3,2)")
                         .HasColumnName("average_rating");
-
-                    b.Property<Guid?>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
 
                     b.Property<decimal?>("CurrentLat")
                         .HasPrecision(10, 7)
@@ -1814,29 +1812,6 @@ namespace Cleaning.DAL.Migrations
                     b.ToTable("worker_earnings", (string)null);
                 });
 
-            modelBuilder.Entity("Cleaning.DAL.Entities.WorkerHiddenBooking", b =>
-                {
-                    b.Property<Guid>("WorkerId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("worker_id");
-
-                    b.Property<Guid>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.HasKey("WorkerId", "BookingId");
-
-                    b.HasIndex("BookingId");
-
-                    b.ToTable("worker_hidden_bookings", (string)null);
-                });
-
             modelBuilder.Entity("Cleaning.DAL.Entities.WorkerProfile", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1876,6 +1851,12 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("numeric(10,7)")
                         .HasColumnName("current_lng");
 
+                    b.Property<bool>("ImmediateBookingEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("immediate_booking_enabled");
+
                     b.Property<DateTime?>("LocationUpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("location_updated_at");
@@ -1890,10 +1871,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("numeric(6,2)")
                         .HasDefaultValue(10m)
                         .HasColumnName("service_radius_km");
-
-                    b.Property<DateTime?>("SuspendedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("suspended_at");
 
                     b.Property<DateTime>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -2364,21 +2341,6 @@ namespace Cleaning.DAL.Migrations
                         .WithMany()
                         .HasForeignKey("WorkerId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Cleaning.DAL.Entities.WorkerHiddenBooking", b =>
-                {
-                    b.HasOne("Cleaning.DAL.Entities.Booking", null)
-                        .WithMany()
-                        .HasForeignKey("BookingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Cleaning.DAL.Entities.WorkerProfile", null)
-                        .WithMany()
-                        .HasForeignKey("WorkerId")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

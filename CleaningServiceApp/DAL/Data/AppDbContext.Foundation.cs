@@ -9,24 +9,23 @@ public partial class AppDbContext
 {
     public DbSet<AdminAuditLog> AdminAuditLogs => Set<AdminAuditLog>();
     public DbSet<BookingMessage> BookingMessages => Set<BookingMessage>();
-    public DbSet<BookingWorkerOffer> BookingWorkerOffers => Set<BookingWorkerOffer>();
     public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
     public DbSet<NotificationOutbox> NotificationOutbox => Set<NotificationOutbox>();
     public DbSet<Promotion> Promotions => Set<Promotion>();
-    public DbSet<PromotionRedemption> PromotionRedemptions => Set<PromotionRedemption>();
     public DbSet<WorkerApplication> WorkerApplications => Set<WorkerApplication>();
     public DbSet<WorkerEarning> WorkerEarnings => Set<WorkerEarning>();
+    public DbSet<WorkerHiddenBooking> WorkerHiddenBookings => Set<WorkerHiddenBooking>();
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder)
     {
         ConfigureExistingFoundation(modelBuilder);
         ConfigureWorkerApplications(modelBuilder.Entity<WorkerApplication>());
         ConfigurePromotions(modelBuilder);
-        ConfigureBookingOffers(modelBuilder.Entity<BookingWorkerOffer>());
         ConfigureBookingMessages(modelBuilder.Entity<BookingMessage>());
         ConfigureDeviceTokens(modelBuilder.Entity<DeviceToken>());
         ConfigureNotificationOutbox(modelBuilder.Entity<NotificationOutbox>());
         ConfigureWorkerEarnings(modelBuilder.Entity<WorkerEarning>());
+        ConfigureWorkerHiddenBookings(modelBuilder.Entity<WorkerHiddenBooking>());
         ConfigureAdminAuditLogs(modelBuilder.Entity<AdminAuditLog>());
     }
 
@@ -37,7 +36,11 @@ public partial class AppDbContext
             entity.Property(e => e.DeletionRequestedAt).HasColumnName("deletion_requested_at");
             entity.Property(e => e.DeletedAt).HasColumnName("deleted_at");
             entity.Property(e => e.DeletionStatus).HasColumnName("deletion_status");
-            entity.Property(e => e.NotificationPreferences).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb").HasColumnName("notification_preferences");
+        });
+
+        modelBuilder.Entity<Profile>(entity =>
+        {
+            entity.Property(e => e.OnboardingCompletedAt).HasColumnName("onboarding_completed_at");
         });
 
         modelBuilder.Entity<Service>(entity =>
@@ -74,6 +77,7 @@ public partial class AppDbContext
             entity.Property(e => e.BaseLongitude).HasPrecision(10, 7).HasColumnName("base_longitude");
             entity.Property(e => e.ServiceRadiusKm).HasPrecision(6, 2).HasDefaultValue(10m).HasColumnName("service_radius_km");
             entity.Property(e => e.VerificationStatus).HasDefaultValue("pending").HasColumnName("verification_status");
+            entity.Property(e => e.SuspendedAt).HasColumnName("suspended_at");
         });
 
         modelBuilder.Entity<WorkerService>(entity =>
@@ -109,18 +113,6 @@ public partial class AppDbContext
             entity.HasIndex(e => e.ProviderReference).IsUnique().HasFilter("provider_reference IS NOT NULL");
         });
 
-        modelBuilder.Entity<Refund>(entity =>
-        {
-            entity.Property(e => e.Status).HasDefaultValue("pending").HasColumnName("status");
-            entity.Property(e => e.ProviderRefundId).HasColumnName("provider_refund_id");
-            entity.Property(e => e.RequestedAt).HasDefaultValueSql("now()").HasColumnName("requested_at");
-            entity.Property(e => e.ProcessedAt).HasColumnName("processed_at");
-            entity.Property(e => e.RequestedBy).HasColumnName("requested_by");
-            entity.Property(e => e.IdempotencyKey).HasColumnName("idempotency_key");
-            entity.HasOne<Account>().WithMany().HasForeignKey(e => e.RequestedBy).OnDelete(DeleteBehavior.SetNull);
-            entity.HasIndex(e => e.IdempotencyKey).IsUnique().HasFilter("idempotency_key IS NOT NULL");
-        });
-
         modelBuilder.Entity<Notification>(entity =>
         {
             entity.Property(e => e.ReadAt).HasColumnName("read_at");
@@ -151,34 +143,13 @@ public partial class AppDbContext
 
     private static void ConfigurePromotions(ModelBuilder modelBuilder)
     {
+        // Campaign model: one promotion targets one service, applied automatically (no codes/quotas).
         var promotion = modelBuilder.Entity<Promotion>();
         ConfigureEntity(promotion, "promotions");
         promotion.Property(e => e.DiscountValue).HasPrecision(12, 2);
-        promotion.Property(e => e.MaximumDiscountAmount).HasPrecision(12, 2);
-        promotion.Property(e => e.MinimumBookingAmount).HasPrecision(12, 2).HasDefaultValue(0m);
-        promotion.Property(e => e.Conditions).HasColumnType("jsonb").HasDefaultValueSql("'{}'::jsonb");
         promotion.Property(e => e.Version).IsConcurrencyToken().HasDefaultValue(1);
-        promotion.HasIndex(e => e.Code).IsUnique();
-
-        var redemption = modelBuilder.Entity<PromotionRedemption>();
-        ConfigureEntity(redemption, "promotion_redemptions");
-        redemption.Property(e => e.DiscountAmount).HasPrecision(12, 2);
-        redemption.HasIndex(e => e.BookingId).IsUnique();
-        redemption.HasIndex(e => new { e.PromotionId, e.UserId });
-        redemption.HasOne<Promotion>().WithMany().HasForeignKey(e => e.PromotionId).OnDelete(DeleteBehavior.Restrict);
-        redemption.HasOne<Account>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
-        redemption.HasOne<Booking>().WithMany().HasForeignKey(e => e.BookingId).OnDelete(DeleteBehavior.Restrict);
-    }
-
-    private static void ConfigureBookingOffers(EntityTypeBuilder<BookingWorkerOffer> entity)
-    {
-        ConfigureEntity(entity, "booking_worker_offers");
-        entity.Property(e => e.Status).HasDefaultValue("pending");
-        entity.Property(e => e.RankScore).HasPrecision(10, 4);
-        entity.HasIndex(e => new { e.BookingId, e.WorkerId }).IsUnique();
-        entity.HasIndex(e => e.BookingId).IsUnique().HasFilter("status = 'accepted'");
-        entity.HasOne<Booking>().WithMany().HasForeignKey(e => e.BookingId).OnDelete(DeleteBehavior.Cascade);
-        entity.HasOne<WorkerProfile>().WithMany().HasForeignKey(e => e.WorkerId).OnDelete(DeleteBehavior.Cascade);
+        promotion.HasOne<Service>().WithMany().HasForeignKey(e => e.ServiceId).OnDelete(DeleteBehavior.Restrict);
+        promotion.HasIndex(e => new { e.ServiceId, e.StartsAt, e.EndsAt });
     }
 
     private static void ConfigureBookingMessages(EntityTypeBuilder<BookingMessage> entity)
@@ -217,6 +188,17 @@ public partial class AppDbContext
         entity.HasIndex(e => new { e.WorkerId, e.EarnedAt });
         entity.HasOne<Booking>().WithMany().HasForeignKey(e => e.BookingId).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne<WorkerProfile>().WithMany().HasForeignKey(e => e.WorkerId).OnDelete(DeleteBehavior.Restrict);
+    }
+
+    private static void ConfigureWorkerHiddenBookings(EntityTypeBuilder<WorkerHiddenBooking> entity)
+    {
+        entity.ToTable("worker_hidden_bookings");
+        entity.HasKey(e => new { e.WorkerId, e.BookingId });
+        entity.Property(e => e.WorkerId).HasColumnName("worker_id");
+        entity.Property(e => e.BookingId).HasColumnName("booking_id");
+        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()").HasColumnName("created_at");
+        entity.HasOne<WorkerProfile>().WithMany().HasForeignKey(e => e.WorkerId).OnDelete(DeleteBehavior.Cascade);
+        entity.HasOne<Booking>().WithMany().HasForeignKey(e => e.BookingId).OnDelete(DeleteBehavior.Cascade);
     }
 
     private static void ConfigureAdminAuditLogs(EntityTypeBuilder<AdminAuditLog> entity)

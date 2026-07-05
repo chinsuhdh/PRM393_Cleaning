@@ -4,12 +4,7 @@ namespace Cleaning.BLL.Interfaces
 {
     public interface IAiService
     {
-        // Chức năng 1: Chatbot RAG
+        // Chatbot RAG (AI = chatbot only; worker matching is broadcast dispatch, not AI)
         Task<ChatResponseDto> ChatWithRagAsync(Guid userId, ChatRequestDto request);
-
-        // Chức năng 2: Matching Worker
-        Task<bool> RecommendWorkerAsync(Guid bookingId);
-
-        Task<List<WorkerDto>> GetRecommendedWorkersAsync(Guid bookingId);
     }
 }

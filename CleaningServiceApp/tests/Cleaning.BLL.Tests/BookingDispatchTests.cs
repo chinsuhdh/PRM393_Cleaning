@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Mapping;
 using Cleaning.BLL.Services;
@@ -23,15 +23,15 @@ public sealed class BookingDispatchTests
         Assert.Null(dto.WorkerId);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-DSP-02] Dispatch also surfaces PaidPendingWorker jobs")]
-    public async Task GetAvailable_PaidPendingWorker_IsSurfaced()
+    [Fact(DisplayName = "[UT-BOOK-DSP-02] Dispatch does not surface post-job PendingPayment bookings")]
+    public async Task GetAvailable_PendingPayment_IsHidden()
     {
         var scenario = DispatchScenario.Create();
-        scenario.AddBooking(BookingStatus.PaidPendingWorker);
+        scenario.AddBooking(BookingStatus.PendingPayment);
 
         var available = await scenario.BookingService.GetAvailableBookingsAsync(scenario.WorkerId);
 
-        Assert.Single(available);
+        Assert.Empty(available);
     }
 
     [Fact(DisplayName = "[UT-BOOK-DSP-03] Dispatch hides jobs the worker is not verified to perform")]
@@ -203,7 +203,7 @@ public sealed class BookingDispatchTests
             scenario.ServiceEntity = new Service
             {
                 Id = serviceId,
-                Name = "Dọn nhà",
+                Name = "Dá»n nhÃ ",
                 IsActive = true,
                 MinimumHours = 2,
                 BasePrice = 100_000,
@@ -214,8 +214,8 @@ public sealed class BookingDispatchTests
             {
                 Id = Guid.NewGuid(),
                 UserId = scenario.ClientId,
-                Label = "Nhà",
-                AddressText = "Quận 1",
+                Label = "NhÃ ",
+                AddressText = "Quáº­n 1",
                 Latitude = 10.7769m,
                 Longitude = 106.7009m
             };
@@ -223,7 +223,6 @@ public sealed class BookingDispatchTests
             {
                 UserId = scenario.WorkerId,
                 VerificationStatus = "approved",
-                ImmediateBookingEnabled = true,
                 OnlineStatus = WorkerOnlineStatus.Online,
                 CurrentLat = 10.7769m,
                 CurrentLng = 106.7009m,

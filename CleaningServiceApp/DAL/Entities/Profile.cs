@@ -14,6 +14,8 @@ public partial class Profile
 
     public DateTime UpdatedAt { get; set; }
 
+    public DateTime? OnboardingCompletedAt { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual Account IdNavigation { get; set; } = null!;

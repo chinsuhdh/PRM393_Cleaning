@@ -95,12 +95,12 @@ namespace Cleaning.BLL.Services
                 {
                     payment.PaidAt = DateTime.UtcNow;
 
-                    // QUAN TRỌNG: Đẩy trạng thái Booking sang Đã thanh toán để chờ Thợ nhận
+                    // Pay-after-job: thanh toán thành công đóng đơn — PendingPayment -> Completed
                     var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(payment.BookingId);
                     if (booking != null && booking.Status == BookingStatus.PendingPayment)
                     {
                         var oldStatus = booking.Status;
-                        booking.Status = BookingStatus.PaidPendingWorker;
+                        booking.Status = BookingStatus.Completed;
                         booking.UpdatedAt = DateTime.UtcNow;
                         _unitOfWork.Repository<Booking>().Update(booking);
 
@@ -109,7 +109,7 @@ namespace Cleaning.BLL.Services
                         {
                             BookingId = booking.Id,
                             OldStatus = oldStatus,
-                            NewStatus = BookingStatus.PaidPendingWorker,
+                            NewStatus = BookingStatus.Completed,
                             ChangedBy = null,
                             Reason = "Hệ thống xác nhận thanh toán thành công",
                             CreatedAt = DateTime.UtcNow

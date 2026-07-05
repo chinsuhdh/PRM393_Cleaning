@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using AutoMapper;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
@@ -26,7 +26,7 @@ public sealed class BookingOptionsPricingTests
         var result = await scenario.BookingService.CreateBookingAsync(
             scenario.ClientId,
             "opt-valid",
-            scenario.CreateRequest(BookingType.Immediate, answers: Answers(new { rooms = 3, level = "deep", note = "cửa sổ" })));
+            scenario.CreateRequest(BookingType.Immediate, answers: Answers(new { rooms = 3, level = "deep", note = "cá»­a sá»•" })));
 
         var persisted = Assert.Single(scenario.Bookings);
         using var stored = JsonDocument.Parse(persisted.OptionAnswers);
@@ -180,7 +180,7 @@ public sealed class BookingOptionsPricingTests
     {
         var scenario = FeatureScenario.Create();
         // Service is only open Monday 08:00-17:00; a Monday-night start is outside operating hours.
-        // This is a time-legality rejection — NOT a worker-availability check.
+        // This is a time-legality rejection â€” NOT a worker-availability check.
         scenario.ServiceEntity.OperatingSchedule = "{\"monday\":{\"open\":\"08:00\",\"close\":\"17:00\"}}";
         var mondayNight = new DateTime(2026, 7, 6, 18, 0, 0, DateTimeKind.Utc);
 
@@ -223,7 +223,7 @@ public sealed class BookingOptionsPricingTests
             scenario.ServiceEntity = new Service
             {
                 Id = serviceId,
-                Name = "Dọn nhà",
+                Name = "Dá»n nhÃ ",
                 IsActive = true,
                 MinimumHours = 2,
                 BasePrice = 100_000,
@@ -234,8 +234,8 @@ public sealed class BookingOptionsPricingTests
             {
                 Id = addressId,
                 UserId = scenario.ClientId,
-                Label = "Nhà",
-                AddressText = "Quận 1",
+                Label = "NhÃ ",
+                AddressText = "Quáº­n 1",
                 Latitude = 10.7769m,
                 Longitude = 106.7009m
             };
@@ -243,7 +243,6 @@ public sealed class BookingOptionsPricingTests
             {
                 UserId = workerId,
                 VerificationStatus = "approved",
-                ImmediateBookingEnabled = true,
                 OnlineStatus = WorkerOnlineStatus.Online,
                 CurrentLat = 10.7769m,
                 CurrentLng = 106.7009m,

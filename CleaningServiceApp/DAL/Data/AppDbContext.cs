@@ -49,8 +49,6 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
-    public virtual DbSet<Refund> Refunds { get; set; }
-
     public virtual DbSet<Review> Reviews { get; set; }
 
     public virtual DbSet<Service> Services { get; set; }
@@ -92,7 +90,6 @@ public partial class AppDbContext : DbContext
             .HasPostgresEnum<NotificationType>(name: "notification_type")
             .HasPostgresEnum<PaymentMethod>(name: "payment_method")
             .HasPostgresEnum<PaymentStatus>(name: "payment_status")
-            .HasPostgresEnum<PayoutStatus>(name: "payout_status")
             .HasPostgresEnum<PhotoType>(name: "photo_type")
             .HasPostgresEnum<PropertyType>(name: "property_type")
             .HasPostgresEnum<RescheduleStatus>(name: "reschedule_status")
@@ -328,21 +325,24 @@ public partial class AppDbContext : DbContext
 
             entity.HasIndex(e => e.BookingId, "booking_cancellations_booking_id_key").IsUnique();
 
+            entity.HasIndex(e => e.CreatedAt, "idx_booking_cancellations_created_at");
+
             entity.Property(e => e.Id)
                 .HasDefaultValueSql("gen_random_uuid()")
                 .HasColumnName("id");
             entity.Property(e => e.BookingId).HasColumnName("booking_id");
-            entity.Property(e => e.CancellationFee)
-                .HasPrecision(12, 2)
-                .HasColumnName("cancellation_fee");
             entity.Property(e => e.CancelledBy).HasColumnName("cancelled_by");
             entity.Property(e => e.CreatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
+
+            // Map Enum
+            entity.Property(e => e.ActorRole).HasColumnType("user_role").HasColumnName("actor_role");
+
+            entity.Property(e => e.ReasonCode)
+                .HasMaxLength(40)
+                .HasColumnName("reason_code");
             entity.Property(e => e.Reason).HasColumnName("reason");
-            entity.Property(e => e.RefundAmount)
-                .HasPrecision(12, 2)
-                .HasColumnName("refund_amount");
 
             entity.HasOne(d => d.Booking).WithOne(p => p.BookingCancellation)
                 .HasForeignKey<BookingCancellation>(d => d.BookingId)
@@ -632,29 +632,6 @@ public partial class AppDbContext : DbContext
                 .HasConstraintName("refresh_tokens_account_id_fkey");
         });
 
-        modelBuilder.Entity<Refund>(entity =>
-        {
-            entity.HasKey(e => e.Id).HasName("refunds_pkey");
-
-            entity.ToTable("refunds");
-
-            entity.Property(e => e.Id)
-                .HasDefaultValueSql("gen_random_uuid()")
-                .HasColumnName("id");
-            entity.Property(e => e.Amount)
-                .HasPrecision(12, 2)
-                .HasColumnName("amount");
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("now()")
-                .HasColumnName("created_at");
-            entity.Property(e => e.PaymentId).HasColumnName("payment_id");
-            entity.Property(e => e.Reason).HasColumnName("reason");
-
-            entity.HasOne(d => d.Payment).WithMany(p => p.Refunds)
-                .HasForeignKey(d => d.PaymentId)
-                .HasConstraintName("refunds_payment_id_fkey");
-        });
-
         modelBuilder.Entity<Review>(entity =>
         {
             entity.HasKey(e => e.Id).HasName("reviews_pkey");
@@ -767,6 +744,7 @@ public partial class AppDbContext : DbContext
                 .HasNoKey()
                 .ToView("v_available_workers_for_scheduled_booking");
 
+            entity.Property(e => e.BookingId).HasColumnName("booking_id");
             entity.Property(e => e.AverageRating)
                 .HasPrecision(3, 2)
                 .HasColumnName("average_rating");
@@ -783,6 +761,7 @@ public partial class AppDbContext : DbContext
                 .HasNoKey()
                 .ToView("v_online_workers_for_immediate_booking");
 
+            entity.Property(e => e.BookingId).HasColumnName("booking_id");
             entity.Property(e => e.AverageRating)
                 .HasPrecision(3, 2)
                 .HasColumnName("average_rating");
@@ -874,9 +853,6 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.CurrentLng)
                 .HasPrecision(10, 7)
                 .HasColumnName("current_lng");
-            entity.Property(e => e.ImmediateBookingEnabled)
-                .HasDefaultValue(false)
-                .HasColumnName("immediate_booking_enabled");
 
             // Map Enum
             entity.Property(e => e.OnlineStatus).HasColumnType("worker_online_status").HasColumnName("online_status");

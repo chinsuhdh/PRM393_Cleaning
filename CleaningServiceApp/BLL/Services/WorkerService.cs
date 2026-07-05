@@ -30,7 +30,6 @@ namespace Cleaning.BLL.Services
                 OnlineStatus = worker.OnlineStatus,
                 CurrentLat = worker.CurrentLat,
                 CurrentLng = worker.CurrentLng,
-                ImmediateBookingEnabled = worker.ImmediateBookingEnabled,
                 VerifiedAt = worker.VerifiedAt
             };
         }
@@ -45,7 +44,6 @@ namespace Cleaning.BLL.Services
                 UserId = workerId,
                 AverageRating = 5.0m,
                 OnlineStatus = WorkerOnlineStatus.Offline,
-                ImmediateBookingEnabled = false,
                 CurrentLat = request.CurrentLat,
                 CurrentLng = request.CurrentLng,
                 CreatedAt = DateTime.UtcNow,

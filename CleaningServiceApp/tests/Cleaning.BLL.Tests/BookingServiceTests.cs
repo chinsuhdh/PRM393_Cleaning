@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.Mapping;
@@ -119,8 +119,8 @@ public sealed class BookingServiceTests
         Assert.Single(scenario.Bookings);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-001-06] Scheduled booking persists selected start and awaits payment")]
-    public async Task CreateBookingAsync_Scheduled_SetsPendingPayment()
+    [Fact(DisplayName = "[UT-BOOK-001-06] Scheduled booking persists selected start and broadcasts for workers")]
+    public async Task CreateBookingAsync_Scheduled_SetsAwaitingWorker()
     {
         var scenario = BookingScenario.Create();
         var start = DateTime.UtcNow.AddHours(3);
@@ -131,7 +131,7 @@ public sealed class BookingServiceTests
             scenario.CreateRequest(BookingType.Scheduled, start));
 
         Assert.Equal(nameof(BookingType.Scheduled), result.BookingType);
-        Assert.Equal(nameof(BookingStatus.PendingPayment), result.Status);
+        Assert.Equal(nameof(BookingStatus.AwaitingWorker), result.Status);
         Assert.Equal(start, result.ScheduledStartTime, TimeSpan.FromSeconds(1));
     }
 
@@ -153,7 +153,7 @@ public sealed class BookingServiceTests
     }
 
     [Fact(DisplayName = "[UT-BOOK-003-03] Scheduled booking is created even when no worker is eligible yet")]
-    public async Task CreateBookingAsync_ScheduledNoEligibleWorker_StillCreatesPendingPayment()
+    public async Task CreateBookingAsync_ScheduledNoEligibleWorker_StillCreatesAwaitingWorker()
     {
         // Previously an ineligible worker meant no slot and a rejected booking. Now the booking is created
         // and matched later by dispatch.
@@ -166,7 +166,7 @@ public sealed class BookingServiceTests
             "scheduled-no-worker-key",
             scenario.CreateRequest(BookingType.Scheduled, start));
 
-        Assert.Equal(nameof(BookingStatus.PendingPayment), result.Status);
+        Assert.Equal(nameof(BookingStatus.AwaitingWorker), result.Status);
         Assert.Single(scenario.Bookings);
     }
 
@@ -208,7 +208,6 @@ public sealed class BookingServiceTests
             {
                 UserId = workerId,
                 VerificationStatus = "approved",
-                ImmediateBookingEnabled = true,
                 OnlineStatus = WorkerOnlineStatus.Online,
                 CurrentLat = 10.7769m,
                 CurrentLng = 106.7009m,
