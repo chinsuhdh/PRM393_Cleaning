@@ -44,7 +44,6 @@ namespace CleaningService.API
             dataSourceBuilder.MapEnum<AvailabilityStatus>("availability_status");
             dataSourceBuilder.MapEnum<PaymentMethod>("payment_method");
             dataSourceBuilder.MapEnum<PaymentStatus>("payment_status");
-            dataSourceBuilder.MapEnum<PayoutStatus>("payout_status");
             dataSourceBuilder.MapEnum<RescheduleStatus>("reschedule_status");
             dataSourceBuilder.MapEnum<AiSenderType>("ai_sender_type");
             dataSourceBuilder.MapEnum<PhotoType>("photo_type");
@@ -70,7 +69,6 @@ namespace CleaningService.API
                         .MapEnum<AvailabilityStatus>("availability_status")
                         .MapEnum<PaymentMethod>("payment_method")
                         .MapEnum<PaymentStatus>("payment_status")
-                        .MapEnum<PayoutStatus>("payout_status")
                         .MapEnum<RescheduleStatus>("reschedule_status")
                         .MapEnum<AiSenderType>("ai_sender_type")
                         .MapEnum<PhotoType>("photo_type")

@@ -89,7 +89,6 @@ internal static class DevelopmentSeedData
         BaseLatitude = 10.7769m,
         BaseLongitude = 106.7009m,
         ServiceRadiusKm = 10m,
-        ImmediateBookingEnabled = true,
         VerifiedAt = now,
         VerificationStatus = "approved",
         CreatedAt = now,

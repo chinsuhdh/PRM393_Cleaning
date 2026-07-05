@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -200,7 +200,6 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
         {
             UserId = WorkerId,
             OnlineStatus = WorkerOnlineStatus.Online,
-            ImmediateBookingEnabled = true,
             VerificationStatus = "approved",
             LocationUpdatedAt = now,
             CreatedAt = now,

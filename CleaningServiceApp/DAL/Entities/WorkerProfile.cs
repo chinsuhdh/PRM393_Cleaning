@@ -15,7 +15,7 @@ public partial class WorkerProfile
 
     public decimal? CurrentLng { get; set; }
 
-    public bool ImmediateBookingEnabled { get; set; }
+    public DateTime? SuspendedAt { get; set; }
 
     public DateTime? VerifiedAt { get; set; }
 

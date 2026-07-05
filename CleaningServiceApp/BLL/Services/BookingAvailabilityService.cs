@@ -75,7 +75,8 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
 
         var workers = (await _unitOfWork.Repository<WorkerProfile>().FindAsync(worker =>
                 skilledWorkerIds.Contains(worker.UserId) &&
-                worker.VerificationStatus == "approved"))
+                worker.VerificationStatus == "approved" &&
+                worker.SuspendedAt == null))
             .Where(worker => IsWorkerWithinServiceRadius(worker, address))
             .ToList();
         if (workers.Count == 0) return [];
@@ -83,7 +84,6 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
         if (request.BookingType == BookingType.Immediate)
         {
             workers = workers.Where(worker =>
-                worker.ImmediateBookingEnabled &&
                 worker.OnlineStatus == WorkerOnlineStatus.Online &&
                 IsLocationFresh(worker, now)).ToList();
         }
@@ -98,10 +98,9 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
         var latestEnd = starts.Max(start => start.AddHours((double)request.DurationHours));
         var earliestStart = starts.Min();
         var blockingBookings = await _unitOfWork.Repository<Booking>().FindAsync(booking =>
-            (booking.Status == BookingStatus.PendingPayment ||
-                booking.Status == BookingStatus.PaidPendingWorker ||
-                booking.Status == BookingStatus.AwaitingWorker ||
+            (booking.Status == BookingStatus.AwaitingWorker ||
                 booking.Status == BookingStatus.Accepted ||
+                booking.Status == BookingStatus.OnTheWay ||
                 booking.Status == BookingStatus.InProgress) &&
             booking.ScheduledStartTime < latestEnd.AddMinutes(TravelBufferMinutes) &&
             booking.ScheduledEndTime > earliestStart.AddMinutes(-TravelBufferMinutes));

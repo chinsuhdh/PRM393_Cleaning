@@ -34,6 +34,4 @@ public partial class Payment
     public DateTime? CallbackVerifiedAt { get; set; }
 
     public virtual Booking Booking { get; set; } = null!;
-
-    public virtual ICollection<Refund> Refunds { get; set; } = new List<Refund>();
 }

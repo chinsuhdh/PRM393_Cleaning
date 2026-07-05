@@ -32,8 +32,6 @@ public partial class Account
 
     public string? DeletionStatus { get; set; }
 
-    public string NotificationPreferences { get; set; } = "{}";
-
     public virtual ICollection<AiConversation> AiConversations { get; set; } = new List<AiConversation>();
 
     public virtual ICollection<AiInferenceLog> AiInferenceLogs { get; set; } = new List<AiInferenceLog>();

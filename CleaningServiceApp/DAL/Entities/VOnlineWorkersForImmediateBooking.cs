@@ -2,8 +2,11 @@
 
 namespace Cleaning.DAL.Entities;
 
+// One row per broadcasting immediate booking x eligible worker (full E.1 predicate lives in the view).
 public partial class VOnlineWorkersForImmediateBooking
 {
+    public Guid? BookingId { get; set; }
+
     public Guid? WorkerId { get; set; }
 
     public string? FullName { get; set; }

@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -57,7 +57,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         var persisted = await db.Bookings.SingleAsync(item => item.Id == booking.Id);
         Assert.Equal(BookingType.Scheduled, persisted.BookingType);
         Assert.Equal("it-book-001-happy", persisted.IdempotencyKey);
-        Assert.Equal(BookingStatus.PendingPayment, persisted.Status);
+        Assert.Equal(BookingStatus.AwaitingWorker, persisted.Status);
         Assert.True(await db.BookingStatusLogs.AnyAsync(log => log.BookingId == booking.Id));
     }
 
@@ -295,7 +295,6 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         {
             UserId = WorkerId,
             OnlineStatus = WorkerOnlineStatus.Online,
-            ImmediateBookingEnabled = true,
             VerificationStatus = "approved",
             LocationUpdatedAt = now,
             CreatedAt = now,

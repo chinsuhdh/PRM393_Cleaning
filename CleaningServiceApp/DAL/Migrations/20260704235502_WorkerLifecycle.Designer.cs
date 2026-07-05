@@ -4,6 +4,7 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cleaning.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260704235502_WorkerLifecycle")]
+    partial class WorkerLifecycle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1522,10 +1525,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("numeric(3,2)")
                         .HasColumnName("average_rating");
 
-                    b.Property<Guid?>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
-
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("end_time");
@@ -1557,10 +1556,6 @@ namespace Cleaning.DAL.Migrations
                         .HasPrecision(3, 2)
                         .HasColumnType("numeric(3,2)")
                         .HasColumnName("average_rating");
-
-                    b.Property<Guid?>("BookingId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("booking_id");
 
                     b.Property<decimal?>("CurrentLat")
                         .HasPrecision(10, 7)

@@ -11,7 +11,6 @@ namespace Cleaning.BLL.DTOs
         public WorkerOnlineStatus OnlineStatus { get; set; }
         public decimal? CurrentLat { get; set; }
         public decimal? CurrentLng { get; set; }
-        public bool ImmediateBookingEnabled { get; set; }
         public DateTime? VerifiedAt { get; set; }
     }
 

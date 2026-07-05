@@ -85,7 +85,6 @@ namespace Cleaning.BLL.Services
                         UserId = newAccount.Id,
                         AverageRating = 5.00m,
                         OnlineStatus = WorkerOnlineStatus.Offline,
-                        ImmediateBookingEnabled = false,
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow
                     };

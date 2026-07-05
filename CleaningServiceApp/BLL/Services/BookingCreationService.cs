@@ -71,9 +71,8 @@ public sealed class BookingCreationService(
         using var transaction = await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         try
         {
-            var initialStatus = request.BookingType == BookingType.Immediate
-                ? BookingStatus.AwaitingWorker
-                : BookingStatus.PendingPayment;
+            // Pay-after-job: no upfront payment, so every booking starts broadcasting immediately.
+            var initialStatus = BookingStatus.AwaitingWorker;
 
             var addressEntity = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(request.AddressId.Value);
 
