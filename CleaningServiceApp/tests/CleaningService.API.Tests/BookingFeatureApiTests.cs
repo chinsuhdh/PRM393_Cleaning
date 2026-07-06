@@ -44,15 +44,13 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
 
         var quoteResponse = await client.PostAsJsonAsync("/api/Bookings/quote", new BookingQuoteRequestDto
         {
-            ServiceId = ServiceId,
-            DurationHours = 2,
-            DiscountAmount = 50_000
+            ServiceId = ServiceId
         });
         Assert.Equal(HttpStatusCode.OK, quoteResponse.StatusCode);
         var quote = await quoteResponse.Content.ReadDataAsync<PricingBreakdownDto>();
         Assert.NotNull(quote);
         Assert.Equal(200_000m, quote!.LineTotal);
-        Assert.Equal(150_000m, quote.TotalPrice);
+        Assert.Equal(200_000m, quote.TotalPrice);
         Assert.Equal("VND", quote.Currency);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/Bookings");
@@ -62,8 +60,6 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
             ServiceId = ServiceId,
             AddressId = AddressId,
             BookingType = BookingType.Immediate,
-            DurationHours = 2,
-            DiscountAmount = 50_000,
             OptionAnswers = Answers("{\"rooms\":2,\"level\":\"deep\"}")
         });
         var response = await client.SendAsync(request);
@@ -71,13 +67,13 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
         var booking = await response.Content.ReadDataAsync<BookingDto>();
         Assert.NotNull(booking);
         Assert.NotNull(booking!.PricingBreakdown);
-        Assert.Equal(150_000m, booking.PricingBreakdown!.TotalPrice);
+        Assert.Equal(200_000m, booking.PricingBreakdown!.TotalPrice);
 
         await using var scope = fixture.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var persisted = await db.Bookings.SingleAsync(item => item.Id == booking.Id);
         Assert.NotEqual("{}", persisted.PricingBreakdown);
-        Assert.Equal(150_000m, persisted.TotalPrice);
+        Assert.Equal(200_000m, persisted.TotalPrice);
     }
 
     [Fact(DisplayName = "[IT-BOOK-002-01] Valid service-defined answers are persisted on the booking")]
@@ -91,7 +87,6 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
             ServiceId = ServiceId,
             AddressId = AddressId,
             BookingType = BookingType.Immediate,
-            DurationHours = 2,
             OptionAnswers = Answers("{\"rooms\":3,\"level\":\"light\"}")
         });
 
@@ -118,7 +113,6 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
             ServiceId = ServiceId,
             AddressId = AddressId,
             BookingType = BookingType.Immediate,
-            DurationHours = 2,
             OptionAnswers = Answers("{\"level\":\"deep\"}") // missing required "rooms"
         });
 

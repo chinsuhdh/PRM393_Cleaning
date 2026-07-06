@@ -40,6 +40,11 @@ public sealed class BookingCreationService(
 
         // BOOK-002: validate the service-defined answers against the service schema before any write.
         var optionAnswers = BookingOptionValidator.Normalize(service.BookingFormSchema, request.OptionAnswers);
+        if (request.ServiceVersion != service.Version)
+            throw new AppException(AppErrors.QuoteStale);
+        var promotion = await GetActivePromotionAsync(service.Id);
+        var pricing = BookingPricingCalculator.Calculate(service, optionAnswers, promotion);
+        var durationHours = pricing.DurationHours;
 
         var scheduledStart = request.BookingType == BookingType.Immediate
             ? DateTime.UtcNow.AddMinutes(ImmediateLeadMinutes)
@@ -51,21 +56,16 @@ public sealed class BookingCreationService(
             ServiceId = request.ServiceId,
             AddressId = request.AddressId.Value,
             BookingType = request.BookingType,
-            DurationHours = request.DurationHours,
+            DurationHours = durationHours,
             From = scheduledStart,
             To = scheduledStart
         });
 
-        // Time legality (BOOK-003): a Scheduled booking must fall within the service's operating hours.
-        // Worker availability is intentionally NOT checked here — matching happens afterwards via dispatch,
-        // so the booking is created first and offered to eligible workers who can accept it.
-        if (request.BookingType == BookingType.Scheduled &&
-            !BookingAvailabilityService.IsWithinOperatingSchedule(
-                service, scheduledStart, scheduledStart.AddHours((double)request.DurationHours)))
-            throw new AppException(AppErrors.OutsideOperatingHours);
+        // OperatingSchedule is dormant per the spec ("any hour of day is allowed"), so no operating-hours
+        // check here. Worker availability is intentionally NOT checked either — matching happens afterwards
+        // via dispatch, so the booking is created first and offered to eligible workers who can accept it.
 
         // BOOK-004: the server computes the authoritative pricing breakdown; the client only displays it.
-        var pricing = BookingPricingCalculator.Calculate(service, request.DurationHours, request.DiscountAmount);
         var pricingBreakdown = JsonSerializer.Serialize(pricing);
 
         using var transaction = await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
@@ -83,8 +83,8 @@ public sealed class BookingCreationService(
                 AddressId = request.AddressId,
                 BookingType = request.BookingType,
                 ScheduledStartTime = scheduledStart,
-                ScheduledEndTime = scheduledStart.AddHours((double)request.DurationHours),
-                DurationHours = request.DurationHours,
+                ScheduledEndTime = scheduledStart.AddHours((double)durationHours),
+                DurationHours = durationHours,
                 UnitPrice = pricing.UnitPrice,
                 ExtraFee = pricing.ExtraFee,
                 DiscountAmount = pricing.DiscountAmount,
@@ -165,14 +165,23 @@ public sealed class BookingCreationService(
         if (service == null || !service.IsActive || service.ArchivedAt.HasValue)
             throw new AppException(AppErrors.ServiceUnavailable);
 
-        if (request.DurationHours < service.MinimumHours)
-            throw new AppException(AppErrors.DurationInvalid);
-
         // Validate any provided answers (types/choices/unknown keys) but do not require completeness:
         // the client may request a quote while still filling in the form.
-        BookingOptionValidator.Normalize(service.BookingFormSchema, request.OptionAnswers, enforceRequired: false);
+        var answers = BookingOptionValidator.Normalize(service.BookingFormSchema, request.OptionAnswers, enforceRequired: false);
+        return BookingPricingCalculator.Calculate(service, answers, await GetActivePromotionAsync(service.Id));
+    }
 
-        return BookingPricingCalculator.Calculate(service, request.DurationHours, request.DiscountAmount);
+    private async Task<Promotion?> GetActivePromotionAsync(Guid serviceId)
+    {
+        var now = DateTime.UtcNow;
+        return (await _unitOfWork.Repository<Promotion>().FindAsync(promotion =>
+            promotion.ServiceId == serviceId &&
+            promotion.Status == "active" &&
+            promotion.ArchivedAt == null &&
+            promotion.StartsAt <= now &&
+            promotion.EndsAt >= now))
+            .OrderByDescending(promotion => promotion.DiscountValue)
+            .FirstOrDefault();
     }
 
     private static string BuildAddressSnapshot(UserAddress? address)

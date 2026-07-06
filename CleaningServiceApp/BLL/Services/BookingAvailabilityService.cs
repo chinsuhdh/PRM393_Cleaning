@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
@@ -54,6 +53,10 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
                 ?? throw new AppException(AppErrors.StartRequired);
             if (from < DateTime.UtcNow.AddHours(ScheduledLeadHours))
                 throw new AppException(AppErrors.StartTooSoon);
+            if (from > DateTime.UtcNow.AddDays(30))
+                throw new AppException(AppErrors.TimeSlotInvalid);
+            if (from.Minute is not (0 or 30) || from.Second != 0)
+                throw new AppException(AppErrors.TimeSlotInvalid);
         }
 
         return (service, address);
@@ -109,7 +112,6 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
         foreach (var start in starts)
         {
             var end = start.AddHours((double)request.DurationHours);
-            if (!IsWithinOperatingSchedule(service, start, end)) continue;
 
             var candidateWorkers = request.BookingType == BookingType.Immediate
                 ? workers
@@ -202,39 +204,4 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
     }
 
     private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180;
-
-    public static bool IsWithinOperatingSchedule(Service service, DateTime start, DateTime end)
-    {
-        if (string.IsNullOrWhiteSpace(service.OperatingSchedule) || service.OperatingSchedule == "{}")
-            return true;
-
-        try
-        {
-            using var json = JsonDocument.Parse(service.OperatingSchedule);
-            var dayKey = start.DayOfWeek.ToString().ToLowerInvariant();
-            if (!json.RootElement.TryGetProperty(dayKey, out var day) &&
-                !json.RootElement.TryGetProperty(((int)start.DayOfWeek).ToString(), out day))
-                return false;
-
-            if (day.ValueKind == JsonValueKind.False) return false;
-            if (day.ValueKind == JsonValueKind.Object &&
-                day.TryGetProperty("open", out var open) &&
-                day.TryGetProperty("close", out var close) &&
-                TimeSpan.TryParse(open.GetString(), out var openTime) &&
-                TimeSpan.TryParse(close.GetString(), out var closeTime))
-            {
-                var startTime = start.TimeOfDay;
-                var endTime = end.TimeOfDay;
-                return start.Date == end.Date &&
-                        startTime >= openTime &&
-                        endTime <= closeTime;
-            }
-
-            return day.ValueKind == JsonValueKind.True;
-        }
-        catch (JsonException)
-        {
-            return true;
-        }
-    }
 }

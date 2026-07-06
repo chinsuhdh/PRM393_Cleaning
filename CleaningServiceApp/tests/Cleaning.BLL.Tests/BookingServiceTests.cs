@@ -53,25 +53,25 @@ public sealed class BookingServiceTests
         Assert.Equal("BOOKING_NO_AVAILABLE_WORKER", result.EmptyReasonCode);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-001-02] Scheduled availability respects service operating hours")]
-    public async Task GetAvailabilityAsync_OutsideOperatingHours_ReturnsEmpty()
+    [Fact(DisplayName = "[UT-BOOK-001-02] OperatingSchedule is dormant: scheduled availability ignores it")]
+    public async Task GetAvailabilityAsync_OutsideOperatingHours_StillReturnsSlots()
     {
+        // Spec D.6: "Any hour of day is allowed" -- a configured schedule must not hide slots.
         var scenario = BookingScenario.Create();
         scenario.ServiceEntity.OperatingSchedule = "{\"monday\":{\"open\":\"08:00\",\"close\":\"17:00\"}}";
-        var mondayNight = new DateTime(2026, 7, 6, 18, 0, 0, DateTimeKind.Utc);
+        var nightStart = DateTime.UtcNow.Date.AddDays(3).AddHours(18);
 
         var result = await scenario.BookingService.GetAvailabilityAsync(scenario.ClientId,
-            scenario.AvailabilityRequest(BookingType.Scheduled, mondayNight, mondayNight));
+            scenario.AvailabilityRequest(BookingType.Scheduled, nightStart, nightStart));
 
-        Assert.Empty(result.Slots);
-        Assert.Equal("BOOKING_NO_AVAILABLE_WORKER", result.EmptyReasonCode);
+        Assert.NotEmpty(result.Slots);
     }
 
     [Fact(DisplayName = "[UT-BOOK-001-03] Existing booking overlaps and travel buffers consume capacity")]
     public async Task GetAvailabilityAsync_OverlapOrTravelBuffer_ReturnsEmpty()
     {
         var scenario = BookingScenario.Create();
-        var start = new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc);
+        var start = DateTime.UtcNow.Date.AddDays(7).AddHours(9);
         scenario.Bookings.Add(new Booking
         {
             Id = Guid.NewGuid(),
@@ -123,7 +123,7 @@ public sealed class BookingServiceTests
     public async Task CreateBookingAsync_Scheduled_SetsAwaitingWorker()
     {
         var scenario = BookingScenario.Create();
-        var start = DateTime.UtcNow.AddHours(3);
+        var start = NextSlot(DateTime.UtcNow.AddHours(3));
 
         var result = await scenario.BookingService.CreateBookingAsync(
             scenario.ClientId,
@@ -159,7 +159,7 @@ public sealed class BookingServiceTests
         // and matched later by dispatch.
         var scenario = BookingScenario.Create();
         scenario.Worker.VerificationStatus = "pending"; // not eligible for matching
-        var start = DateTime.UtcNow.AddHours(3);
+        var start = NextSlot(DateTime.UtcNow.AddHours(3));
 
         var result = await scenario.BookingService.CreateBookingAsync(
             scenario.ClientId,
@@ -264,8 +264,8 @@ public sealed class BookingServiceTests
                 AddressId = Address.Id,
                 BookingType = bookingType,
                 DurationHours = 2,
-                From = from ?? new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc),
-                To = to ?? new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc)
+                From = from ?? DateTime.UtcNow.Date.AddDays(7).AddHours(9),
+                To = to ?? DateTime.UtcNow.Date.AddDays(7).AddHours(9)
             };
 
         public CreateBookingDto CreateRequest(BookingType bookingType, DateTime? start = null) => new()
@@ -273,9 +273,12 @@ public sealed class BookingServiceTests
             ServiceId = ServiceEntity.Id,
             AddressId = Address.Id,
             BookingType = bookingType,
-            ScheduledStartTime = start,
-            DurationHours = 2
+            ScheduledStartTime = start
         };
     }
+
+    private static DateTime NextSlot(DateTime value) =>
+        new DateTime(value.Year, value.Month, value.Day, value.Hour, value.Minute < 30 ? 30 : 0, 0,
+            DateTimeKind.Utc).AddMinutes(value.Minute < 30 ? 0 : 60);
 
 }

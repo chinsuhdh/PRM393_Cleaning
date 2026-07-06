@@ -21,6 +21,9 @@ namespace Cleaning.BLL.Services;
 /// </remarks>
 public static class BookingOptionValidator
 {
+    private static readonly HashSet<string> KnownTypes =
+        ["number", "stepper", "boolean", "yes_no", "text", "choice", "single_choice", "multi_choice", "photos"];
+
     /// <param name="enforceRequired">
     /// When true (booking creation) every required question must be answered. When false (a price quote,
     /// where the client may still be completing the form) only the provided answers are checked.
@@ -48,9 +51,16 @@ public static class BookingOptionValidator
         var normalized = new Dictionary<string, object?>();
         foreach (var question in questions)
         {
+            // Forward compatibility (spec D.3): a question type this validator does not know is skipped
+            // entirely — it never blocks the booking and any answer for it is dropped, not rejected.
+            if (!KnownTypes.Contains(question.Type))
+                continue;
+
             if (!provided.TryGetValue(question.Key, out var value) || value.ValueKind is JsonValueKind.Null)
             {
-                if (question.Required && enforceRequired)
+                // Photos are uploaded AFTER creation via POST bookings/{id}/photos, so a required photos
+                // question must never block the create itself.
+                if (question.Required && enforceRequired && question.Type != "photos")
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 continue;
             }
@@ -66,6 +76,7 @@ public static class BookingOptionValidator
         switch (question.Type)
         {
             case "number":
+            case "stepper":
                 if (value.ValueKind != JsonValueKind.Number || !value.TryGetDecimal(out var number))
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 if ((question.Min.HasValue && number < question.Min.Value) ||
@@ -74,6 +85,7 @@ public static class BookingOptionValidator
                 return number;
 
             case "boolean":
+            case "yes_no":
                 if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 return value.GetBoolean();
@@ -87,6 +99,7 @@ public static class BookingOptionValidator
                 return text;
 
             case "choice":
+            case "single_choice":
                 if (value.ValueKind != JsonValueKind.String)
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 var choice = value.GetString();
@@ -94,8 +107,26 @@ public static class BookingOptionValidator
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 return choice;
 
+            case "multi_choice":
+                if (value.ValueKind != JsonValueKind.Array || question.Options is null)
+                    throw new AppException(AppErrors.OptionAnswersInvalid);
+                var choices = value.EnumerateArray().Select(item =>
+                    item.ValueKind == JsonValueKind.String ? item.GetString() : null).ToArray();
+                if (choices.Any(item => item is null || !question.Options.Contains(item)))
+                    throw new AppException(AppErrors.OptionAnswersInvalid);
+                return choices;
+
+            case "photos":
+                if (value.ValueKind != JsonValueKind.Array)
+                    throw new AppException(AppErrors.OptionAnswersInvalid);
+                var photos = value.EnumerateArray().Select(item =>
+                    item.ValueKind == JsonValueKind.String ? item.GetString() : null).ToArray();
+                if (photos.Any(item => item is null) || (question.Max.HasValue && photos.Length > question.Max.Value))
+                    throw new AppException(AppErrors.OptionAnswersInvalid);
+                return photos;
+
             default:
-                // Unknown/unsupported question type in the schema — reject rather than silently store.
+                // Unreachable: Normalize skips questions whose type is not in KnownTypes.
                 throw new AppException(AppErrors.OptionAnswersInvalid);
         }
     }
@@ -127,7 +158,7 @@ public static class BookingOptionValidator
             foreach (var question in questions.EnumerateArray())
             {
                 if (question.ValueKind != JsonValueKind.Object ||
-                    !question.TryGetProperty("key", out var key) ||
+                    !TryGetQuestionId(question, out var key) ||
                     key.ValueKind != JsonValueKind.String)
                     continue;
 
@@ -155,14 +186,22 @@ public static class BookingOptionValidator
             ? value.GetDecimal()
             : null;
 
+    private static bool TryGetQuestionId(JsonElement question, out JsonElement id)
+    {
+        if (question.TryGetProperty("id", out id)) return true;
+        return question.TryGetProperty("key", out id);
+    }
+
     private static HashSet<string>? ReadOptions(JsonElement question)
     {
         if (!question.TryGetProperty("options", out var options) || options.ValueKind != JsonValueKind.Array)
             return null;
 
         return options.EnumerateArray()
-            .Where(option => option.ValueKind == JsonValueKind.String)
-            .Select(option => option.GetString()!)
+            .Select(option => option.ValueKind == JsonValueKind.String ? option.GetString() :
+                option.ValueKind == JsonValueKind.Object && option.TryGetProperty("id", out var id) ? id.GetString() : null)
+            .Where(option => option is not null)
+            .Select(option => option!)
             .ToHashSet();
     }
 

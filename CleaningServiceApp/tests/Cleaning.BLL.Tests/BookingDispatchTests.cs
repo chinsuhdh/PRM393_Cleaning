@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cleaning.BLL.Tests;
 
-public sealed class BookingDispatchTests
+public sealed partial class BookingDispatchTests
 {
     [Fact(DisplayName = "[UT-BOOK-DSP-01] Dispatch surfaces unassigned AwaitingWorker jobs for a verified service")]
     public async Task GetAvailable_UnassignedAwaitingWorker_ForVerifiedService_IsSurfaced()
@@ -132,57 +132,55 @@ public sealed class BookingDispatchTests
         Assert.Equal(firstWorker, booking.WorkerId);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-STS-01] A user who is neither the client nor the assigned worker cannot change a booking status")]
-    public async Task UpdateStatus_NonParticipant_ReturnsFalseAndLeavesStatusUnchanged()
+    [Fact(DisplayName = "[UT-BOOK-STS-06] Worker plain-cancel releases the job: WorkerId cleared and re-broadcast (§ 4.10)")]
+    public async Task UpdateStatus_WorkerReleasesJob_ClearsWorkerAndRebroadcasts()
     {
         var scenario = DispatchScenario.Create();
         var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
 
         var updated = await scenario.BookingService.UpdateBookingStatusAsync(
-            booking.Id, Guid.NewGuid(), new UpdateBookingStatusDto { NewStatus = BookingStatus.Cancelled });
-
-        Assert.False(updated);
-        Assert.Equal(BookingStatus.Accepted, booking.Status);
-    }
-
-    [Fact(DisplayName = "[UT-BOOK-STS-02] The owning client can change the status of their own booking")]
-    public async Task UpdateStatus_OwningClient_Succeeds()
-    {
-        var scenario = DispatchScenario.Create();
-        var booking = scenario.AddBooking(BookingStatus.AwaitingWorker);
-
-        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
-            booking.Id, scenario.ClientId, new UpdateBookingStatusDto { NewStatus = BookingStatus.Cancelled });
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.AwaitingWorker });
 
         Assert.True(updated);
-        Assert.Equal(BookingStatus.Cancelled, booking.Status);
+        Assert.Equal(BookingStatus.AwaitingWorker, booking.Status);
+        Assert.Null(booking.WorkerId);
+        // The released job must show up again in the broadcast feed for eligible workers.
+        var available = await scenario.BookingService.GetAvailableBookingsAsync(scenario.WorkerId);
+        Assert.Single(available, dto => dto.Id == booking.Id);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-STS-03] The assigned worker can change the status of a booking they hold")]
-    public async Task UpdateStatus_AssignedWorker_Succeeds()
+    [Fact(DisplayName = "[UT-BOOK-STS-07] Start and finish stamp ActualStartTime and ActualEndTime")]
+    public async Task UpdateStatus_StartAndFinish_StampActualTimes()
     {
         var scenario = DispatchScenario.Create();
-        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+        var booking = scenario.AddBooking(BookingStatus.OnTheWay, workerId: scenario.WorkerId);
 
-        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+        await scenario.BookingService.UpdateBookingStatusAsync(
             booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.InProgress });
+        Assert.NotNull(booking.ActualStartTime);
+        Assert.Null(booking.ActualEndTime);
 
-        Assert.True(updated);
-        Assert.Equal(BookingStatus.InProgress, booking.Status);
+        await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.PendingPayment });
+        Assert.NotNull(booking.ActualEndTime);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-IDEM-01] Re-sending the same idempotency key returns the original booking, not a duplicate")]
-    public async Task Create_DuplicateIdempotencyKey_ReturnsExistingBooking()
+    [Fact(DisplayName = "[UT-BOOK-STS-08] A report-cancel from InProgress records who cancelled and why")]
+    public async Task UpdateStatus_ReportCancel_WritesCancellationRecord()
     {
         var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.InProgress, workerId: scenario.WorkerId);
 
-        var first = await scenario.BookingService.CreateBookingAsync(
-            scenario.ClientId, "dup-key", scenario.CreateRequest());
-        var second = await scenario.BookingService.CreateBookingAsync(
-            scenario.ClientId, "dup-key", scenario.CreateRequest());
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId,
+            new UpdateBookingStatusDto { NewStatus = BookingStatus.Cancelled, Reason = "Khach vang mat" });
 
-        Assert.Equal(first.Id, second.Id);
-        Assert.Single(scenario.Bookings);
+        Assert.True(updated);
+        var record = Assert.Single(scenario.Cancellations);
+        Assert.Equal(booking.Id, record.BookingId);
+        Assert.Equal(scenario.WorkerId, record.CancelledBy);
+        Assert.Equal(UserRole.Worker, record.ActorRole);
+        Assert.Equal("Khach vang mat", record.Reason);
     }
 
     private sealed class DispatchScenario
@@ -194,6 +192,8 @@ public sealed class BookingDispatchTests
         public UserAddress Address { get; private set; } = null!;
         public List<Booking> Bookings { get; } = [];
         public List<BookingStatusLog> StatusLogs { get; } = [];
+        public List<BookingCancellation> Cancellations { get; } = [];
+        public List<BookingPhoto> Photos { get; } = [];
 
         public static DispatchScenario Create(bool workerSkillVerified = true)
         {
@@ -252,7 +252,8 @@ public sealed class BookingDispatchTests
                 }])
                 .With(scenario.Bookings)
                 .With(scenario.StatusLogs)
-                .With(new List<BookingCancellation>());
+                .With(scenario.Cancellations)
+                .With(scenario.Photos);
 
             var availabilityService = new BookingAvailabilityService(unitOfWork);
             var mapper = new MapperConfiguration(
@@ -291,8 +292,7 @@ public sealed class BookingDispatchTests
         {
             ServiceId = ServiceEntity.Id,
             AddressId = Address.Id,
-            BookingType = BookingType.Immediate,
-            DurationHours = 2
+            BookingType = BookingType.Immediate
         };
     }
 }
