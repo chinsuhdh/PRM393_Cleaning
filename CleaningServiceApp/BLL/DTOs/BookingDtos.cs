@@ -32,11 +32,28 @@ namespace Cleaning.BLL.DTOs
 
         // BOOK-002: normalized answers to the service-defined questions, echoed back for the client summary.
         public string OptionAnswers { get; set; } = "{}";
+        public string BookingFormSchema { get; set; } = "{}";
 
         // BOOK-004: the server-authored pricing breakdown shown on the confirmation screen.
         public PricingBreakdownDto? PricingBreakdown { get; set; }
         public IReadOnlyList<BookingPhotoDto> Photos { get; set; } = [];
         public IReadOnlyList<BookingStatusLogDto> StatusTimeline { get; set; } = [];
+
+        // Only populated once a worker is actually assigned (WorkerId set) — never during broadcast,
+        // so candidate workers are still never exposed to the client (matches the dispatch model).
+        public WorkerSummaryDto? Worker { get; set; }
+    }
+
+    /// Assigned-worker info for the client's Booking Detail screen — identity + rating for the
+    /// worker card, plus their last-reported position so the OnTheWay live map has something to show.
+    public class WorkerSummaryDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = null!;
+        public decimal Rating { get; set; }
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
+        public DateTime? LocationUpdatedAt { get; set; }
     }
 
     public class CreateBookingDto

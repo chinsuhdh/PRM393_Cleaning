@@ -17,14 +17,16 @@ namespace Cleaning.BLL.Services
         private readonly IBookingAvailabilityService _availabilityService;
         private readonly IBookingCreationService _creationService;
         private readonly IMapper _mapper;
+        private readonly IDispatchPublisher? _dispatchPublisher;
 
-        public BookingService(IUnitOfWork unitOfWork, ILogger<BookingService> logger, IBookingAvailabilityService availabilityService, IBookingCreationService creationService, IMapper mapper)
+        public BookingService(IUnitOfWork unitOfWork, ILogger<BookingService> logger, IBookingAvailabilityService availabilityService, IBookingCreationService creationService, IMapper mapper, IDispatchPublisher? dispatchPublisher = null)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _availabilityService = availabilityService;
             _creationService = creationService;
             _mapper = mapper;
+            _dispatchPublisher = dispatchPublisher;
         }
 
         public Task<BookingAvailabilityDto> GetAvailabilityAsync(Guid clientId, BookingAvailabilityRequestDto request) =>
@@ -104,6 +106,30 @@ namespace Cleaning.BLL.Services
                 await _unitOfWork.SaveChangesAsync();
 
                 await transaction.CommitAsync();
+                if (_dispatchPublisher != null)
+                {
+                    // Cancelling from AwaitingWorker means the job was live in eligible workers' feeds;
+                    // includeTaken recomputes eligibility as if it were still AwaitingWorker/unassigned
+                    // (booking.Status is already Cancelled at this point) so those workers actually get
+                    // told to remove it, instead of an empty recipient list because nothing is eligible
+                    // for a booking that's no longer AwaitingWorker.
+                    if (request.NewStatus == BookingStatus.Cancelled && oldStatus == BookingStatus.AwaitingWorker)
+                    {
+                        var recipients = await EligibleWorkerIdsAsync(booking, includeTaken: true);
+                        await _dispatchPublisher.JobCancelledAsync(booking.Id, recipients);
+                    }
+                    else if (request.NewStatus == BookingStatus.Cancelled && booking.WorkerId.HasValue)
+                    {
+                        // Post-accept cancel/report: this booking was never in anyone else's eligible
+                        // feed, so only the worker it was assigned to needs telling — that's what keeps
+                        // their own My Jobs / active-job bar from still showing a job that's gone.
+                        await _dispatchPublisher.JobCancelledAsync(booking.Id, [booking.WorkerId.Value]);
+                    }
+                    else if (request.NewStatus == BookingStatus.AwaitingWorker)
+                    {
+                        await BroadcastBookingAsync(booking.Id);
+                    }
+                }
                 return true;
             }
             catch (Exception ex)
@@ -112,67 +138,6 @@ namespace Cleaning.BLL.Services
                 _logger.LogError(ex, "Lỗi khi cập nhật trạng thái BookingId: {BookingId}", bookingId);
                 return false;
             }
-        }
-
-        public async Task<bool> AcceptBookingAsync(Guid bookingId, Guid workerId)
-        {
-            using var transaction = await _unitOfWork.BeginTransactionAsync();
-            try
-            {
-                var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
-
-                if (booking == null || booking.WorkerId != null || !IsAwaitingWorker(booking.Status))
-                    return false;
-
-                var oldStatus = booking.Status;
-                booking.WorkerId = workerId;
-                booking.Status = BookingStatus.Accepted;
-                booking.UpdatedAt = DateTime.UtcNow;
-
-                _unitOfWork.Repository<Booking>().Update(booking);
-
-                var statusLog = new BookingStatusLog
-                {
-                    BookingId = booking.Id,
-                    OldStatus = oldStatus,
-                    NewStatus = BookingStatus.Accepted,
-                    ChangedBy = workerId,
-                    Reason = "Thợ đã nhận đơn",
-                    CreatedAt = DateTime.UtcNow
-                };
-
-                await _unitOfWork.Repository<BookingStatusLog>().AddAsync(statusLog);
-                await _unitOfWork.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(ex, "Lỗi khi thợ {WorkerId} nhận đơn {BookingId}", workerId, bookingId);
-                return false;
-            }
-        }
-
-        public async Task<IEnumerable<BookingDto>> GetAvailableBookingsAsync(Guid workerId)
-        {
-            // Dispatch: only surface jobs the worker is actually eligible for — services they are
-            // verified to perform — so the "correct" workers see the incoming task on their screen.
-            var verifiedServiceIds = (await _unitOfWork.Repository<Cleaning.DAL.Entities.WorkerService>()
-                    .FindAsync(ws => ws.WorkerId == workerId && ws.IsVerified))
-                .Select(ws => ws.ServiceId)
-                .ToHashSet();
-
-            var availableBookings = (await _unitOfWork.Repository<Booking>()
-                    .FindAsync(b => b.Status == BookingStatus.AwaitingWorker
-                                    && b.WorkerId == null))
-                .Where(b => verifiedServiceIds.Contains(b.ServiceId))
-                .ToList();
-
-            await HydrateAsync(availableBookings);
-
-            return availableBookings.Select(_mapper.Map<BookingDto>).OrderBy(b => b.ScheduledStartTime);
         }
 
         private async Task HydrateAsync(IReadOnlyCollection<Booking> bookings)
@@ -190,17 +155,35 @@ namespace Cleaning.BLL.Services
                 : (await _unitOfWork.Repository<UserAddress>().FindAsync(a => addressIds.Contains(a.Id)))
                     .ToDictionary(a => a.Id);
 
+            // Only for bookings that actually have an assigned worker — candidate workers during
+            // broadcast (WorkerId == null) are never hydrated or exposed to the client.
+            var workerIds = bookings.Where(b => b.WorkerId.HasValue)
+                .Select(b => b.WorkerId!.Value).Distinct().ToHashSet();
+            var workers = new Dictionary<Guid, WorkerProfile>();
+            if (workerIds.Count > 0)
+            {
+                var workerProfiles = await _unitOfWork.Repository<WorkerProfile>()
+                    .FindAsync(w => workerIds.Contains(w.UserId));
+                var workerAccountProfiles = (await _unitOfWork.Repository<Cleaning.DAL.Entities.Profile>()
+                    .FindAsync(p => workerIds.Contains(p.Id))).ToDictionary(p => p.Id);
+                foreach (var workerProfile in workerProfiles)
+                {
+                    if (workerAccountProfiles.TryGetValue(workerProfile.UserId, out var account))
+                        workerProfile.User = account;
+                    workers[workerProfile.UserId] = workerProfile;
+                }
+            }
+
             foreach (var b in bookings)
             {
                 if (services.TryGetValue(b.ServiceId, out var service))
                     b.Service = service;
                 if (b.AddressId.HasValue && addresses.TryGetValue(b.AddressId.Value, out var address))
                     b.Address = address;
+                if (b.WorkerId.HasValue && workers.TryGetValue(b.WorkerId.Value, out var worker))
+                    b.Worker = worker;
             }
         }
-
-        private static bool IsAwaitingWorker(BookingStatus status) =>
-            status is BookingStatus.AwaitingWorker;
 
         private static bool IsAllowedTransition(
             BookingStatus from,

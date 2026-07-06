@@ -14,6 +14,8 @@ public sealed class BookingMappingProfile : AutoMapper.Profile
                 options => options.MapFrom(source => source.BookingType.ToString()))
             .ForMember(destination => destination.OptionAnswers,
                 options => options.MapFrom(source => string.IsNullOrWhiteSpace(source.OptionAnswers) ? "{}" : source.OptionAnswers))
+            .ForMember(destination => destination.BookingFormSchema,
+                options => options.MapFrom(source => source.Service == null ? "{}" : source.Service.BookingFormSchema))
             .ForMember(destination => destination.PricingBreakdown,
                 options => options.MapFrom(source => DeserializeBreakdown(source.PricingBreakdown)))
             .ForMember(destination => destination.Status,
@@ -27,7 +29,17 @@ public sealed class BookingMappingProfile : AutoMapper.Profile
             .ForMember(destination => destination.Latitude,
                 options => options.MapFrom(source => source.Address == null ? null : source.Address.Latitude))
             .ForMember(destination => destination.Longitude,
-                options => options.MapFrom(source => source.Address == null ? null : source.Address.Longitude));
+                options => options.MapFrom(source => source.Address == null ? null : source.Address.Longitude))
+            .ForMember(destination => destination.Worker,
+                options => options.MapFrom(source => source.Worker == null ? null : new WorkerSummaryDto
+                {
+                    Id = source.Worker.UserId,
+                    Name = source.Worker.User == null ? string.Empty : source.Worker.User.FullName,
+                    Rating = source.Worker.AverageRating,
+                    Latitude = source.Worker.CurrentLat,
+                    Longitude = source.Worker.CurrentLng,
+                    LocationUpdatedAt = source.Worker.LocationUpdatedAt
+                }));
     }
 
     private static PricingBreakdownDto? DeserializeBreakdown(string? breakdown)

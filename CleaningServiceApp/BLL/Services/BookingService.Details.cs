@@ -23,7 +23,8 @@ public partial class BookingService
     {
         var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
         if (booking == null) return null;
-        if (booking.ClientId != accountId && booking.WorkerId != accountId)
+        var isParticipant = booking.ClientId == accountId || booking.WorkerId == accountId;
+        if (!isParticipant && !await IsEligibleAsync(booking, accountId))
             throw new AppException(AppErrors.Forbidden);
         await HydrateAsync([booking]);
         var dto = _mapper.Map<BookingDto>(booking);

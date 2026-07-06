@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
+using Cleaning.DAL.Enums;
 using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -72,6 +73,7 @@ namespace CleaningService.API.Controllers
                 throw new AppException(AppErrors.IdempotencyKeyRequired);
 
             var booking = await _bookingService.CreateBookingAsync(clientId, key.ToString(), request);
+            await _bookingService.BroadcastBookingAsync(booking.Id);
             return Ok(booking);
         }
 
@@ -125,6 +127,28 @@ namespace CleaningService.API.Controllers
             if (!result) throw new AppException(AppErrors.BookingAcceptFailed);
 
             return Ok(ApiResponse.Message(ResponseMessages.BookingAccepted));
+        }
+
+        [HttpPost("{id}/retry")]
+        [Authorize(Roles = "Client")]
+        public async Task<IActionResult> RetryBroadcast(Guid id)
+        {
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var booking = await _bookingService.GetBookingByIdAsync(id, accountId);
+            if (booking == null || booking.Status != nameof(BookingStatus.AwaitingWorker))
+                throw new AppException(AppErrors.BookingNotFound);
+            await _bookingService.BroadcastBookingAsync(id);
+            return Ok(ApiResponse.Message("Broadcast restarted."));
+        }
+
+        [HttpPost("{id}/hide")]
+        [Authorize(Roles = "Worker")]
+        public async Task<IActionResult> HideBooking(Guid id)
+        {
+            var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return await _bookingService.HideBookingAsync(id, workerId)
+                ? Ok(ApiResponse.Message("Job hidden."))
+                : NotFound();
         }
 
         [HttpGet("{id}")]

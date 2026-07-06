@@ -1,0 +1,42 @@
+using Cleaning.BLL.DTOs;
+using Cleaning.BLL.Interfaces;
+using CleaningService.API.Hubs;
+using Microsoft.AspNetCore.SignalR;
+
+namespace CleaningService.API.Services;
+
+public interface IWorkerPushSender
+{
+    Task SendJobPostedAsync(Guid workerId, BookingDto booking);
+}
+
+public sealed class NullWorkerPushSender : IWorkerPushSender
+{
+    public Task SendJobPostedAsync(Guid workerId, BookingDto booking) => Task.CompletedTask;
+}
+
+public sealed class DispatchPublisher(
+    IHubContext<DispatchHub> hub,
+    IWorkerPushSender pushSender) : IDispatchPublisher
+{
+    public async Task JobPostedAsync(BookingDto booking, IReadOnlyCollection<Guid> workerIds)
+    {
+        foreach (var workerId in workerIds)
+        {
+            await hub.Clients.Group($"worker:{workerId}").SendAsync("jobPosted", booking);
+            await pushSender.SendJobPostedAsync(workerId, booking);
+        }
+    }
+
+    public Task JobTakenAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds) =>
+        SendToWorkersAsync("jobTaken", bookingId, workerIds);
+
+    public Task JobCancelledAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds) =>
+        SendToWorkersAsync("jobCancelled", bookingId, workerIds);
+
+    private async Task SendToWorkersAsync(string eventName, Guid bookingId, IEnumerable<Guid> workerIds)
+    {
+        foreach (var workerId in workerIds)
+            await hub.Clients.Group($"worker:{workerId}").SendAsync(eventName, bookingId);
+    }
+}

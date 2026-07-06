@@ -1,0 +1,176 @@
+using Cleaning.BLL.DTOs;
+using Cleaning.DAL.Entities;
+using Cleaning.DAL.Enums;
+using Microsoft.Extensions.Logging;
+
+namespace Cleaning.BLL.Services;
+
+public partial class BookingService
+{
+    public async Task BroadcastBookingAsync(Guid bookingId)
+    {
+        if (_dispatchPublisher == null) return;
+        var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
+        if (booking == null || booking.Status != BookingStatus.AwaitingWorker) return;
+        await HydrateAsync([booking]);
+        await _dispatchPublisher.JobPostedAsync(_mapper.Map<BookingDto>(booking), await EligibleWorkerIdsAsync(booking));
+    }
+
+    public async Task<IEnumerable<BookingDto>> GetAvailableBookingsAsync(Guid workerId)
+    {
+        var candidates = (await _unitOfWork.Repository<Booking>()
+            .FindAsync(booking => booking.Status == BookingStatus.AwaitingWorker && booking.WorkerId == null))
+            .ToList();
+        var eligible = new List<Booking>();
+        foreach (var booking in candidates)
+            if (await IsEligibleAsync(booking, workerId)) eligible.Add(booking);
+        await HydrateAsync(eligible);
+        return eligible.Select(_mapper.Map<BookingDto>)
+            .OrderBy(dto => dto.BookingType == nameof(BookingType.Immediate) ? 0 : 1)
+            .ThenBy(dto => dto.ScheduledStartTime);
+    }
+
+    public async Task<bool> HideBookingAsync(Guid bookingId, Guid workerId)
+    {
+        var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
+        if (booking == null || booking.ClientId == workerId) return false;
+        var repository = _unitOfWork.Repository<WorkerHiddenBooking>();
+        if (await repository.ExistsAsync(item => item.WorkerId == workerId && item.BookingId == bookingId))
+            return true;
+        await repository.AddAsync(new WorkerHiddenBooking
+        {
+            WorkerId = workerId,
+            BookingId = bookingId,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _unitOfWork.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> AcceptBookingAsync(Guid bookingId, Guid workerId)
+    {
+        using var transaction = await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+        try
+        {
+            var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
+            if (booking == null || booking.WorkerId != null ||
+                booking.Status != BookingStatus.AwaitingWorker ||
+                !await IsEligibleAsync(booking, workerId) ||
+                await HasScheduleConflictAsync(booking, workerId))
+                return false;
+
+            booking.WorkerId = workerId;
+            booking.Status = BookingStatus.Accepted;
+            booking.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Repository<Booking>().Update(booking);
+
+            if (booking.BookingType == BookingType.Immediate)
+            {
+                var profile = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
+                if (profile != null)
+                {
+                    profile.OnlineStatus = WorkerOnlineStatus.Busy;
+                    profile.UpdatedAt = DateTime.UtcNow;
+                    _unitOfWork.Repository<WorkerProfile>().Update(profile);
+                }
+            }
+            await _unitOfWork.Repository<BookingStatusLog>().AddAsync(new BookingStatusLog
+            {
+                BookingId = booking.Id,
+                OldStatus = BookingStatus.AwaitingWorker,
+                NewStatus = BookingStatus.Accepted,
+                ChangedBy = workerId,
+                Reason = "Worker accepted booking",
+                CreatedAt = DateTime.UtcNow
+            });
+            await _unitOfWork.SaveChangesAsync();
+            await transaction.CommitAsync();
+            if (_dispatchPublisher != null)
+                await _dispatchPublisher.JobTakenAsync(booking.Id, await EligibleWorkerIdsAsync(booking, includeTaken: true));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Worker {WorkerId} could not accept booking {BookingId}", workerId, bookingId);
+            return false;
+        }
+    }
+
+    private async Task<bool> IsEligibleAsync(Booking booking, Guid workerId)
+    {
+        if (booking.ClientId == workerId || booking.Status != BookingStatus.AwaitingWorker ||
+            booking.WorkerId != null) return false;
+        if (await _unitOfWork.Repository<WorkerHiddenBooking>().ExistsAsync(
+                hidden => hidden.WorkerId == workerId && hidden.BookingId == booking.Id)) return false;
+        if (!await _unitOfWork.Repository<Cleaning.DAL.Entities.WorkerService>().ExistsAsync(
+                skill => skill.WorkerId == workerId && skill.ServiceId == booking.ServiceId && skill.IsVerified))
+            return false;
+        var worker = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
+        if (worker == null || worker.VerificationStatus != "approved" || worker.SuspendedAt.HasValue)
+            return false;
+        // Busy only means "currently on a job", not "opted out" — a worker keeps browsing the feed while
+        // busy and is blocked from *accepting* a conflicting job by HasScheduleConflictAsync instead.
+        if (booking.BookingType == BookingType.Immediate && worker.OnlineStatus == WorkerOnlineStatus.Offline)
+            return false;
+        var address = booking.AddressId.HasValue
+            ? await _unitOfWork.Repository<UserAddress>().GetByIdAsync(booking.AddressId.Value)
+            : null;
+        if (!IsInsideArea(worker, address)) return false;
+        return true;
+    }
+
+    /// Accept-only: real time conflicts (worker's own accepted/active bookings, or a blocked availability
+    /// range) block *accepting* a job, but never hide it from the browse feed — a worker should still be
+    /// able to see what's out there even while busy or scheduled elsewhere.
+    private async Task<bool> HasScheduleConflictAsync(Booking booking, Guid workerId)
+    {
+        if (await _unitOfWork.Repository<WorkerAvailability>().ExistsAsync(block =>
+                block.WorkerId == workerId && block.Status == AvailabilityStatus.Blocked &&
+                block.StartTime < booking.ScheduledEndTime && block.EndTime > booking.ScheduledStartTime))
+            return true;
+        if (await _unitOfWork.Repository<Booking>().ExistsAsync(existing =>
+                existing.Id != booking.Id && existing.WorkerId == workerId &&
+                (existing.Status == BookingStatus.Accepted || existing.Status == BookingStatus.OnTheWay ||
+                 existing.Status == BookingStatus.InProgress) &&
+                existing.ScheduledStartTime < booking.ScheduledEndTime &&
+                existing.ScheduledEndTime > booking.ScheduledStartTime))
+            return true;
+        return false;
+    }
+
+    private async Task<IReadOnlyCollection<Guid>> EligibleWorkerIdsAsync(Booking booking, bool includeTaken = false)
+    {
+        var workers = await _unitOfWork.Repository<WorkerProfile>().GetAllAsync();
+        var result = new List<Guid>();
+        var originalStatus = booking.Status;
+        var originalWorker = booking.WorkerId;
+        if (includeTaken)
+        {
+            booking.Status = BookingStatus.AwaitingWorker;
+            booking.WorkerId = null;
+        }
+        foreach (var worker in workers)
+            if (await IsEligibleAsync(booking, worker.UserId)) result.Add(worker.UserId);
+        booking.Status = originalStatus;
+        booking.WorkerId = originalWorker;
+        return result;
+    }
+
+    private static bool IsInsideArea(WorkerProfile worker, UserAddress? address)
+    {
+        if (address?.Latitude == null || address.Longitude == null) return true;
+        var latitude = worker.BaseLatitude ?? worker.CurrentLat;
+        var longitude = worker.BaseLongitude ?? worker.CurrentLng;
+        if (latitude == null || longitude == null) return false;
+        const double radius = 6371;
+        static double Radians(double value) => value * Math.PI / 180;
+        var deltaLat = Radians((double)(latitude.Value - address.Latitude.Value));
+        var deltaLng = Radians((double)(longitude.Value - address.Longitude.Value));
+        var a = Math.Pow(Math.Sin(deltaLat / 2), 2) +
+                Math.Cos(Radians((double)address.Latitude.Value)) *
+                Math.Cos(Radians((double)latitude.Value)) *
+                Math.Pow(Math.Sin(deltaLng / 2), 2);
+        return radius * 2 * Math.Asin(Math.Sqrt(a)) <= (double)worker.ServiceRadiusKm;
+    }
+}
