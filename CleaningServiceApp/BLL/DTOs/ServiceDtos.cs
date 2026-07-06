@@ -20,5 +20,6 @@ namespace Cleaning.BLL.DTOs
         public decimal BasePrice { get; set; }
         public int MinimumHours { get; set; }
         public bool IsActive { get; set; }
+        public string BookingFormSchema { get; set; } = "{}";
     }
 }

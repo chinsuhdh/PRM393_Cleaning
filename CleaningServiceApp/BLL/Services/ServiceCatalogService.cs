@@ -73,7 +73,8 @@ namespace Cleaning.BLL.Services
                 UnitType = s.UnitType.ToString(),
                 BasePrice = s.BasePrice,
                 MinimumHours = s.MinimumHours,
-                IsActive = s.IsActive
+                IsActive = s.IsActive,
+                BookingFormSchema = s.BookingFormSchema
             };
         }
     }

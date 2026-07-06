@@ -69,7 +69,6 @@ namespace Cleaning.BLL.Services
                 booking.Status = request.NewStatus;
                 booking.UpdatedAt = DateTime.UtcNow;
 
-                // § 4.10 worker plain-cancel: the job goes back to the broadcast pool, so it must be unassigned.
                 if (oldStatus == BookingStatus.Accepted && request.NewStatus == BookingStatus.AwaitingWorker)
                     booking.WorkerId = null;
                 if (request.NewStatus == BookingStatus.InProgress)
