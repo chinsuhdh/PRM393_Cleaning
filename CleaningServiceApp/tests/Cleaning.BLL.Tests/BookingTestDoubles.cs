@@ -15,8 +15,15 @@ internal sealed class InMemoryUnitOfWork : IUnitOfWork
         return this;
     }
 
-    public IGenericRepository<T> Repository<T>() where T : class =>
-        (IGenericRepository<T>)_repositories[typeof(T)];
+    public IGenericRepository<T> Repository<T>() where T : class
+    {
+        if (!_repositories.TryGetValue(typeof(T), out var repository))
+        {
+            repository = new InMemoryRepository<T>([]);
+            _repositories[typeof(T)] = repository;
+        }
+        return (IGenericRepository<T>)repository;
+    }
 
     public Task<int> SaveChangesAsync() => Task.FromResult(0);
 

@@ -94,7 +94,7 @@ public sealed class BookingOptionsPricingTests
 
         var breakdown = await scenario.BookingService.GetQuoteAsync(
             scenario.ClientId,
-            new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id, DurationHours = 2, DiscountAmount = 0 });
+            new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id });
 
         Assert.Equal(100_000m, breakdown.UnitPrice);
         Assert.Equal(2m, breakdown.DurationHours);
@@ -103,8 +103,8 @@ public sealed class BookingOptionsPricingTests
         Assert.Equal("VND", breakdown.Currency);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-004-02] A discount larger than the line total floors the total at zero")]
-    public async Task Quote_DiscountExceedsTotal_FloorsAtZero()
+    [Fact(DisplayName = "[UT-BOOK-004-02] Client-supplied legacy discount cannot change the quote")]
+    public async Task Quote_ClientDiscount_IsIgnored()
     {
         var scenario = FeatureScenario.Create();
 
@@ -112,8 +112,7 @@ public sealed class BookingOptionsPricingTests
             scenario.ClientId,
             new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id, DurationHours = 2, DiscountAmount = 500_000 });
 
-        Assert.Equal(0m, breakdown.TotalPrice);
-        Assert.True(breakdown.TotalPrice >= 0);
+        Assert.Equal(200_000m, breakdown.TotalPrice);
     }
 
     [Fact(DisplayName = "[UT-BOOK-004-03] A created booking persists a breakdown whose total equals TotalPrice")]
@@ -129,22 +128,20 @@ public sealed class BookingOptionsPricingTests
         var persisted = Assert.Single(scenario.Bookings);
         Assert.NotEqual("{}", persisted.PricingBreakdown);
         Assert.NotNull(result.PricingBreakdown);
-        Assert.Equal(150_000m, result.PricingBreakdown!.TotalPrice);
+        Assert.Equal(200_000m, result.PricingBreakdown!.TotalPrice);
         Assert.Equal(result.PricingBreakdown.TotalPrice, result.TotalPrice);
         Assert.Equal(persisted.TotalPrice, result.PricingBreakdown.TotalPrice);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-004-04] A quote below the minimum duration is rejected")]
-    public async Task Quote_BelowMinimumHours_ThrowsDurationInvalid()
+    [Fact(DisplayName = "[UT-BOOK-004-04] Quote duration is derived from the service minimum")]
+    public async Task Quote_DerivesMinimumDuration()
     {
         var scenario = FeatureScenario.Create();
 
-        var error = await Assert.ThrowsAsync<AppException>(() =>
-            scenario.BookingService.GetQuoteAsync(
-                scenario.ClientId,
-                new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id, DurationHours = 1 }));
-
-        Assert.Equal("BOOKING_DURATION_INVALID", error.Code);
+        var quote = await scenario.BookingService.GetQuoteAsync(
+            scenario.ClientId,
+            new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id, DurationHours = 1 });
+        Assert.Equal(2m, quote.DurationHours);
     }
 
     [Fact(DisplayName = "[UT-BOOK-004-05] A quote for an inactive service is unavailable")]

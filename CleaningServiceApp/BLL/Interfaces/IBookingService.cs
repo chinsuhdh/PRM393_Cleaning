@@ -16,5 +16,7 @@ namespace Cleaning.BLL.Interfaces
         Task<bool> AcceptBookingAsync(Guid bookingId, Guid workerId);
 
         Task<BookingDto?> GetBookingByIdAsync(Guid bookingId);
+        Task<BookingDto?> GetBookingByIdAsync(Guid bookingId, Guid accountId);
+        Task<IReadOnlyList<BookingPhotoDto>?> AddPhotosAsync(Guid bookingId, Guid accountId, IReadOnlyList<string> photoUrls);
     }
 }

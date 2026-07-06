@@ -158,17 +158,17 @@ public sealed class BookingDispatchTests
         Assert.Equal(BookingStatus.Cancelled, booking.Status);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-STS-03] The assigned worker can change the status of a booking they hold")]
-    public async Task UpdateStatus_AssignedWorker_Succeeds()
+    [Fact(DisplayName = "[UT-BOOK-STS-03] The assigned worker follows Accepted to OnTheWay")]
+    public async Task UpdateStatus_AssignedWorker_FollowsStateMachine()
     {
         var scenario = DispatchScenario.Create();
         var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
 
         var updated = await scenario.BookingService.UpdateBookingStatusAsync(
-            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.InProgress });
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.OnTheWay });
 
         Assert.True(updated);
-        Assert.Equal(BookingStatus.InProgress, booking.Status);
+        Assert.Equal(BookingStatus.OnTheWay, booking.Status);
     }
 
     [Fact(DisplayName = "[UT-BOOK-IDEM-01] Re-sending the same idempotency key returns the original booking, not a duplicate")]

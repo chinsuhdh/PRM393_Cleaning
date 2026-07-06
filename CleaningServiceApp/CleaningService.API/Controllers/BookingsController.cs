@@ -14,10 +14,37 @@ namespace CleaningService.API.Controllers
     public class BookingsController : ControllerBase
     {
         private readonly IBookingService _bookingService;
+        private readonly IWebHostEnvironment _environment;
 
-        public BookingsController(IBookingService bookingService)
+        public BookingsController(IBookingService bookingService, IWebHostEnvironment environment)
         {
             _bookingService = bookingService;
+            _environment = environment;
+        }
+
+        [HttpPost("{id}/photos")]
+        [Authorize(Roles = "Client")]
+        [RequestSizeLimit(5_242_880)]
+        public async Task<IActionResult> UploadPhotos(Guid id, [FromForm] List<IFormFile> photos)
+        {
+            if (photos.Count is < 1 or > 5 || photos.Any(photo =>
+                    photo.Length > 1_048_576 || !photo.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)))
+                return BadRequest(ApiResponse.Message("Tối đa 5 ảnh, mỗi ảnh không quá 1 MB."));
+
+            var folder = Path.Combine(_environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot"), "uploads", "bookings");
+            Directory.CreateDirectory(folder);
+            var urls = new List<string>();
+            foreach (var photo in photos)
+            {
+                var extension = Path.GetExtension(photo.FileName);
+                var fileName = $"{Guid.NewGuid():N}{extension}";
+                await using var stream = System.IO.File.Create(Path.Combine(folder, fileName));
+                await photo.CopyToAsync(stream);
+                urls.Add($"{Request.Scheme}://{Request.Host}/uploads/bookings/{fileName}");
+            }
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _bookingService.AddPhotosAsync(id, accountId, urls);
+            return result == null ? Forbid() : Ok(result);
         }
 
         [HttpPost("availability")]
@@ -103,7 +130,11 @@ namespace CleaningService.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetBookingById(Guid id)
         {
-            var booking = await _bookingService.GetBookingByIdAsync(id);
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var isAdmin = User.IsInRole("Admin");
+            var booking = isAdmin
+                ? await _bookingService.GetBookingByIdAsync(id)
+                : await _bookingService.GetBookingByIdAsync(id, accountId);
 
             if (booking == null) throw new AppException(AppErrors.BookingNotFound);
 

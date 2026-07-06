@@ -14,12 +14,16 @@ public static class AppErrors
         "BOOKING_ADDRESS_FORBIDDEN", "Bạn không thể sử dụng địa chỉ này.", 403);
     public static readonly AppError DurationInvalid = new(
         "BOOKING_DURATION_INVALID", "Thời lượng dịch vụ thấp hơn mức tối thiểu.");
+    public static readonly AppError QuoteStale = new(
+        "QUOTE_STALE", "Báo giá đã thay đổi. Vui lòng tải lại.", 409);
     public static readonly AppError OptionAnswersInvalid = new(
         "BOOKING_OPTION_ANSWERS_INVALID", "Thông tin trả lời cho dịch vụ không hợp lệ.");
     public static readonly AppError StartRequired = new(
         "BOOKING_START_REQUIRED", "Vui lòng chọn thời gian đặt dịch vụ.");
     public static readonly AppError StartTooSoon = new(
         "BOOKING_START_TOO_SOON", "Đặt lịch cần được thực hiện trước ít nhất 2 giờ.");
+    public static readonly AppError TimeSlotInvalid = new(
+        "TIME_SLOT_INVALID", "Thời gian đặt lịch phải nằm trong 30 ngày tới.");
     public static readonly AppError OutsideOperatingHours = new(
         "BOOKING_OUTSIDE_OPERATING_HOURS", "Thời gian đã chọn nằm ngoài giờ hoạt động của dịch vụ.");
     public static readonly AppError NoAvailableWorker = new(

@@ -123,7 +123,7 @@ public sealed class BookingServiceTests
     public async Task CreateBookingAsync_Scheduled_SetsAwaitingWorker()
     {
         var scenario = BookingScenario.Create();
-        var start = DateTime.UtcNow.AddHours(3);
+        var start = NextSlot(DateTime.UtcNow.AddHours(3));
 
         var result = await scenario.BookingService.CreateBookingAsync(
             scenario.ClientId,
@@ -159,7 +159,7 @@ public sealed class BookingServiceTests
         // and matched later by dispatch.
         var scenario = BookingScenario.Create();
         scenario.Worker.VerificationStatus = "pending"; // not eligible for matching
-        var start = DateTime.UtcNow.AddHours(3);
+        var start = NextSlot(DateTime.UtcNow.AddHours(3));
 
         var result = await scenario.BookingService.CreateBookingAsync(
             scenario.ClientId,
@@ -277,5 +277,9 @@ public sealed class BookingServiceTests
             DurationHours = 2
         };
     }
+
+    private static DateTime NextSlot(DateTime value) =>
+        new DateTime(value.Year, value.Month, value.Day, value.Hour, value.Minute < 30 ? 30 : 0, 0,
+            DateTimeKind.Utc).AddMinutes(value.Minute < 30 ? 0 : 60);
 
 }

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Cleaning.DAL.Enums;
 
 namespace Cleaning.BLL.DTOs
@@ -22,6 +23,7 @@ namespace Cleaning.BLL.DTOs
         public string Status { get; set; } = null!;
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
 
         public string? ServiceName { get; set; }
         public string? AddressText { get; set; }
@@ -33,6 +35,8 @@ namespace Cleaning.BLL.DTOs
 
         // BOOK-004: the server-authored pricing breakdown shown on the confirmation screen.
         public PricingBreakdownDto? PricingBreakdown { get; set; }
+        public IReadOnlyList<BookingPhotoDto> Photos { get; set; } = [];
+        public IReadOnlyList<BookingStatusLogDto> StatusTimeline { get; set; } = [];
     }
 
     public class CreateBookingDto
@@ -43,8 +47,11 @@ namespace Cleaning.BLL.DTOs
         [Required]
         public BookingType BookingType { get; set; } // Phải biết khách đặt loại nào
         public DateTime? ScheduledStartTime { get; set; }
-        public decimal DurationHours { get; set; } = 2;
-        public decimal DiscountAmount { get; set; } = 0; // Thêm dòng này
+        public int ServiceVersion { get; set; } = 1;
+        [JsonIgnore, Obsolete("Duration is derived by the server.")]
+        public decimal DurationHours { get; set; }
+        [JsonIgnore, Obsolete("Discounts are derived by the server.")]
+        public decimal DiscountAmount { get; set; }
         public string? Notes { get; set; }
 
         // BOOK-002: answers to the service-defined questions, validated by the API against the service schema.
@@ -56,10 +63,12 @@ namespace Cleaning.BLL.DTOs
     {
         [Required]
         public Guid ServiceId { get; set; }
-        [Range(0.5, 24)]
-        public decimal DurationHours { get; set; } = 2;
-        public decimal DiscountAmount { get; set; } = 0;
         public Dictionary<string, JsonElement>? OptionAnswers { get; set; }
+        public DateTime? ScheduledStartTime { get; set; }
+        [JsonIgnore, Obsolete("Duration is derived by the server.")]
+        public decimal DurationHours { get; set; }
+        [JsonIgnore, Obsolete("Discounts are derived by the server.")]
+        public decimal DiscountAmount { get; set; }
     }
 
     // BOOK-004: the authoritative line-item breakdown; the client displays these values and never computes them.
@@ -71,7 +80,31 @@ namespace Cleaning.BLL.DTOs
         public decimal ExtraFee { get; set; }
         public decimal DiscountAmount { get; set; }
         public decimal TotalPrice { get; set; }
+        public int ServiceVersion { get; set; }
+        public IReadOnlyList<PricingLineDto> Breakdown { get; set; } = [];
         public string Currency { get; set; } = "VND";
+    }
+
+    public class PricingLineDto
+    {
+        public string Label { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+    }
+
+    public class BookingPhotoDto
+    {
+        public Guid Id { get; set; }
+        public string PhotoUrl { get; set; } = string.Empty;
+        public string PhotoType { get; set; } = string.Empty;
+    }
+
+    public class BookingStatusLogDto
+    {
+        public string? OldStatus { get; set; }
+        public string NewStatus { get; set; } = string.Empty;
+        public Guid? ChangedBy { get; set; }
+        public string? Reason { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     public class BookingAvailabilityRequestDto

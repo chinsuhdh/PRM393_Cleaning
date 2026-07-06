@@ -66,6 +66,7 @@ public static class BookingOptionValidator
         switch (question.Type)
         {
             case "number":
+            case "stepper":
                 if (value.ValueKind != JsonValueKind.Number || !value.TryGetDecimal(out var number))
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 if ((question.Min.HasValue && number < question.Min.Value) ||
@@ -74,6 +75,7 @@ public static class BookingOptionValidator
                 return number;
 
             case "boolean":
+            case "yes_no":
                 if (value.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 return value.GetBoolean();
@@ -87,12 +89,31 @@ public static class BookingOptionValidator
                 return text;
 
             case "choice":
+            case "single_choice":
                 if (value.ValueKind != JsonValueKind.String)
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 var choice = value.GetString();
                 if (choice is null || question.Options is null || !question.Options.Contains(choice))
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 return choice;
+
+            case "multi_choice":
+                if (value.ValueKind != JsonValueKind.Array || question.Options is null)
+                    throw new AppException(AppErrors.OptionAnswersInvalid);
+                var choices = value.EnumerateArray().Select(item =>
+                    item.ValueKind == JsonValueKind.String ? item.GetString() : null).ToArray();
+                if (choices.Any(item => item is null || !question.Options.Contains(item)))
+                    throw new AppException(AppErrors.OptionAnswersInvalid);
+                return choices;
+
+            case "photos":
+                if (value.ValueKind != JsonValueKind.Array)
+                    throw new AppException(AppErrors.OptionAnswersInvalid);
+                var photos = value.EnumerateArray().Select(item =>
+                    item.ValueKind == JsonValueKind.String ? item.GetString() : null).ToArray();
+                if (photos.Any(item => item is null) || (question.Max.HasValue && photos.Length > question.Max.Value))
+                    throw new AppException(AppErrors.OptionAnswersInvalid);
+                return photos;
 
             default:
                 // Unknown/unsupported question type in the schema — reject rather than silently store.
@@ -127,7 +148,7 @@ public static class BookingOptionValidator
             foreach (var question in questions.EnumerateArray())
             {
                 if (question.ValueKind != JsonValueKind.Object ||
-                    !question.TryGetProperty("key", out var key) ||
+                    !TryGetQuestionId(question, out var key) ||
                     key.ValueKind != JsonValueKind.String)
                     continue;
 
@@ -155,14 +176,22 @@ public static class BookingOptionValidator
             ? value.GetDecimal()
             : null;
 
+    private static bool TryGetQuestionId(JsonElement question, out JsonElement id)
+    {
+        if (question.TryGetProperty("id", out id)) return true;
+        return question.TryGetProperty("key", out id);
+    }
+
     private static HashSet<string>? ReadOptions(JsonElement question)
     {
         if (!question.TryGetProperty("options", out var options) || options.ValueKind != JsonValueKind.Array)
             return null;
 
         return options.EnumerateArray()
-            .Where(option => option.ValueKind == JsonValueKind.String)
-            .Select(option => option.GetString()!)
+            .Select(option => option.ValueKind == JsonValueKind.String ? option.GetString() :
+                option.ValueKind == JsonValueKind.Object && option.TryGetProperty("id", out var id) ? id.GetString() : null)
+            .Where(option => option is not null)
+            .Select(option => option!)
             .ToHashSet();
     }
 

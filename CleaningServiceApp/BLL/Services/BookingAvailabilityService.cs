@@ -54,6 +54,10 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
                 ?? throw new AppException(AppErrors.StartRequired);
             if (from < DateTime.UtcNow.AddHours(ScheduledLeadHours))
                 throw new AppException(AppErrors.StartTooSoon);
+            if (from > DateTime.UtcNow.AddDays(30))
+                throw new AppException(AppErrors.TimeSlotInvalid);
+            if (from.Minute is not (0 or 30) || from.Second != 0)
+                throw new AppException(AppErrors.TimeSlotInvalid);
         }
 
         return (service, address);

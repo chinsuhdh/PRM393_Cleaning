@@ -1,5 +1,6 @@
 using AutoMapper;
 using Cleaning.BLL.DTOs;
+using Cleaning.BLL.Common;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -61,6 +62,10 @@ namespace Cleaning.BLL.Services
                     return false;
 
                 var oldStatus = booking.Status;
+                var isClient = booking.ClientId == accountId;
+                var isWorker = booking.WorkerId == accountId;
+                if (!IsAllowedTransition(oldStatus, request.NewStatus, isClient, isWorker))
+                    return false;
                 booking.Status = request.NewStatus;
                 booking.UpdatedAt = DateTime.UtcNow;
 
@@ -170,7 +175,69 @@ namespace Cleaning.BLL.Services
 
             await HydrateAsync([booking]);
 
-            return _mapper.Map<BookingDto>(booking);
+            var dto = _mapper.Map<BookingDto>(booking);
+            await AddDetailCollectionsAsync(booking, dto);
+            return dto;
+        }
+
+        public async Task<BookingDto?> GetBookingByIdAsync(Guid bookingId, Guid accountId)
+        {
+            var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
+            if (booking == null) return null;
+            if (booking.ClientId != accountId && booking.WorkerId != accountId)
+                throw new AppException(AppErrors.Forbidden);
+            await HydrateAsync([booking]);
+            var dto = _mapper.Map<BookingDto>(booking);
+            await AddDetailCollectionsAsync(booking, dto);
+            return dto;
+        }
+
+        private async Task AddDetailCollectionsAsync(Booking booking, BookingDto dto)
+        {
+            var photos = await _unitOfWork.Repository<BookingPhoto>().FindAsync(photo => photo.BookingId == booking.Id);
+            dto.Photos = photos.Select(photo => new BookingPhotoDto
+            {
+                Id = photo.Id,
+                PhotoUrl = photo.PhotoUrl,
+                PhotoType = photo.PhotoType.ToString()
+            }).ToList();
+            var logs = await _unitOfWork.Repository<BookingStatusLog>().FindAsync(log => log.BookingId == booking.Id);
+            dto.StatusTimeline = logs.OrderBy(log => log.CreatedAt).Select(log => new BookingStatusLogDto
+            {
+                OldStatus = log.OldStatus?.ToString(),
+                NewStatus = log.NewStatus.ToString(),
+                ChangedBy = log.ChangedBy,
+                Reason = log.Reason,
+                CreatedAt = log.CreatedAt
+            }).ToList();
+        }
+
+        public async Task<IReadOnlyList<BookingPhotoDto>?> AddPhotosAsync(
+            Guid bookingId,
+            Guid accountId,
+            IReadOnlyList<string> photoUrls)
+        {
+            var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
+            if (booking == null || booking.ClientId != accountId || photoUrls.Count == 0) return null;
+            var existing = (await _unitOfWork.Repository<BookingPhoto>()
+                .FindAsync(photo => photo.BookingId == bookingId && photo.PhotoType == PhotoType.Before)).ToList();
+            if (existing.Count + photoUrls.Count > 5) return null;
+            var created = photoUrls.Select(url => new BookingPhoto
+            {
+                BookingId = bookingId,
+                UploadedBy = accountId,
+                PhotoUrl = url,
+                PhotoType = PhotoType.Before,
+                CreatedAt = DateTime.UtcNow
+            }).ToList();
+            _unitOfWork.Repository<BookingPhoto>().AddRange(created);
+            await _unitOfWork.SaveChangesAsync();
+            return created.Select(photo => new BookingPhotoDto
+            {
+                Id = photo.Id,
+                PhotoUrl = photo.PhotoUrl,
+                PhotoType = photo.PhotoType.ToString()
+            }).ToList();
         }
 
         private async Task HydrateAsync(IReadOnlyCollection<Booking> bookings)
@@ -199,6 +266,29 @@ namespace Cleaning.BLL.Services
 
         private static bool IsAwaitingWorker(BookingStatus status) =>
             status is BookingStatus.AwaitingWorker;
+
+        private static bool IsAllowedTransition(
+            BookingStatus from,
+            BookingStatus to,
+            bool isClient,
+            bool isWorker) =>
+            (from, to) switch
+            {
+                (BookingStatus.AwaitingWorker, BookingStatus.Cancelled) => isClient,
+                (BookingStatus.Accepted, BookingStatus.OnTheWay) => isWorker,
+                (BookingStatus.OnTheWay, BookingStatus.InProgress) => isWorker,
+                (BookingStatus.InProgress, BookingStatus.PendingPayment) => isWorker,
+                (BookingStatus.PendingPayment, BookingStatus.Completed) => isWorker,
+                (BookingStatus.Accepted, BookingStatus.RescheduleRequested) => isClient || isWorker,
+                (BookingStatus.RescheduleRequested, BookingStatus.Accepted) => isClient || isWorker,
+                (BookingStatus.Accepted, BookingStatus.AwaitingWorker) => isWorker,
+                (_, BookingStatus.Cancelled) when from is BookingStatus.Accepted
+                    or BookingStatus.RescheduleRequested
+                    or BookingStatus.OnTheWay
+                    or BookingStatus.InProgress
+                    or BookingStatus.PendingPayment => isClient || isWorker,
+                _ => false
+            };
 
     }
 }
