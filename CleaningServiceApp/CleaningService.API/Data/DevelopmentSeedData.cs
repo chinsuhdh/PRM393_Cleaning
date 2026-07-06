@@ -25,6 +25,7 @@ internal static class DevelopmentSeedData
         BasePrice = 120_000m,
         MinimumHours = 2,
         IsActive = true,
+        BookingFormSchema = ApartmentBookingFormSchema,
         CreatedAt = now,
         UpdatedAt = now
     };
@@ -39,9 +40,57 @@ internal static class DevelopmentSeedData
         BasePrice = 150_000m,
         MinimumHours = 3,
         IsActive = true,
+        BookingFormSchema = HouseBookingFormSchema,
         CreatedAt = now,
         UpdatedAt = now
     };
+
+    // D.3 BookingFormSchema example: stepper/single_choice/multi_choice options carry priceDelta (VND) and
+    // durationDelta (minutes); text/photos never affect price. "hologram" demonstrates that an unknown
+    // question type is skipped by both the API validator and the Flutter renderer (forward compatibility).
+    internal const string ApartmentBookingFormSchema = """
+        {
+          "questions": [
+            { "id": "rooms", "type": "stepper", "label": "How many rooms?",
+              "min": 1, "max": 10, "required": true,
+              "unit": { "priceDelta": 40000, "durationDelta": 45 } },
+            { "id": "level", "type": "single_choice", "label": "Cleaning level", "required": true,
+              "options": [
+                { "id": "light", "label": "Light clean" },
+                { "id": "deep", "label": "Deep clean", "priceDelta": 50000, "durationDelta": 30 } ] },
+            { "id": "addons", "type": "multi_choice", "label": "Extra tasks",
+              "options": [
+                { "id": "fridge", "label": "Inside fridge", "priceDelta": 30000, "durationDelta": 20 },
+                { "id": "windows", "label": "Windows", "priceDelta": 50000, "durationDelta": 30 } ] },
+            { "id": "pets", "type": "yes_no", "label": "Do you have pets?" },
+            { "id": "note", "type": "text", "label": "Note for your worker", "maxLength": 500 },
+            { "id": "photos", "type": "photos", "label": "Photos of the space", "max": 5 }
+          ]
+        }
+        """;
+
+    internal const string HouseBookingFormSchema = """
+        {
+          "questions": [
+            { "id": "floors", "type": "stepper", "label": "How many floors?",
+              "min": 1, "max": 5, "required": true,
+              "unit": { "priceDelta": 60000, "durationDelta": 60 } },
+            { "id": "level", "type": "single_choice", "label": "Cleaning level", "required": true,
+              "options": [
+                { "id": "light", "label": "Light clean" },
+                { "id": "deep", "label": "Deep clean", "priceDelta": 70000, "durationDelta": 45 } ] },
+            { "id": "addons", "type": "multi_choice", "label": "Extra tasks",
+              "options": [
+                { "id": "oven", "label": "Inside oven", "priceDelta": 40000, "durationDelta": 25 },
+                { "id": "garage", "label": "Garage", "priceDelta": 70000, "durationDelta": 40 } ] },
+            { "id": "garden", "type": "yes_no", "label": "Does the house have a garden?" },
+            { "id": "pets", "type": "yes_no", "label": "Do you have pets?" },
+            { "id": "note", "type": "text", "label": "Note for your worker", "maxLength": 500 },
+            { "id": "photos", "type": "photos", "label": "Photos of the space", "max": 5 },
+            { "id": "future", "type": "hologram", "label": "Unknown from the future" }
+          ]
+        }
+        """;
 
     internal static Account CreateAccount(Guid id, string email, UserRole role, DateTime now) => new()
     {
