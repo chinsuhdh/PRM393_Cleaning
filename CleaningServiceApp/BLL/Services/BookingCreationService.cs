@@ -61,13 +61,9 @@ public sealed class BookingCreationService(
             To = scheduledStart
         });
 
-        // Time legality (BOOK-003): a Scheduled booking must fall within the service's operating hours.
-        // Worker availability is intentionally NOT checked here — matching happens afterwards via dispatch,
-        // so the booking is created first and offered to eligible workers who can accept it.
-        if (request.BookingType == BookingType.Scheduled &&
-            !BookingAvailabilityService.IsWithinOperatingSchedule(
-                service, scheduledStart, scheduledStart.AddHours((double)durationHours)))
-            throw new AppException(AppErrors.OutsideOperatingHours);
+        // OperatingSchedule is dormant per the spec ("any hour of day is allowed"), so no operating-hours
+        // check here. Worker availability is intentionally NOT checked either — matching happens afterwards
+        // via dispatch, so the booking is created first and offered to eligible workers who can accept it.
 
         // BOOK-004: the server computes the authoritative pricing breakdown; the client only displays it.
         var pricingBreakdown = JsonSerializer.Serialize(pricing);

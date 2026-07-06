@@ -72,8 +72,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
             ServiceId = ServiceId,
             AddressId = AddressId,
             BookingType = BookingType.Immediate,
-            ScheduledStartTime = null,
-            DurationHours = 2
+            ScheduledStartTime = null
         });
 
         var response = await client.SendAsync(request);
@@ -107,8 +106,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         {
             ServiceId = ServiceId,
             AddressId = AddressId,
-            BookingType = BookingType.Immediate,
-            DurationHours = 2
+            BookingType = BookingType.Immediate
         });
 
         var response = await client.SendAsync(request);
@@ -252,8 +250,7 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         ServiceId = ServiceId,
         AddressId = AddressId,
         BookingType = BookingType.Scheduled,
-        ScheduledStartTime = start,
-        DurationHours = 2
+        ScheduledStartTime = start
     };
 
     private async Task SeedAsync()

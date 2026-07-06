@@ -171,6 +171,167 @@ public sealed class BookingDispatchTests
         Assert.Equal(BookingStatus.OnTheWay, booking.Status);
     }
 
+    [Theory(DisplayName = "[UT-BOOK-STS-04] § 4.1: every allowed transition succeeds for the right actor and writes a log")]
+    [InlineData(BookingStatus.AwaitingWorker, BookingStatus.Cancelled, "client")]
+    [InlineData(BookingStatus.Accepted, BookingStatus.OnTheWay, "worker")]
+    [InlineData(BookingStatus.OnTheWay, BookingStatus.InProgress, "worker")]
+    [InlineData(BookingStatus.InProgress, BookingStatus.PendingPayment, "worker")]
+    [InlineData(BookingStatus.PendingPayment, BookingStatus.Completed, "worker")]
+    [InlineData(BookingStatus.Accepted, BookingStatus.RescheduleRequested, "client")]
+    [InlineData(BookingStatus.Accepted, BookingStatus.RescheduleRequested, "worker")]
+    [InlineData(BookingStatus.RescheduleRequested, BookingStatus.Accepted, "client")]
+    [InlineData(BookingStatus.Accepted, BookingStatus.Cancelled, "client")]
+    [InlineData(BookingStatus.RescheduleRequested, BookingStatus.Cancelled, "worker")]
+    [InlineData(BookingStatus.OnTheWay, BookingStatus.Cancelled, "client")]
+    [InlineData(BookingStatus.InProgress, BookingStatus.Cancelled, "worker")]
+    [InlineData(BookingStatus.PendingPayment, BookingStatus.Cancelled, "client")]
+    public async Task UpdateStatus_AllowedArrow_Succeeds(BookingStatus from, BookingStatus to, string actor)
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(
+            from, workerId: from == BookingStatus.AwaitingWorker ? null : scenario.WorkerId);
+        var actorId = actor == "client" ? scenario.ClientId : scenario.WorkerId;
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, actorId, new UpdateBookingStatusDto { NewStatus = to });
+
+        Assert.True(updated);
+        Assert.Equal(to, booking.Status);
+        Assert.Single(scenario.StatusLogs,
+            log => log.BookingId == booking.Id && log.OldStatus == from && log.NewStatus == to && log.ChangedBy == actorId);
+    }
+
+    [Theory(DisplayName = "[UT-BOOK-STS-05] § 4.1: forbidden transitions are rejected without touching the booking")]
+    [InlineData(BookingStatus.Accepted, BookingStatus.InProgress, "worker")]     // must pass through OnTheWay
+    [InlineData(BookingStatus.Accepted, BookingStatus.OnTheWay, "client")]       // wrong actor
+    [InlineData(BookingStatus.OnTheWay, BookingStatus.InProgress, "client")]     // wrong actor
+    [InlineData(BookingStatus.InProgress, BookingStatus.Completed, "worker")]    // must pass through PendingPayment
+    [InlineData(BookingStatus.AwaitingWorker, BookingStatus.Accepted, "client")] // accept is worker-only via /accept
+    [InlineData(BookingStatus.Completed, BookingStatus.Cancelled, "client")]     // terminal
+    [InlineData(BookingStatus.Cancelled, BookingStatus.Accepted, "worker")]      // terminal
+    [InlineData(BookingStatus.Accepted, BookingStatus.AwaitingWorker, "client")] // release is worker-only
+    public async Task UpdateStatus_ForbiddenArrow_ReturnsFalse(BookingStatus from, BookingStatus to, string actor)
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(
+            from, workerId: from == BookingStatus.AwaitingWorker ? null : scenario.WorkerId);
+        var actorId = actor == "client" ? scenario.ClientId : scenario.WorkerId;
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, actorId, new UpdateBookingStatusDto { NewStatus = to });
+
+        Assert.False(updated);
+        Assert.Equal(from, booking.Status);
+        Assert.DoesNotContain(scenario.StatusLogs, log => log.BookingId == booking.Id);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-06] Worker plain-cancel releases the job: WorkerId cleared and re-broadcast (§ 4.10)")]
+    public async Task UpdateStatus_WorkerReleasesJob_ClearsWorkerAndRebroadcasts()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.AwaitingWorker });
+
+        Assert.True(updated);
+        Assert.Equal(BookingStatus.AwaitingWorker, booking.Status);
+        Assert.Null(booking.WorkerId);
+        // The released job must show up again in the broadcast feed for eligible workers.
+        var available = await scenario.BookingService.GetAvailableBookingsAsync(scenario.WorkerId);
+        Assert.Single(available, dto => dto.Id == booking.Id);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-07] Start and finish stamp ActualStartTime and ActualEndTime")]
+    public async Task UpdateStatus_StartAndFinish_StampActualTimes()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.OnTheWay, workerId: scenario.WorkerId);
+
+        await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.InProgress });
+        Assert.NotNull(booking.ActualStartTime);
+        Assert.Null(booking.ActualEndTime);
+
+        await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.PendingPayment });
+        Assert.NotNull(booking.ActualEndTime);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-08] A report-cancel from InProgress records who cancelled and why")]
+    public async Task UpdateStatus_ReportCancel_WritesCancellationRecord()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.InProgress, workerId: scenario.WorkerId);
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId,
+            new UpdateBookingStatusDto { NewStatus = BookingStatus.Cancelled, Reason = "Khach vang mat" });
+
+        Assert.True(updated);
+        var record = Assert.Single(scenario.Cancellations);
+        Assert.Equal(booking.Id, record.BookingId);
+        Assert.Equal(scenario.WorkerId, record.CancelledBy);
+        Assert.Equal(UserRole.Worker, record.ActorRole);
+        Assert.Equal("Khach vang mat", record.Reason);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-PHT-01] The owning client can attach up to five Before photos")]
+    public async Task AddPhotos_Owner_PersistsBeforePhotos()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.AwaitingWorker);
+
+        var result = await scenario.BookingService.AddPhotosAsync(
+            booking.Id, scenario.ClientId, ["https://cdn/x1.jpg", "https://cdn/x2.jpg"]);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result!.Count);
+        Assert.Equal(2, scenario.Photos.Count);
+        Assert.All(scenario.Photos, photo =>
+        {
+            Assert.Equal(PhotoType.Before, photo.PhotoType);
+            Assert.Equal(scenario.ClientId, photo.UploadedBy);
+        });
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-PHT-02] More than five photos in total are rejected")]
+    public async Task AddPhotos_OverCap_ReturnsNull()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.AwaitingWorker);
+        for (var i = 0; i < 4; i++)
+        {
+            scenario.Photos.Add(new BookingPhoto
+            {
+                Id = Guid.NewGuid(),
+                BookingId = booking.Id,
+                UploadedBy = scenario.ClientId,
+                PhotoUrl = $"https://cdn/old{i}.jpg",
+                PhotoType = PhotoType.Before
+            });
+        }
+
+        var result = await scenario.BookingService.AddPhotosAsync(
+            booking.Id, scenario.ClientId, ["https://cdn/x1.jpg", "https://cdn/x2.jpg"]);
+
+        Assert.Null(result);
+        Assert.Equal(4, scenario.Photos.Count);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-PHT-03] Someone other than the owning client cannot attach photos")]
+    public async Task AddPhotos_NonOwner_ReturnsNull()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        var result = await scenario.BookingService.AddPhotosAsync(
+            booking.Id, scenario.WorkerId, ["https://cdn/x1.jpg"]);
+
+        Assert.Null(result);
+        Assert.Empty(scenario.Photos);
+    }
+
     [Fact(DisplayName = "[UT-BOOK-IDEM-01] Re-sending the same idempotency key returns the original booking, not a duplicate")]
     public async Task Create_DuplicateIdempotencyKey_ReturnsExistingBooking()
     {
@@ -194,6 +355,8 @@ public sealed class BookingDispatchTests
         public UserAddress Address { get; private set; } = null!;
         public List<Booking> Bookings { get; } = [];
         public List<BookingStatusLog> StatusLogs { get; } = [];
+        public List<BookingCancellation> Cancellations { get; } = [];
+        public List<BookingPhoto> Photos { get; } = [];
 
         public static DispatchScenario Create(bool workerSkillVerified = true)
         {
@@ -252,7 +415,8 @@ public sealed class BookingDispatchTests
                 }])
                 .With(scenario.Bookings)
                 .With(scenario.StatusLogs)
-                .With(new List<BookingCancellation>());
+                .With(scenario.Cancellations)
+                .With(scenario.Photos);
 
             var availabilityService = new BookingAvailabilityService(unitOfWork);
             var mapper = new MapperConfiguration(
@@ -291,8 +455,7 @@ public sealed class BookingDispatchTests
         {
             ServiceId = ServiceEntity.Id,
             AddressId = Address.Id,
-            BookingType = BookingType.Immediate,
-            DurationHours = 2
+            BookingType = BookingType.Immediate
         };
     }
 }

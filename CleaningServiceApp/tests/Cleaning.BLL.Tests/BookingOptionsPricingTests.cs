@@ -8,6 +8,9 @@ using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
 
+// Legacy DurationHours/DiscountAmount are exercised deliberately to prove the server ignores them.
+#pragma warning disable CS0618
+
 namespace Cleaning.BLL.Tests;
 
 // Covers BOOK-002 (service-defined questions), BOOK-003 (valid-slot exposure/revalidation),
@@ -172,21 +175,220 @@ public sealed class BookingOptionsPricingTests
         Assert.Equal(result.GeneratedAt.AddMinutes(2), result.ValidUntil);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-003-02] A scheduled booking outside the service operating hours is rejected as an illegal time")]
-    public async Task Create_ScheduledOutsideOperatingHours_ThrowsOutsideOperatingHours()
+    [Fact(DisplayName = "[UT-BOOK-003-02] OperatingSchedule is dormant: a scheduled booking at any hour is accepted")]
+    public async Task Create_ScheduledOutsideOperatingHours_IsAccepted()
     {
         var scenario = FeatureScenario.Create();
-        // Service is only open Monday 08:00-17:00; a Monday-night start is outside operating hours.
-        // This is a time-legality rejection â€” NOT a worker-availability check.
+        // Spec D.6: "Any hour of day is allowed" -- OperatingSchedule stays on the entity but must not
+        // block creation, even when the start time falls outside the configured hours.
         scenario.ServiceEntity.OperatingSchedule = "{\"monday\":{\"open\":\"08:00\",\"close\":\"17:00\"}}";
-        var mondayNight = new DateTime(2026, 7, 6, 18, 0, 0, DateTimeKind.Utc);
+        var nightStart = DateTime.UtcNow.Date.AddDays(3).AddHours(18);
+
+        var result = await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId, "any-hour", scenario.CreateRequest(BookingType.Scheduled, start: nightStart));
+
+        Assert.Equal(nameof(BookingStatus.AwaitingWorker), result.Status);
+        Assert.Single(scenario.Bookings);
+    }
+
+    // ----------------------- EPIC D: answer-delta pricing, promotions, staleness -----------------------
+
+    [Fact(DisplayName = "[UT-BOOK-004-06] Answer deltas price the quote and derive the duration (D.3/D.4)")]
+    public async Task Quote_AnswerDeltas_PriceAndDeriveDuration()
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.ServiceEntity.BookingFormSchema = EpicDSchema;
+
+        var quote = await scenario.BookingService.GetQuoteAsync(
+            scenario.ClientId,
+            new BookingQuoteRequestDto
+            {
+                ServiceId = scenario.ServiceEntity.Id,
+                OptionAnswers = Answers(new { rooms = 3, addons = new[] { "fridge" }, pets = true })
+            });
+
+        // Minutes: 2h base (120) + 3 rooms x 45 (135) + fridge (20) = 275, rounded up to 300 = 5.0h.
+        Assert.Equal(5.0m, quote.DurationHours);
+        // VND: 100k x 2h base (200k) + 3 rooms x 40k (120k) + fridge (30k) = 350k.
+        Assert.Equal(350_000m, quote.TotalPrice);
+        Assert.Collection(quote.Breakdown,
+            line => { Assert.Contains("base", line.Label); Assert.Equal(200_000m, line.Amount); },
+            line => Assert.Equal(120_000m, line.Amount),
+            line => { Assert.Equal("Inside fridge", line.Label); Assert.Equal(30_000m, line.Amount); });
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-004-07] Quote echoes the current service version for staleness detection")]
+    public async Task Quote_EchoesServiceVersion()
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.ServiceEntity.Version = 7;
+
+        var quote = await scenario.BookingService.GetQuoteAsync(
+            scenario.ClientId, new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id });
+
+        Assert.Equal(7, quote.ServiceVersion);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-004-08] An active percentage promotion is applied as a negative breakdown line")]
+    public async Task Quote_ActivePercentagePromotion_AddsNegativeLine()
+    {
+        var scenario = FeatureScenario.Create();
+        var promotion = scenario.AddPromotion(discountType: "percentage", value: 10);
+
+        var quote = await scenario.BookingService.GetQuoteAsync(
+            scenario.ClientId, new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id });
+
+        Assert.Equal(20_000m, quote.DiscountAmount);
+        Assert.Equal(180_000m, quote.TotalPrice);
+        var discountLine = Assert.Single(quote.Breakdown, line => line.Amount < 0);
+        Assert.Equal(promotion.Name, discountLine.Label);
+        Assert.Equal(-20_000m, discountLine.Amount);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-004-09] A fixed promotion larger than the subtotal clamps the total at zero")]
+    public async Task Quote_OversizedFixedPromotion_ClampsAtZero()
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.AddPromotion(discountType: "fixed", value: 500_000);
+
+        var quote = await scenario.BookingService.GetQuoteAsync(
+            scenario.ClientId, new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id });
+
+        Assert.Equal(200_000m, quote.DiscountAmount);
+        Assert.Equal(0m, quote.TotalPrice);
+    }
+
+    [Theory(DisplayName = "[UT-BOOK-004-10] Draft, upcoming, expired, and archived promotions are ignored")]
+    [InlineData("draft", -1, 1, false)]
+    [InlineData("active", 1, 2, false)]  // not started yet
+    [InlineData("active", -2, -1, false)] // already ended
+    [InlineData("active", -1, 1, true)]  // archived
+    public async Task Quote_InactivePromotion_IsIgnored(string status, int startsDays, int endsDays, bool archived)
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.AddPromotion(
+            discountType: "percentage",
+            value: 10,
+            status: status,
+            startsAt: DateTime.UtcNow.AddDays(startsDays),
+            endsAt: DateTime.UtcNow.AddDays(endsDays),
+            archivedAt: archived ? DateTime.UtcNow : null);
+
+        var quote = await scenario.BookingService.GetQuoteAsync(
+            scenario.ClientId, new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id });
+
+        Assert.Equal(0m, quote.DiscountAmount);
+        Assert.Equal(200_000m, quote.TotalPrice);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-004-11] Creating with a stale service version fails with QUOTE_STALE and writes nothing")]
+    public async Task Create_StaleServiceVersion_ThrowsQuoteStale()
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.ServiceEntity.Version = 2; // admin bumped the service after the client quoted
 
         var error = await Assert.ThrowsAsync<AppException>(() =>
             scenario.BookingService.CreateBookingAsync(
-                scenario.ClientId, "out-of-hours", scenario.CreateRequest(BookingType.Scheduled, start: mondayNight)));
+                scenario.ClientId, "stale-key", scenario.CreateRequest(BookingType.Immediate)));
 
-        Assert.Equal("BOOKING_OUTSIDE_OPERATING_HOURS", error.Code);
+        Assert.Equal("QUOTE_STALE", error.Code);
         Assert.Empty(scenario.Bookings);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-004-12] Create persists the derived duration and matching end time")]
+    public async Task Create_PersistsDerivedDurationAndEndTime()
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.ServiceEntity.BookingFormSchema = EpicDSchema;
+        var start = DateTime.UtcNow.Date.AddDays(3).AddHours(9);
+
+        var result = await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId,
+            "derived-duration",
+            scenario.CreateRequest(
+                BookingType.Scheduled,
+                start: start,
+                answers: Answers(new { rooms = 3, addons = new[] { "fridge" } })));
+
+        var persisted = Assert.Single(scenario.Bookings);
+        Assert.Equal(5.0m, persisted.DurationHours);
+        Assert.Equal(start.AddHours(5), persisted.ScheduledEndTime);
+        Assert.Equal(350_000m, persisted.TotalPrice);
+        Assert.Equal(350_000m, result.TotalPrice);
+    }
+
+    // ----------------------- EPIC D: new question types (BOOK-002) -----------------------
+
+    [Theory(DisplayName = "[UT-BOOK-002-05] yes_no and multi_choice reject malformed answers")]
+    [InlineData("{\"rooms\":2,\"pets\":\"yes\"}")]         // yes_no must be a boolean
+    [InlineData("{\"rooms\":2,\"addons\":\"fridge\"}")]     // multi_choice must be an array
+    [InlineData("{\"rooms\":2,\"addons\":[\"jacuzzi\"]}")] // option id not in the schema
+    public async Task Create_MalformedNewTypeAnswers_ThrowsInvalid(string answersJson)
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.ServiceEntity.BookingFormSchema = EpicDSchema;
+        var answers = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(answersJson)!;
+
+        var error = await Assert.ThrowsAsync<AppException>(() =>
+            scenario.BookingService.CreateBookingAsync(
+                scenario.ClientId, "new-type-bad", scenario.CreateRequest(BookingType.Immediate, answers: answers)));
+
+        Assert.Equal("BOOKING_OPTION_ANSWERS_INVALID", error.Code);
+        Assert.Empty(scenario.Bookings);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-002-06] yes_no, multi_choice, and text answers round-trip into OptionAnswers")]
+    public async Task Create_NewTypeAnswers_RoundTrip()
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.ServiceEntity.BookingFormSchema = EpicDSchema;
+
+        await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId,
+            "new-type-ok",
+            scenario.CreateRequest(
+                BookingType.Immediate,
+                answers: Answers(new { rooms = 2, pets = true, addons = new[] { "fridge", "windows" }, note = "nhieu cua kinh" })));
+
+        var persisted = Assert.Single(scenario.Bookings);
+        using var stored = JsonDocument.Parse(persisted.OptionAnswers);
+        Assert.True(stored.RootElement.GetProperty("pets").GetBoolean());
+        Assert.Equal(2, stored.RootElement.GetProperty("addons").GetArrayLength());
+        Assert.Equal("nhieu cua kinh", stored.RootElement.GetProperty("note").GetString());
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-002-07] A required photos question never blocks creation (photos upload after create)")]
+    public async Task Create_MissingRequiredPhotos_StillSucceeds()
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.ServiceEntity.BookingFormSchema = RequiredPhotosSchema;
+
+        var result = await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId,
+            "photos-later",
+            scenario.CreateRequest(BookingType.Immediate, answers: Answers(new { rooms = 2 })));
+
+        Assert.Equal(nameof(BookingStatus.AwaitingWorker), result.Status);
+        Assert.Single(scenario.Bookings);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-002-08] An unknown question type is skipped, and its answer is dropped")]
+    public async Task Create_UnknownQuestionType_IsSkipped()
+    {
+        var scenario = FeatureScenario.Create();
+        scenario.ServiceEntity.BookingFormSchema = UnknownTypeSchema;
+
+        await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId,
+            "forward-compat",
+            scenario.CreateRequest(BookingType.Immediate, answers: Answers(new { rooms = 2, future = "x" })));
+
+        // Spec D.3 forward compatibility: the unknown question neither blocks (despite required:true)
+        // nor persists its answer.
+        var persisted = Assert.Single(scenario.Bookings);
+        using var stored = JsonDocument.Parse(persisted.OptionAnswers);
+        Assert.Equal(2, stored.RootElement.GetProperty("rooms").GetInt32());
+        Assert.False(stored.RootElement.TryGetProperty("future", out _));
     }
 
     // ----------------------- helpers -----------------------
@@ -196,6 +398,28 @@ public sealed class BookingOptionsPricingTests
         "{\"key\":\"rooms\",\"type\":\"number\",\"required\":true,\"min\":1,\"max\":10}," +
         "{\"key\":\"level\",\"type\":\"choice\",\"required\":true,\"options\":[\"light\",\"deep\"]}," +
         "{\"key\":\"note\",\"type\":\"text\",\"required\":false,\"maxLength\":50}]}";
+
+    // The D.3 example schema: stepper with unit deltas, multi_choice with option deltas, yes_no, text, photos.
+    private const string EpicDSchema =
+        "{\"questions\":[" +
+        "{\"id\":\"rooms\",\"type\":\"stepper\",\"label\":\"How many rooms?\",\"min\":1,\"max\":10,\"required\":true," +
+        "\"unit\":{\"priceDelta\":40000,\"durationDelta\":45}}," +
+        "{\"id\":\"addons\",\"type\":\"multi_choice\",\"label\":\"Extra tasks\",\"options\":[" +
+        "{\"id\":\"fridge\",\"label\":\"Inside fridge\",\"priceDelta\":30000,\"durationDelta\":20}," +
+        "{\"id\":\"windows\",\"label\":\"Windows\",\"priceDelta\":50000,\"durationDelta\":30}]}," +
+        "{\"id\":\"pets\",\"type\":\"yes_no\",\"label\":\"Do you have pets?\"}," +
+        "{\"id\":\"note\",\"type\":\"text\",\"label\":\"Note\",\"maxLength\":500}," +
+        "{\"id\":\"photos\",\"type\":\"photos\",\"label\":\"Photos\",\"max\":5}]}";
+
+    private const string RequiredPhotosSchema =
+        "{\"questions\":[" +
+        "{\"id\":\"rooms\",\"type\":\"stepper\",\"required\":true,\"min\":1,\"max\":10}," +
+        "{\"id\":\"photos\",\"type\":\"photos\",\"required\":true,\"max\":5}]}";
+
+    private const string UnknownTypeSchema =
+        "{\"questions\":[" +
+        "{\"id\":\"rooms\",\"type\":\"stepper\",\"required\":true,\"min\":1,\"max\":10}," +
+        "{\"id\":\"future\",\"type\":\"hologram\",\"required\":true}]}";
 
     private static Dictionary<string, JsonElement> Answers(object value) =>
         JsonSerializer.SerializeToElement(value)
@@ -209,6 +433,31 @@ public sealed class BookingOptionsPricingTests
         public Service ServiceEntity { get; private set; } = null!;
         public UserAddress Address { get; private set; } = null!;
         public List<Booking> Bookings { get; } = [];
+        public List<Promotion> Promotions { get; } = [];
+
+        public Promotion AddPromotion(
+            string discountType = "percentage",
+            decimal value = 10,
+            string status = "active",
+            DateTime? startsAt = null,
+            DateTime? endsAt = null,
+            DateTime? archivedAt = null)
+        {
+            var promotion = new Promotion
+            {
+                Id = Guid.NewGuid(),
+                ServiceId = ServiceEntity.Id,
+                Name = "Khuyen mai thang 7",
+                DiscountType = discountType,
+                DiscountValue = value,
+                Status = status,
+                StartsAt = startsAt ?? DateTime.UtcNow.AddDays(-1),
+                EndsAt = endsAt ?? DateTime.UtcNow.AddDays(1),
+                ArchivedAt = archivedAt
+            };
+            Promotions.Add(promotion);
+            return promotion;
+        }
 
         public static FeatureScenario Create()
         {
@@ -263,6 +512,7 @@ public sealed class BookingOptionsPricingTests
                     Status = AvailabilityStatus.Available
                 }])
                 .With(scenario.Bookings)
+                .With(scenario.Promotions)
                 .With(new List<BookingStatusLog>());
 
             var availabilityService = new BookingAvailabilityService(unitOfWork);
@@ -282,8 +532,8 @@ public sealed class BookingOptionsPricingTests
             AddressId = Address.Id,
             BookingType = bookingType,
             DurationHours = 2,
-            From = new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc),
-            To = new DateTime(2026, 7, 6, 9, 0, 0, DateTimeKind.Utc)
+            From = DateTime.UtcNow.Date.AddDays(7).AddHours(9),
+            To = DateTime.UtcNow.Date.AddDays(7).AddHours(9)
         };
 
         public CreateBookingDto CreateRequest(

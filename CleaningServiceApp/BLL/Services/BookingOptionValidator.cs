@@ -21,6 +21,9 @@ namespace Cleaning.BLL.Services;
 /// </remarks>
 public static class BookingOptionValidator
 {
+    private static readonly HashSet<string> KnownTypes =
+        ["number", "stepper", "boolean", "yes_no", "text", "choice", "single_choice", "multi_choice", "photos"];
+
     /// <param name="enforceRequired">
     /// When true (booking creation) every required question must be answered. When false (a price quote,
     /// where the client may still be completing the form) only the provided answers are checked.
@@ -48,9 +51,16 @@ public static class BookingOptionValidator
         var normalized = new Dictionary<string, object?>();
         foreach (var question in questions)
         {
+            // Forward compatibility (spec D.3): a question type this validator does not know is skipped
+            // entirely — it never blocks the booking and any answer for it is dropped, not rejected.
+            if (!KnownTypes.Contains(question.Type))
+                continue;
+
             if (!provided.TryGetValue(question.Key, out var value) || value.ValueKind is JsonValueKind.Null)
             {
-                if (question.Required && enforceRequired)
+                // Photos are uploaded AFTER creation via POST bookings/{id}/photos, so a required photos
+                // question must never block the create itself.
+                if (question.Required && enforceRequired && question.Type != "photos")
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 continue;
             }
@@ -116,7 +126,7 @@ public static class BookingOptionValidator
                 return photos;
 
             default:
-                // Unknown/unsupported question type in the schema — reject rather than silently store.
+                // Unreachable: Normalize skips questions whose type is not in KnownTypes.
                 throw new AppException(AppErrors.OptionAnswersInvalid);
         }
     }

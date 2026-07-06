@@ -44,9 +44,7 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
 
         var quoteResponse = await client.PostAsJsonAsync("/api/Bookings/quote", new BookingQuoteRequestDto
         {
-            ServiceId = ServiceId,
-            DurationHours = 2,
-            DiscountAmount = 50_000
+            ServiceId = ServiceId
         });
         Assert.Equal(HttpStatusCode.OK, quoteResponse.StatusCode);
         var quote = await quoteResponse.Content.ReadDataAsync<PricingBreakdownDto>();
@@ -62,8 +60,6 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
             ServiceId = ServiceId,
             AddressId = AddressId,
             BookingType = BookingType.Immediate,
-            DurationHours = 2,
-            DiscountAmount = 50_000,
             OptionAnswers = Answers("{\"rooms\":2,\"level\":\"deep\"}")
         });
         var response = await client.SendAsync(request);
@@ -91,7 +87,6 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
             ServiceId = ServiceId,
             AddressId = AddressId,
             BookingType = BookingType.Immediate,
-            DurationHours = 2,
             OptionAnswers = Answers("{\"rooms\":3,\"level\":\"light\"}")
         });
 
@@ -118,7 +113,6 @@ public sealed class BookingFeatureApiTests(PostgreSqlApiFixture fixture) : IAsyn
             ServiceId = ServiceId,
             AddressId = AddressId,
             BookingType = BookingType.Immediate,
-            DurationHours = 2,
             OptionAnswers = Answers("{\"level\":\"deep\"}") // missing required "rooms"
         });
 
