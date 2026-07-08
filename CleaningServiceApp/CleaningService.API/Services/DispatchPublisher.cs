@@ -34,6 +34,9 @@ public sealed class DispatchPublisher(
     public Task JobCancelledAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds) =>
         SendToWorkersAsync("jobCancelled", bookingId, workerIds);
 
+    public Task BookingStatusChangedAsync(Guid bookingId, string newStatus) =>
+        hub.Clients.Group($"booking:{bookingId}").SendAsync("bookingStatusChanged", bookingId, newStatus);
+
     private async Task SendToWorkersAsync(string eventName, Guid bookingId, IEnumerable<Guid> workerIds)
     {
         foreach (var workerId in workerIds)

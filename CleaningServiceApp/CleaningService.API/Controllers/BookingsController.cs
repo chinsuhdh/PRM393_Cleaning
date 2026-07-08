@@ -141,6 +141,15 @@ namespace CleaningService.API.Controllers
             return Ok(ApiResponse.Message("Broadcast restarted."));
         }
 
+        [HttpGet("{id}/nearby-workers")]
+        [Authorize(Roles = "Client")]
+        public async Task<IActionResult> GetNearbyWorkers(Guid id)
+        {
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var locations = await _bookingService.GetNearbyOnlineWorkerLocationsAsync(id, clientId);
+            return Ok(locations);
+        }
+
         [HttpPost("{id}/hide")]
         [Authorize(Roles = "Worker")]
         public async Task<IActionResult> HideBooking(Guid id)

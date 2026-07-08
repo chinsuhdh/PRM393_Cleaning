@@ -120,6 +120,45 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         Assert.Equal(BookingStatus.AwaitingWorker, persisted.Status);
     }
 
+    [Fact(DisplayName = "[UT-BOOK-DTL-03] Once a worker is assigned, booking detail exposes their avatar URL")]
+    public async Task WorkerAssigned_BookingDetailExposesAvatarUrl()
+    {
+        var bookingId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        await using (var scope = fixture.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var workerProfile = await db.Profiles.SingleAsync(item => item.Id == WorkerId);
+            workerProfile.AvatarUrl = "https://cdn.cleanai.test/avatars/worker.png";
+            db.Bookings.Add(new Booking
+            {
+                Id = bookingId,
+                ClientId = ClientId,
+                WorkerId = WorkerId,
+                ServiceId = ServiceId,
+                AddressId = AddressId,
+                BookingType = BookingType.Immediate,
+                ScheduledStartTime = now,
+                ScheduledEndTime = now.AddHours(2),
+                DurationHours = 2,
+                UnitPrice = 100_000,
+                TotalPrice = 200_000,
+                Status = BookingStatus.Accepted,
+                CreatedAt = now,
+                UpdatedAt = now
+            });
+            await db.SaveChangesAsync();
+        }
+
+        using var client = AuthenticatedClient(ClientId, UserRole.Client);
+        var response = await client.GetAsync($"/api/Bookings/{bookingId}");
+        var booking = await response.Content.ReadDataAsync<BookingDto>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(booking?.Worker);
+        Assert.Equal("https://cdn.cleanai.test/avatars/worker.png", booking!.Worker!.AvatarUrl);
+    }
+
     [Fact(DisplayName = "[IT-BOOK-001-02] Unauthenticated, wrong-role, and non-owner calls are rejected")]
     public async Task DirectCalls_EnforceAuthenticationRoleAndOwnership()
     {

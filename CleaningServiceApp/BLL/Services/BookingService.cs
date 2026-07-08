@@ -108,6 +108,11 @@ namespace Cleaning.BLL.Services
                 await transaction.CommitAsync();
                 if (_dispatchPublisher != null)
                 {
+                    // Lets Booking Detail on the *other* party's screen pick up every transition live
+                    // (Accepted -> OnTheWay -> InProgress -> ... as well as Cancelled), not just the
+                    // dispatch-feed-specific pushes below.
+                    await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, request.NewStatus.ToString());
+
                     // Cancelling from AwaitingWorker means the job was live in eligible workers' feeds;
                     // includeTaken recomputes eligibility as if it were still AwaitingWorker/unassigned
                     // (booking.Status is already Cancelled at this point) so those workers actually get

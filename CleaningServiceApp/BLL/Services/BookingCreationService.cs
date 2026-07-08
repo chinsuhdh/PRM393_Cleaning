@@ -46,6 +46,18 @@ public sealed class BookingCreationService(
         var pricing = BookingPricingCalculator.Calculate(service, optionAnswers, promotion);
         var durationHours = pricing.DurationHours;
 
+        if (request.BookingType == BookingType.Immediate)
+        {
+            // One in-flight "looking for a worker" Immediate booking at a time — otherwise a client
+            // could stack several broadcasts and have two workers show up for the same person.
+            var hasActiveImmediate = await _unitOfWork.Repository<Booking>().ExistsAsync(existing =>
+                existing.ClientId == clientId &&
+                existing.BookingType == BookingType.Immediate &&
+                existing.Status == BookingStatus.AwaitingWorker);
+            if (hasActiveImmediate)
+                throw new AppException(AppErrors.ImmediateBookingAlreadyActive);
+        }
+
         var scheduledStart = request.BookingType == BookingType.Immediate
             ? DateTime.UtcNow.AddMinutes(ImmediateLeadMinutes)
             : request.ScheduledStartTime?.ToUniversalTime()

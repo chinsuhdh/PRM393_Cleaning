@@ -320,9 +320,52 @@ public sealed partial class BookingDispatchTests
         Assert.Equal("Khach vang mat", record.Reason);
     }
 
+    [Fact(DisplayName = "[UT-BOOK-STS-11] Accepting a booking pushes a booking-scoped status-changed event, " +
+        "so the client's Booking Detail live-updates without waiting on a poll")]
+    public async Task AcceptBooking_PublishesBookingStatusChanged()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.AwaitingWorker, bookingType: BookingType.Immediate);
+
+        await scenario.BookingService.AcceptBookingAsync(booking.Id, scenario.WorkerId);
+
+        Assert.Contains(scenario.DispatchPublisher.StatusChanges, change =>
+            change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.Accepted));
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-12] Every allowed status transition pushes a booking-scoped " +
+        "status-changed event, not just Accept/Cancel")]
+    public async Task UpdateStatus_PublishesBookingStatusChanged()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.OnTheWay, workerId: scenario.WorkerId);
+
+        await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.InProgress });
+
+        Assert.Contains(scenario.DispatchPublisher.StatusChanges, change =>
+            change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.InProgress));
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-DSP-09] Broadcasting (first post or a retry) bumps UpdatedAt, so the " +
+        "client's search countdown restarts instead of staying anchored to the original CreatedAt")]
+    public async Task BroadcastBooking_BumpsUpdatedAt()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.AwaitingWorker, bookingType: BookingType.Immediate);
+        booking.UpdatedAt = DateTime.UtcNow.AddMinutes(-10);
+        var staleUpdatedAt = booking.UpdatedAt;
+
+        await scenario.BookingService.BroadcastBookingAsync(booking.Id);
+
+        Assert.True(booking.UpdatedAt > staleUpdatedAt);
+        Assert.True(booking.UpdatedAt > DateTime.UtcNow.AddSeconds(-5));
+    }
+
     public sealed class FakeDispatchPublisher : IDispatchPublisher
     {
         public List<IReadOnlyCollection<Guid>> CancelledRecipients { get; } = [];
+        public List<(Guid BookingId, string NewStatus)> StatusChanges { get; } = [];
 
         public Task JobPostedAsync(BookingDto booking, IReadOnlyCollection<Guid> workerIds) => Task.CompletedTask;
         public Task JobTakenAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds) => Task.CompletedTask;
@@ -330,6 +373,12 @@ public sealed partial class BookingDispatchTests
         public Task JobCancelledAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds)
         {
             CancelledRecipients.Add(workerIds);
+            return Task.CompletedTask;
+        }
+
+        public Task BookingStatusChangedAsync(Guid bookingId, string newStatus)
+        {
+            StatusChanges.Add((bookingId, newStatus));
             return Task.CompletedTask;
         }
     }

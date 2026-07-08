@@ -28,6 +28,9 @@ public static class AppErrors
         "BOOKING_OUTSIDE_OPERATING_HOURS", "Thời gian đã chọn nằm ngoài giờ hoạt động của dịch vụ.");
     public static readonly AppError NoAvailableWorker = new(
         "BOOKING_NO_AVAILABLE_WORKER", "Không có nhân viên phù hợp trong thời gian đã chọn.", 409);
+    public static readonly AppError ImmediateBookingAlreadyActive = new(
+        "BOOKING_IMMEDIATE_ALREADY_ACTIVE",
+        "Bạn đang có một đơn đặt ngay chờ nhân viên. Vui lòng chờ hoặc hủy đơn đó trước khi đặt đơn mới.", 409);
     public static readonly AppError BookingConflict = new(
         "BOOKING_CONFLICT", "Dữ liệu đặt dịch vụ đã thay đổi. Vui lòng thử lại.", 409);
     public static readonly AppError BookingCreateFailed = new(

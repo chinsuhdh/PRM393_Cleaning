@@ -35,6 +35,7 @@ public sealed class BookingMappingProfile : AutoMapper.Profile
                 {
                     Id = source.Worker.UserId,
                     Name = source.Worker.User == null ? string.Empty : source.Worker.User.FullName,
+                    AvatarUrl = source.Worker.User == null ? null : source.Worker.User.AvatarUrl,
                     Rating = source.Worker.AverageRating,
                     Latitude = source.Worker.CurrentLat,
                     Longitude = source.Worker.CurrentLng,

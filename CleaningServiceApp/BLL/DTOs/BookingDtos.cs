@@ -50,10 +50,20 @@ namespace Cleaning.BLL.DTOs
     {
         public Guid Id { get; set; }
         public string Name { get; set; } = null!;
+        public string? AvatarUrl { get; set; }
         public decimal Rating { get; set; }
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
         public DateTime? LocationUpdatedAt { get; set; }
+    }
+
+    /// Anonymous coordinate only — deliberately no worker id/name/rating, so a candidate worker's
+    /// identity is never exposed to the client during broadcast (matches the existing dispatch
+    /// fairness model: first-accept-wins, no picking).
+    public class NearbyWorkerLocationDto
+    {
+        public decimal Latitude { get; set; }
+        public decimal Longitude { get; set; }
     }
 
     public class CreateBookingDto

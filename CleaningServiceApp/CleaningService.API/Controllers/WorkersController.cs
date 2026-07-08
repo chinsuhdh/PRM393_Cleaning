@@ -58,6 +58,25 @@ namespace CleaningService.API.Controllers
             return Ok(ApiResponse.Message(ResponseMessages.WorkerLocationUpdated));
         }
 
+        [HttpPatch("online-status")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateOnlineStatus([FromBody] UpdateOnlineStatusDto request)
+        {
+            var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            try
+            {
+                var result = await _workerService.UpdateOnlineStatusAsync(workerId, request);
+                if (!result) throw new AppException(AppErrors.WorkerProfileNotFound);
+                return Ok(ApiResponse.Message(ResponseMessages.WorkerOnlineStatusUpdated));
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new AppException(new AppError(AppErrors.ValidationError.Code, ex.Message, 400));
+            }
+        }
+
         [HttpGet("me/skills")]
         [ProducesResponseType(typeof(IEnumerable<WorkerSkillDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetMySkills()
