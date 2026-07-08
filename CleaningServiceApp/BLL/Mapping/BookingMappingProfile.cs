@@ -20,6 +20,8 @@ public sealed class BookingMappingProfile : AutoMapper.Profile
                 options => options.MapFrom(source => DeserializeBreakdown(source.PricingBreakdown)))
             .ForMember(destination => destination.Status,
                 options => options.MapFrom(source => source.Status.ToString()))
+            .ForMember(destination => destination.PaymentMethod,
+                options => options.MapFrom(source => source.PaymentMethod.ToString()))
             .ForMember(destination => destination.Notes,
                 options => options.MapFrom(source => source.Notes ?? string.Empty))
             .ForMember(destination => destination.ServiceName,

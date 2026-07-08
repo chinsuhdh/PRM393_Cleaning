@@ -394,6 +394,8 @@ public sealed partial class BookingDispatchTests
         public List<BookingStatusLog> StatusLogs { get; } = [];
         public List<BookingCancellation> Cancellations { get; } = [];
         public List<BookingPhoto> Photos { get; } = [];
+        public List<Payment> Payments { get; } = [];
+        public List<Account> Accounts { get; } = [];
         public FakeDispatchPublisher DispatchPublisher { get; } = new();
 
         public static DispatchScenario Create(
@@ -465,7 +467,9 @@ public sealed partial class BookingDispatchTests
                 .With(scenario.Bookings)
                 .With(scenario.StatusLogs)
                 .With(scenario.Cancellations)
-                .With(scenario.Photos);
+                .With(scenario.Photos)
+                .With(scenario.Payments)
+                .With(scenario.Accounts);
 
             var availabilityService = new BookingAvailabilityService(unitOfWork);
             var mapper = new MapperConfiguration(
@@ -485,7 +489,8 @@ public sealed partial class BookingDispatchTests
             Guid? serviceId = null,
             BookingType bookingType = BookingType.Scheduled,
             DateTime? start = null,
-            double durationHours = 2)
+            double durationHours = 2,
+            PaymentMethod paymentMethod = PaymentMethod.Cash)
         {
             var scheduledStart = start ?? DateTime.UtcNow.AddHours(3);
             var booking = new Booking
@@ -500,6 +505,7 @@ public sealed partial class BookingDispatchTests
                 ScheduledEndTime = scheduledStart.AddHours(durationHours),
                 DurationHours = (decimal)durationHours,
                 Status = status,
+                PaymentMethod = paymentMethod,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -513,5 +519,21 @@ public sealed partial class BookingDispatchTests
             AddressId = Address.Id,
             BookingType = BookingType.Immediate
         };
+
+        /// Seeds the client's Account row — needed only by tests touching VNPay linking, since the
+        /// dispatch scenarios themselves never load Account.
+        public Account AddClientAccount(string? vnpayAccount = null)
+        {
+            var account = new Account
+            {
+                Id = ClientId,
+                Email = "client@test.local",
+                VnpayAccount = vnpayAccount,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            Accounts.Add(account);
+            return account;
+        }
     }
 }

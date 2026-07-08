@@ -103,6 +103,34 @@ namespace Cleaning.BLL.Services
                 };
 
                 await _unitOfWork.Repository<BookingStatusLog>().AddAsync(statusLog);
+
+                // Auto-payment: VNPay trừ tiền tự động (cổng mô phỏng) ngay khi thợ bấm Finish —
+                // đơn nhảy thẳng PendingPayment -> Completed trong cùng transaction, khách không
+                // cần thao tác. Cash giữ bước "Confirm cash received" của thợ và ghi Payment lúc đó.
+                if (oldStatus == BookingStatus.InProgress &&
+                    request.NewStatus == BookingStatus.PendingPayment &&
+                    booking.PaymentMethod == PaymentMethod.Vnpay)
+                {
+                    await UpsertSuccessfulPaymentAsync(booking, $"SIM-VNPAY-{Guid.NewGuid():N}");
+
+                    booking.Status = BookingStatus.Completed;
+                    await _unitOfWork.Repository<BookingStatusLog>().AddAsync(new BookingStatusLog
+                    {
+                        BookingId = booking.Id,
+                        OldStatus = BookingStatus.PendingPayment,
+                        NewStatus = BookingStatus.Completed,
+                        ChangedBy = null,
+                        Reason = "Hệ thống tự động thanh toán VNPay (mô phỏng)",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+                else if (oldStatus == BookingStatus.PendingPayment &&
+                         request.NewStatus == BookingStatus.Completed &&
+                         booking.PaymentMethod == PaymentMethod.Cash)
+                {
+                    await UpsertSuccessfulPaymentAsync(booking, transactionId: null);
+                }
+
                 await _unitOfWork.SaveChangesAsync();
 
                 await transaction.CommitAsync();
@@ -110,8 +138,9 @@ namespace Cleaning.BLL.Services
                 {
                     // Lets Booking Detail on the *other* party's screen pick up every transition live
                     // (Accepted -> OnTheWay -> InProgress -> ... as well as Cancelled), not just the
-                    // dispatch-feed-specific pushes below.
-                    await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, request.NewStatus.ToString());
+                    // dispatch-feed-specific pushes below. booking.Status (not request.NewStatus):
+                    // a VNPay Finish lands on Completed, and that's the state the screens must show.
+                    await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.Status.ToString());
 
                     // Cancelling from AwaitingWorker means the job was live in eligible workers' feeds;
                     // includeTaken recomputes eligibility as if it were still AwaitingWorker/unassigned
@@ -188,6 +217,42 @@ namespace Cleaning.BLL.Services
                 if (b.WorkerId.HasValue && workers.TryGetValue(b.WorkerId.Value, out var worker))
                     b.Worker = worker;
             }
+        }
+
+        /// Ghi nhận thanh toán thành công cho booking (1 booking = 1 Payment, upsert như
+        /// PaymentService.CreatePaymentAsync). Amount luôn lấy TotalPrice từ DB, Method lấy từ
+        /// booking.PaymentMethod. Đã Success rồi thì bỏ qua (idempotent).
+        private async Task UpsertSuccessfulPaymentAsync(Booking booking, string? transactionId)
+        {
+            var now = DateTime.UtcNow;
+            var payment = (await _unitOfWork.Repository<Payment>()
+                .FindAsync(p => p.BookingId == booking.Id)).FirstOrDefault();
+
+            if (payment == null)
+            {
+                await _unitOfWork.Repository<Payment>().AddAsync(new Payment
+                {
+                    BookingId = booking.Id,
+                    Amount = booking.TotalPrice,
+                    Method = booking.PaymentMethod,
+                    Status = PaymentStatus.Success,
+                    TransactionId = transactionId,
+                    PaidAt = now,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                return;
+            }
+
+            if (payment.Status == PaymentStatus.Success) return;
+
+            payment.Amount = booking.TotalPrice;
+            payment.Method = booking.PaymentMethod;
+            payment.Status = PaymentStatus.Success;
+            payment.TransactionId = transactionId;
+            payment.PaidAt = now;
+            payment.UpdatedAt = now;
+            _unitOfWork.Repository<Payment>().Update(payment);
         }
 
         private static bool IsAllowedTransition(

@@ -37,6 +37,8 @@ public partial class Booking
 
     public BookingStatus Status { get; set; }
 
+    public PaymentMethod PaymentMethod { get; set; }
+
     public string? Notes { get; set; }
 
     public DateTime CreatedAt { get; set; }

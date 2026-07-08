@@ -21,6 +21,7 @@ namespace Cleaning.BLL.DTOs
         public decimal DiscountAmount { get; set; } // Thêm dòng này
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = null!;
+        public string PaymentMethod { get; set; } = null!;
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
@@ -75,6 +76,8 @@ namespace Cleaning.BLL.DTOs
         public BookingType BookingType { get; set; } // Phải biết khách đặt loại nào
         public DateTime? ScheduledStartTime { get; set; }
         public int ServiceVersion { get; set; } = 1;
+        // Chọn lúc tạo đơn; VNPay yêu cầu tài khoản đã liên kết (VNPAY_NOT_LINKED nếu chưa).
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
         [JsonIgnore, Obsolete("Duration is derived by the server.")]
         public decimal DurationHours { get; set; }
         [JsonIgnore, Obsolete("Discounts are derived by the server.")]

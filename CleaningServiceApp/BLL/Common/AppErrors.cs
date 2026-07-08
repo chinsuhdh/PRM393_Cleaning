@@ -82,6 +82,10 @@ public static class AppErrors
         "PAYMENT_NOT_FOUND", "Không tìm thấy thông tin thanh toán cho đơn này.", 404);
     public static readonly AppError PaymentCallbackFailed = new(
         "PAYMENT_CALLBACK_FAILED", "Không tìm thấy giao dịch hoặc lỗi hệ thống.", 404);
+    public static readonly AppError VnpayNotLinked = new(
+        "VNPAY_NOT_LINKED", "Bạn chưa liên kết tài khoản VNPay. Vui lòng liên kết trước khi chọn thanh toán VNPay.", 400);
+    public static readonly AppError VnpayAccountInvalid = new(
+        "VNPAY_ACCOUNT_INVALID", "Tài khoản VNPay không hợp lệ.", 400);
 
     public static readonly AppError ProfileNotFound = new(
         "PROFILE_NOT_FOUND", "Profile not found.", 404);

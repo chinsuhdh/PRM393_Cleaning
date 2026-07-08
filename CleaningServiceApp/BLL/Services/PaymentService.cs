@@ -1,4 +1,5 @@
-﻿using Cleaning.BLL.DTOs;
+﻿using Cleaning.BLL.Common;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -130,6 +131,31 @@ namespace Cleaning.BLL.Services
                 _logger.LogError(ex, "Lỗi khi xử lý Payment Callback cho PaymentId: {PaymentId}", paymentId);
                 return false;
             }
+        }
+
+        public async Task<VnpayAccountDto> GetVnpayAccountAsync(Guid accountId)
+        {
+            var account = await _unitOfWork.Repository<Account>().GetByIdAsync(accountId)
+                          ?? throw new AppException(AppErrors.NotFound);
+            return new VnpayAccountDto { VnpayAccount = account.VnpayAccount };
+        }
+
+        // Cổng VNPay mô phỏng: mọi chuỗi không rỗng đều "liên kết" thành công, không gọi hệ thống ngoài.
+        public async Task<VnpayAccountDto> LinkVnpayAccountAsync(Guid accountId, VnpayAccountDto request)
+        {
+            var value = request.VnpayAccount?.Trim();
+            if (string.IsNullOrEmpty(value))
+                throw new AppException(AppErrors.VnpayAccountInvalid);
+
+            var account = await _unitOfWork.Repository<Account>().GetByIdAsync(accountId)
+                          ?? throw new AppException(AppErrors.NotFound);
+
+            account.VnpayAccount = value;
+            account.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Repository<Account>().Update(account);
+            await _unitOfWork.SaveChangesAsync();
+
+            return new VnpayAccountDto { VnpayAccount = account.VnpayAccount };
         }
 
         private static PaymentDto MapToDto(Payment p)
