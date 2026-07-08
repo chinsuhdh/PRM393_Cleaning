@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AutoMapper;
 using Cleaning.BLL.DTOs;
 using Cleaning.DAL.Entities;
 
@@ -43,6 +42,12 @@ public sealed class BookingMappingProfile : AutoMapper.Profile
                     Longitude = source.Worker.CurrentLng,
                     LocationUpdatedAt = source.Worker.LocationUpdatedAt
                 }));
+
+        CreateMap<Payment, PaymentDto>()
+            .ForMember(destination => destination.Method,
+                options => options.MapFrom(source => source.Method.ToString()))
+            .ForMember(destination => destination.Status,
+                options => options.MapFrom(source => source.Status.ToString()));
     }
 
     private static PricingBreakdownDto? DeserializeBreakdown(string? breakdown)

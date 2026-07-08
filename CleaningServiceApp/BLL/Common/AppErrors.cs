@@ -86,6 +86,10 @@ public static class AppErrors
         "VNPAY_NOT_LINKED", "Bạn chưa liên kết tài khoản VNPay. Vui lòng liên kết trước khi chọn thanh toán VNPay.", 400);
     public static readonly AppError VnpayAccountInvalid = new(
         "VNPAY_ACCOUNT_INVALID", "Tài khoản VNPay không hợp lệ.", 400);
+    public static readonly AppError BookingNotPendingPayment = new(
+        "BOOKING_NOT_PENDING_PAYMENT", "Đơn đặt lịch không ở trạng thái chờ thanh toán.", 409);
+    public static readonly AppError PaymentAlreadyCompleted = new(
+        "PAYMENT_ALREADY_COMPLETED", "Đơn hàng này đã được thanh toán.", 409);
 
     public static readonly AppError ProfileNotFound = new(
         "PROFILE_NOT_FOUND", "Profile not found.", 404);

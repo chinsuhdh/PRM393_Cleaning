@@ -1,4 +1,6 @@
-﻿using Cleaning.BLL.Common;
+﻿using AutoMapper;
+using Cleaning.BLL.Common;
+using Cleaning.BLL.Constants;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
@@ -12,21 +14,23 @@ namespace Cleaning.BLL.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<PaymentService> _logger;
+        private readonly IMapper _mapper;
 
-        public PaymentService(IUnitOfWork unitOfWork, ILogger<PaymentService> logger)
+        public PaymentService(IUnitOfWork unitOfWork, ILogger<PaymentService> logger, IMapper mapper)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _mapper = mapper;
         }
 
         public async Task<PaymentDto> CreatePaymentAsync(CreatePaymentDto request)
         {
             // 1. Validate Booking có tồn tại và đúng trạng thái không
             var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(request.BookingId)
-                          ?? throw new Exception("Không tìm thấy đơn đặt lịch.");
+                          ?? throw new AppException(AppErrors.BookingNotFound);
 
             if (booking.Status != BookingStatus.PendingPayment)
-                throw new Exception("Đơn đặt lịch không ở trạng thái chờ thanh toán.");
+                throw new AppException(AppErrors.BookingNotPendingPayment);
 
             // 2. Bảo mật: Lấy giá trị TotalPrice từ DB, không tin tưởng Amount từ Client
             decimal finalAmount = booking.TotalPrice;
@@ -38,7 +42,7 @@ namespace Cleaning.BLL.Services
             if (paymentRecord != null)
             {
                 if (paymentRecord.Status == PaymentStatus.Success)
-                    throw new Exception("Đơn hàng này đã được thanh toán.");
+                    throw new AppException(AppErrors.PaymentAlreadyCompleted);
 
                 // Nếu có record cũ (có thể do lần trước thanh toán lỗi/hủy), ta Update lại Method và Amount
                 paymentRecord.Method = request.Method;
@@ -49,7 +53,7 @@ namespace Cleaning.BLL.Services
                 _unitOfWork.Repository<Payment>().Update(paymentRecord);
                 await _unitOfWork.SaveChangesAsync();
 
-                return MapToDto(paymentRecord);
+                return _mapper.Map<PaymentDto>(paymentRecord);
             }
 
             // 4. Nếu chưa có, tạo mới
@@ -66,7 +70,7 @@ namespace Cleaning.BLL.Services
             await _unitOfWork.Repository<Payment>().AddAsync(payment);
             await _unitOfWork.SaveChangesAsync();
 
-            return MapToDto(payment);
+            return _mapper.Map<PaymentDto>(payment);
         }
 
         public async Task<PaymentDto?> GetPaymentByBookingAsync(Guid bookingId)
@@ -74,7 +78,7 @@ namespace Cleaning.BLL.Services
             var payments = await _unitOfWork.Repository<Payment>().FindAsync(p => p.BookingId == bookingId);
             var payment = payments.FirstOrDefault();
 
-            return payment != null ? MapToDto(payment) : null;
+            return payment != null ? _mapper.Map<PaymentDto>(payment) : null;
         }
 
         public async Task<bool> ProcessPaymentCallbackAsync(Guid paymentId, PaymentCallbackDto request)
@@ -112,7 +116,7 @@ namespace Cleaning.BLL.Services
                             OldStatus = oldStatus,
                             NewStatus = BookingStatus.Completed,
                             ChangedBy = null,
-                            Reason = "Hệ thống xác nhận thanh toán thành công",
+                            Reason = BookingReasons.SystemConfirmedCashPayment,
                             CreatedAt = DateTime.UtcNow
                         };
                         await _unitOfWork.Repository<BookingStatusLog>().AddAsync(statusLog);
@@ -156,21 +160,6 @@ namespace Cleaning.BLL.Services
             await _unitOfWork.SaveChangesAsync();
 
             return new VnpayAccountDto { VnpayAccount = account.VnpayAccount };
-        }
-
-        private static PaymentDto MapToDto(Payment p)
-        {
-            return new PaymentDto
-            {
-                Id = p.Id,
-                BookingId = p.BookingId,
-                Amount = p.Amount,
-                Method = p.Method.ToString(),
-                Status = p.Status.ToString(),
-                TransactionId = p.TransactionId,
-                PaidAt = p.PaidAt,
-                CreatedAt = p.CreatedAt
-            };
         }
     }
 }

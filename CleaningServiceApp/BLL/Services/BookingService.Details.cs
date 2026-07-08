@@ -1,4 +1,5 @@
 using Cleaning.BLL.Common;
+using Cleaning.BLL.Constants;
 using Cleaning.BLL.DTOs;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -41,7 +42,7 @@ public partial class BookingService
         if (booking == null || booking.ClientId != accountId || photoUrls.Count == 0) return null;
         var existing = (await _unitOfWork.Repository<BookingPhoto>()
             .FindAsync(photo => photo.BookingId == bookingId && photo.PhotoType == PhotoType.Before)).ToList();
-        if (existing.Count + photoUrls.Count > 5) return null;
+        if (existing.Count + photoUrls.Count > BookingDomainConstants.MaxPhotosPerBooking) return null;
         var created = photoUrls.Select(url => new BookingPhoto
         {
             BookingId = bookingId,

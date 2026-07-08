@@ -1,4 +1,6 @@
+using AutoMapper;
 using Cleaning.BLL.DTOs;
+using Cleaning.BLL.Mapping;
 using Cleaning.BLL.Services;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -38,7 +40,10 @@ public class PaymentServiceTests
         unitOfWork.Setup(work => work.Repository<Payment>()).Returns(paymentRepository.Object);
         unitOfWork.Setup(work => work.SaveChangesAsync()).ReturnsAsync(1);
 
-        var service = new PaymentService(unitOfWork.Object, NullLogger<PaymentService>.Instance);
+        var mapper = new MapperConfiguration(
+            configuration => configuration.AddProfile<BookingMappingProfile>(),
+            NullLoggerFactory.Instance).CreateMapper();
+        var service = new PaymentService(unitOfWork.Object, NullLogger<PaymentService>.Instance, mapper);
 
         var result = await service.CreatePaymentAsync(new CreatePaymentDto
         {

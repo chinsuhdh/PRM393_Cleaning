@@ -1,3 +1,4 @@
+using Cleaning.BLL.Constants;
 using Cleaning.BLL.DTOs;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -110,7 +111,7 @@ public partial class BookingService
                 OldStatus = BookingStatus.AwaitingWorker,
                 NewStatus = BookingStatus.Accepted,
                 ChangedBy = workerId,
-                Reason = "Worker accepted booking",
+                Reason = BookingReasons.WorkerAcceptedBooking,
                 CreatedAt = DateTime.UtcNow
             });
             await _unitOfWork.SaveChangesAsync();
@@ -140,7 +141,7 @@ public partial class BookingService
                 skill => skill.WorkerId == workerId && skill.ServiceId == booking.ServiceId && skill.IsVerified))
             return false;
         var worker = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
-        if (worker == null || worker.VerificationStatus != "approved" || worker.SuspendedAt.HasValue)
+        if (worker == null || worker.VerificationStatus != BookingDomainConstants.WorkerVerificationStatusApproved || worker.SuspendedAt.HasValue)
             return false;
         // Busy only means "currently on a job", not "opted out" — a worker keeps browsing the feed while
         // busy and is blocked from *accepting* a conflicting job by HasScheduleConflictAsync instead.
@@ -196,14 +197,8 @@ public partial class BookingService
         var latitude = worker.BaseLatitude ?? worker.CurrentLat;
         var longitude = worker.BaseLongitude ?? worker.CurrentLng;
         if (latitude == null || longitude == null) return false;
-        const double radius = 6371;
-        static double Radians(double value) => value * Math.PI / 180;
-        var deltaLat = Radians((double)(latitude.Value - address.Latitude.Value));
-        var deltaLng = Radians((double)(longitude.Value - address.Longitude.Value));
-        var a = Math.Pow(Math.Sin(deltaLat / 2), 2) +
-                Math.Cos(Radians((double)address.Latitude.Value)) *
-                Math.Cos(Radians((double)latitude.Value)) *
-                Math.Pow(Math.Sin(deltaLng / 2), 2);
-        return radius * 2 * Math.Asin(Math.Sqrt(a)) <= (double)worker.ServiceRadiusKm;
+        return GeoConstants.DistanceKm(
+            (double)latitude.Value, (double)longitude.Value,
+            (double)address.Latitude.Value, (double)address.Longitude.Value) <= (double)worker.ServiceRadiusKm;
     }
 }

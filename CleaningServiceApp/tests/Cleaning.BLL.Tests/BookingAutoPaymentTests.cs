@@ -1,5 +1,7 @@
+using AutoMapper;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
+using Cleaning.BLL.Mapping;
 using Cleaning.BLL.Services;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -13,7 +15,7 @@ public sealed partial class BookingDispatchTests
         "booking as Completed in one step, publishing Completed — the client never acts")]
     public async Task UpdateStatus_VnpayFinish_AutoChargesAndCompletes()
     {
-        var scenario = DispatchScenario.Create();
+        var scenario = DispatchScenario.Create(workerOnlineStatus: WorkerOnlineStatus.Busy);
         var booking = scenario.AddBooking(
             BookingStatus.InProgress, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Vnpay);
         booking.TotalPrice = 250_000;
@@ -23,6 +25,7 @@ public sealed partial class BookingDispatchTests
 
         Assert.True(updated);
         Assert.Equal(BookingStatus.Completed, booking.Status);
+        Assert.Equal(WorkerOnlineStatus.Online, scenario.Worker.OnlineStatus);
 
         var payment = Assert.Single(scenario.Payments);
         Assert.Equal(booking.Id, payment.BookingId);
@@ -118,7 +121,10 @@ public sealed partial class BookingDispatchTests
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         }]);
-        var paymentService = new PaymentService(unitOfWork, NullLogger<PaymentService>.Instance);
+        var mapper = new MapperConfiguration(
+            configuration => configuration.AddProfile<BookingMappingProfile>(),
+            NullLoggerFactory.Instance).CreateMapper();
+        var paymentService = new PaymentService(unitOfWork, NullLogger<PaymentService>.Instance, mapper);
 
         var blank = await Assert.ThrowsAsync<AppException>(() =>
             paymentService.LinkVnpayAccountAsync(accountId, new VnpayAccountDto { VnpayAccount = "   " }));

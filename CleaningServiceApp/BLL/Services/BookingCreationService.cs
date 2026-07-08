@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AutoMapper;
 using Cleaning.BLL.Common;
+using Cleaning.BLL.Constants;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
@@ -17,7 +18,6 @@ public sealed class BookingCreationService(
     ILogger<BookingCreationService> logger,
     IMapper mapper) : IBookingCreationService
 {
-    private const int ImmediateLeadMinutes = 15;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly IBookingAvailabilityService _availabilityService = availabilityService;
     private readonly ILogger<BookingCreationService> _logger = logger;
@@ -67,7 +67,7 @@ public sealed class BookingCreationService(
         }
 
         var scheduledStart = request.BookingType == BookingType.Immediate
-            ? DateTime.UtcNow.AddMinutes(ImmediateLeadMinutes)
+            ? DateTime.UtcNow.AddMinutes(BookingTimingConstants.ImmediateLeadMinutes)
             : request.ScheduledStartTime?.ToUniversalTime()
                 ?? throw new AppException(AppErrors.StartRequired);
 
@@ -129,7 +129,7 @@ public sealed class BookingCreationService(
                 OldStatus = null,
                 NewStatus = initialStatus,
                 ChangedBy = clientId,
-                Reason = "Khách hàng tạo đơn đặt lịch",
+                Reason = BookingReasons.ClientCreatedBooking,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -167,7 +167,7 @@ public sealed class BookingCreationService(
             await transaction.RollbackAsync();
             throw new AppException(AppErrors.BookingConflict);
         }
-        catch (Exception ex) when (IsPostgresSqlState(ex, "40001"))
+        catch (Exception ex) when (IsPostgresSqlState(ex, PostgresErrorCodes.SerializationFailure))
         {
             await transaction.RollbackAsync();
             throw new AppException(AppErrors.BookingConflict);
@@ -197,7 +197,7 @@ public sealed class BookingCreationService(
         var now = DateTime.UtcNow;
         return (await _unitOfWork.Repository<Promotion>().FindAsync(promotion =>
             promotion.ServiceId == serviceId &&
-            promotion.Status == "active" &&
+            promotion.Status == BookingDomainConstants.PromotionStatusActive &&
             promotion.ArchivedAt == null &&
             promotion.StartsAt <= now &&
             promotion.EndsAt >= now))
@@ -220,10 +220,10 @@ public sealed class BookingCreationService(
 
     private static bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException?.GetType().Name == "PostgresException" &&
-        exception.InnerException.GetType().GetProperty("SqlState")?.GetValue(exception.InnerException)?.ToString() == "23505";
+        exception.InnerException.GetType().GetProperty("SqlState")?.GetValue(exception.InnerException)?.ToString() == PostgresErrorCodes.UniqueViolation;
 
     private static bool IsSerializationFailure(DbUpdateException exception) =>
-        IsPostgresSqlState(exception, "40001");
+        IsPostgresSqlState(exception, PostgresErrorCodes.SerializationFailure);
 
     private static bool IsPostgresSqlState(Exception exception, string sqlState)
     {

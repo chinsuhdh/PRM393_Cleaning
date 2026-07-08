@@ -1,6 +1,6 @@
 using AutoMapper;
 using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Common;
+using Cleaning.BLL.Constants;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -11,7 +11,6 @@ namespace Cleaning.BLL.Services
 {
     public partial class BookingService : IBookingService
     {
-
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<BookingService> _logger;
         private readonly IBookingAvailabilityService _availabilityService;
@@ -64,6 +63,7 @@ namespace Cleaning.BLL.Services
                     return false;
 
                 var oldStatus = booking.Status;
+                var assignedWorkerId = booking.WorkerId;
                 var isClient = booking.ClientId == accountId;
                 var isWorker = booking.WorkerId == accountId;
                 if (!IsAllowedTransition(oldStatus, request.NewStatus, isClient, isWorker))
@@ -111,7 +111,7 @@ namespace Cleaning.BLL.Services
                     request.NewStatus == BookingStatus.PendingPayment &&
                     booking.PaymentMethod == PaymentMethod.Vnpay)
                 {
-                    await UpsertSuccessfulPaymentAsync(booking, $"SIM-VNPAY-{Guid.NewGuid():N}");
+                    await UpsertSuccessfulPaymentAsync(booking, $"{PaymentConstants.VnpaySimTransactionPrefix}{Guid.NewGuid():N}");
 
                     booking.Status = BookingStatus.Completed;
                     await _unitOfWork.Repository<BookingStatusLog>().AddAsync(new BookingStatusLog
@@ -120,7 +120,7 @@ namespace Cleaning.BLL.Services
                         OldStatus = BookingStatus.PendingPayment,
                         NewStatus = BookingStatus.Completed,
                         ChangedBy = null,
-                        Reason = "Hệ thống tự động thanh toán VNPay (mô phỏng)",
+                        Reason = BookingReasons.SystemAutoChargedVnpay,
                         CreatedAt = DateTime.UtcNow
                     });
                 }
@@ -129,6 +129,23 @@ namespace Cleaning.BLL.Services
                          booking.PaymentMethod == PaymentMethod.Cash)
                 {
                     await UpsertSuccessfulPaymentAsync(booking, transactionId: null);
+                }
+
+                // Immediate dispatch marks the worker Busy on accept. Release that system-owned
+                // state when the assignment ends; otherwise the profile remains Busy forever.
+                if (assignedWorkerId.HasValue &&
+                    (booking.Status == BookingStatus.Completed ||
+                     booking.Status == BookingStatus.Cancelled ||
+                     booking.WorkerId == null))
+                {
+                    var workerProfile = await _unitOfWork.Repository<WorkerProfile>()
+                        .GetByIdAsync(assignedWorkerId.Value);
+                    if (workerProfile?.OnlineStatus == WorkerOnlineStatus.Busy)
+                    {
+                        workerProfile.OnlineStatus = WorkerOnlineStatus.Online;
+                        workerProfile.UpdatedAt = DateTime.UtcNow;
+                        _unitOfWork.Repository<WorkerProfile>().Update(workerProfile);
+                    }
                 }
 
                 await _unitOfWork.SaveChangesAsync();

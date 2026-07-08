@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Cleaning.BLL.Common;
+using Cleaning.BLL.Constants;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Enums;
@@ -25,11 +26,11 @@ namespace CleaningService.API.Controllers
 
         [HttpPost("{id}/photos")]
         [Authorize(Roles = "Client")]
-        [RequestSizeLimit(5_242_880)]
+        [RequestSizeLimit(BookingDomainConstants.MaxPhotoRequestBytes)]
         public async Task<IActionResult> UploadPhotos(Guid id, [FromForm] List<IFormFile> photos)
         {
-            if (photos.Count is < 1 or > 5 || photos.Any(photo =>
-                    photo.Length > 1_048_576 || !photo.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)))
+            if (photos.Count is < 1 or > BookingDomainConstants.MaxPhotosPerBooking || photos.Any(photo =>
+                    photo.Length > BookingDomainConstants.MaxPhotoBytes || !photo.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)))
                 return BadRequest(ApiResponse.Message("Tối đa 5 ảnh, mỗi ảnh không quá 1 MB."));
 
             var folder = Path.Combine(_environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot"), "uploads", "bookings");
@@ -138,7 +139,7 @@ namespace CleaningService.API.Controllers
             if (booking == null || booking.Status != nameof(BookingStatus.AwaitingWorker))
                 throw new AppException(AppErrors.BookingNotFound);
             await _bookingService.BroadcastBookingAsync(id);
-            return Ok(ApiResponse.Message("Broadcast restarted."));
+            return Ok(ApiResponse.Message(ResponseMessages.BroadcastRestarted));
         }
 
         [HttpGet("{id}/nearby-workers")]
@@ -156,7 +157,7 @@ namespace CleaningService.API.Controllers
         {
             var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             return await _bookingService.HideBookingAsync(id, workerId)
-                ? Ok(ApiResponse.Message("Job hidden."))
+                ? Ok(ApiResponse.Message(ResponseMessages.JobHidden))
                 : NotFound();
         }
 

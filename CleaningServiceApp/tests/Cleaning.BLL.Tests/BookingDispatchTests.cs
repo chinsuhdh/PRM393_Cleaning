@@ -396,6 +396,7 @@ public sealed partial class BookingDispatchTests
         public List<BookingPhoto> Photos { get; } = [];
         public List<Payment> Payments { get; } = [];
         public List<Account> Accounts { get; } = [];
+        public WorkerProfile Worker { get; private set; } = null!;
         public FakeDispatchPublisher DispatchPublisher { get; } = new();
 
         public static DispatchScenario Create(
@@ -424,7 +425,7 @@ public sealed partial class BookingDispatchTests
                 Latitude = 10.7769m,
                 Longitude = 106.7009m
             };
-            var worker = new WorkerProfile
+            scenario.Worker = new WorkerProfile
             {
                 UserId = scenario.WorkerId,
                 VerificationStatus = "approved",
@@ -454,7 +455,7 @@ public sealed partial class BookingDispatchTests
                     ServiceId = serviceId,
                     IsVerified = workerSkillVerified
                 }])
-                .With([worker])
+                .With([scenario.Worker])
                 .With([workerAccountProfile])
                 .With([new WorkerAvailability
                 {
