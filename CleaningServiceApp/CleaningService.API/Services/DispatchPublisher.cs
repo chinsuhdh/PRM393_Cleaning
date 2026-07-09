@@ -37,6 +37,17 @@ public sealed class DispatchPublisher(
     public Task BookingStatusChangedAsync(Guid bookingId, string newStatus) =>
         hub.Clients.Group($"booking:{bookingId}").SendAsync("bookingStatusChanged", bookingId, newStatus);
 
+    public Task WorkerPositionAsync(Guid bookingId, decimal latitude, decimal longitude) =>
+        hub.Clients.Group($"booking:{bookingId}").SendAsync("workerPosition", new
+        {
+            latitude,
+            longitude,
+            updatedAt = DateTime.UtcNow
+        });
+
+    public Task NearbyWorkerLocationsAsync(Guid bookingId, IReadOnlyList<NearbyWorkerLocationDto> locations) =>
+        hub.Clients.Group($"booking:{bookingId}").SendAsync("nearbyWorkersUpdated", locations);
+
     private async Task SendToWorkersAsync(string eventName, Guid bookingId, IEnumerable<Guid> workerIds)
     {
         foreach (var workerId in workerIds)

@@ -12,10 +12,12 @@ namespace Cleaning.BLL.Services
     public class WorkerService : IWorkerService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IDispatchPublisher? _dispatchPublisher;
 
-        public WorkerService(IUnitOfWork unitOfWork)
+        public WorkerService(IUnitOfWork unitOfWork, IDispatchPublisher? dispatchPublisher = null)
         {
             _unitOfWork = unitOfWork;
+            _dispatchPublisher = dispatchPublisher;
         }
 
         public async Task<WorkerProfileDto?> GetWorkerProfileAsync(Guid workerId)
@@ -69,6 +71,16 @@ namespace Cleaning.BLL.Services
 
             _unitOfWork.Repository<WorkerProfile>().Update(worker);
             await _unitOfWork.SaveChangesAsync();
+
+            if (_dispatchPublisher != null)
+            {
+                // F.2/F.3: only forward while the worker is actually en route to a job — the client's
+                // live-tracking map is only shown during OnTheWay, so this is the sole state that needs it.
+                var activeBooking = await _unitOfWork.Repository<Booking>().FirstOrDefaultAsync(
+                    b => b.WorkerId == workerId && b.Status == BookingStatus.OnTheWay);
+                if (activeBooking != null)
+                    await _dispatchPublisher.WorkerPositionAsync(activeBooking.Id, request.CurrentLat, request.CurrentLng);
+            }
 
             return true;
         }

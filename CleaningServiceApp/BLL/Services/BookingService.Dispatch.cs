@@ -35,8 +35,28 @@ public partial class BookingService
         foreach (var booking in candidates)
             if (await IsEligibleAsync(booking, workerId)) eligible.Add(booking);
         await HydrateAsync(eligible);
-        return eligible.Select(_mapper.Map<BookingDto>)
+
+        var worker = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
+        var workerLat = worker?.BaseLatitude ?? worker?.CurrentLat;
+        var workerLng = worker?.BaseLongitude ?? worker?.CurrentLng;
+
+        var dtos = eligible.Select(_mapper.Map<BookingDto>).ToList();
+        if (workerLat.HasValue && workerLng.HasValue)
+        {
+            foreach (var dto in dtos)
+            {
+                if (dto.Latitude.HasValue && dto.Longitude.HasValue)
+                {
+                    dto.DistanceKm = (decimal)GeoConstants.DistanceKm(
+                        (double)workerLat.Value, (double)workerLng.Value,
+                        (double)dto.Latitude.Value, (double)dto.Longitude.Value);
+                }
+            }
+        }
+
+        return dtos
             .OrderBy(dto => dto.BookingType == nameof(BookingType.Immediate) ? 0 : 1)
+            .ThenBy(dto => dto.BookingType == nameof(BookingType.Immediate) ? dto.DistanceKm ?? decimal.MaxValue : 0)
             .ThenBy(dto => dto.ScheduledStartTime);
     }
 

@@ -381,6 +381,11 @@ public sealed partial class BookingDispatchTests
             StatusChanges.Add((bookingId, newStatus));
             return Task.CompletedTask;
         }
+
+        public Task WorkerPositionAsync(Guid bookingId, decimal latitude, decimal longitude) => Task.CompletedTask;
+
+        public Task NearbyWorkerLocationsAsync(Guid bookingId, IReadOnlyList<NearbyWorkerLocationDto> locations) =>
+            Task.CompletedTask;
     }
 
     private sealed class DispatchScenario

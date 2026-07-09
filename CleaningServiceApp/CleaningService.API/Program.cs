@@ -217,6 +217,7 @@ namespace CleaningService.API
             builder.Services.AddScoped<IBookingCreationService, BookingCreationService>();
             builder.Services.AddScoped<IDispatchPublisher, DispatchPublisher>();
             builder.Services.AddSingleton<IWorkerPushSender, NullWorkerPushSender>();
+            builder.Services.AddHostedService<NearbyWorkerLocationsBroadcastService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
             builder.Services.AddScoped<IAdminService, AdminService>();

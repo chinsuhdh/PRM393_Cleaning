@@ -30,6 +30,7 @@ namespace Cleaning.BLL.DTOs
         public string? AddressText { get; set; }
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
+        public decimal? DistanceKm { get; set; }
 
         // BOOK-002: normalized answers to the service-defined questions, echoed back for the client summary.
         public string OptionAnswers { get; set; } = "{}";
