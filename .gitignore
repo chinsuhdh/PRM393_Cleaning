@@ -9,3 +9,5 @@ artifacts/
 # Added by code-review-graph
 .code-review-graph/
 **/.dart_tool/
+# Bỏ qua tất cả ảnh trong thư mục uploads
+CleaningServiceApp/CleaningService.API/wwwroot/uploads/
