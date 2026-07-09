@@ -32,6 +32,12 @@ namespace Cleaning.BLL.DTOs
         public decimal CurrentLng { get; set; }
     }
 
+    public class UpdateOnlineStatusDto
+    {
+        [Required]
+        public WorkerOnlineStatus OnlineStatus { get; set; }
+    }
+
     public class WorkerSkillDto
     {
         [Required]

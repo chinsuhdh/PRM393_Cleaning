@@ -28,6 +28,9 @@ public static class AppErrors
         "BOOKING_OUTSIDE_OPERATING_HOURS", "Thời gian đã chọn nằm ngoài giờ hoạt động của dịch vụ.");
     public static readonly AppError NoAvailableWorker = new(
         "BOOKING_NO_AVAILABLE_WORKER", "Không có nhân viên phù hợp trong thời gian đã chọn.", 409);
+    public static readonly AppError ImmediateBookingAlreadyActive = new(
+        "BOOKING_IMMEDIATE_ALREADY_ACTIVE",
+        "Bạn đang có một đơn đặt ngay chờ nhân viên. Vui lòng chờ hoặc hủy đơn đó trước khi đặt đơn mới.", 409);
     public static readonly AppError BookingConflict = new(
         "BOOKING_CONFLICT", "Dữ liệu đặt dịch vụ đã thay đổi. Vui lòng thử lại.", 409);
     public static readonly AppError BookingCreateFailed = new(
@@ -79,6 +82,14 @@ public static class AppErrors
         "PAYMENT_NOT_FOUND", "Không tìm thấy thông tin thanh toán cho đơn này.", 404);
     public static readonly AppError PaymentCallbackFailed = new(
         "PAYMENT_CALLBACK_FAILED", "Không tìm thấy giao dịch hoặc lỗi hệ thống.", 404);
+    public static readonly AppError VnpayNotLinked = new(
+        "VNPAY_NOT_LINKED", "Bạn chưa liên kết tài khoản VNPay. Vui lòng liên kết trước khi chọn thanh toán VNPay.", 400);
+    public static readonly AppError VnpayAccountInvalid = new(
+        "VNPAY_ACCOUNT_INVALID", "Tài khoản VNPay không hợp lệ.", 400);
+    public static readonly AppError BookingNotPendingPayment = new(
+        "BOOKING_NOT_PENDING_PAYMENT", "Đơn đặt lịch không ở trạng thái chờ thanh toán.", 409);
+    public static readonly AppError PaymentAlreadyCompleted = new(
+        "PAYMENT_ALREADY_COMPLETED", "Đơn hàng này đã được thanh toán.", 409);
 
     public static readonly AppError ProfileNotFound = new(
         "PROFILE_NOT_FOUND", "Profile not found.", 404);

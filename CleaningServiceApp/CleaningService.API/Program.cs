@@ -11,6 +11,8 @@ using Cleaning.DAL.Interfaces;
 using Cleaning.DAL.Repositories;
 using CleaningService.API.Common;
 using CleaningService.API.Data;
+using CleaningService.API.Hubs;
+using CleaningService.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -106,6 +108,17 @@ namespace CleaningService.API
                         IssuerSigningKey = new SymmetricSecurityKey(
                             Encoding.UTF8.GetBytes(builder.Configuration["JwtConfig:Secret"]!))
                     };
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
+                        {
+                            var token = context.Request.Query["access_token"];
+                            if (!string.IsNullOrEmpty(token) &&
+                                context.HttpContext.Request.Path.StartsWithSegments("/hubs/dispatch"))
+                                context.Token = token;
+                            return Task.CompletedTask;
+                        }
+                    };
                 });
 
             builder.Services.AddControllers(options =>
@@ -116,6 +129,7 @@ namespace CleaningService.API
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
+            builder.Services.AddSignalR();
 
             builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
             builder.Services.AddProblemDetails();
@@ -201,6 +215,9 @@ namespace CleaningService.API
             builder.Services.AddScoped<IBookingService, BookingService>();
             builder.Services.AddScoped<IBookingAvailabilityService, BookingAvailabilityService>();
             builder.Services.AddScoped<IBookingCreationService, BookingCreationService>();
+            builder.Services.AddScoped<IDispatchPublisher, DispatchPublisher>();
+            builder.Services.AddSingleton<IWorkerPushSender, NullWorkerPushSender>();
+            builder.Services.AddHostedService<NearbyWorkerLocationsBroadcastService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
@@ -234,6 +251,7 @@ namespace CleaningService.API
             app.UseAuthorization();
 
             app.MapControllers();
+            app.MapHub<DispatchHub>("/hubs/dispatch");
 
             app.Run();
         }

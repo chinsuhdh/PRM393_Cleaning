@@ -7,5 +7,7 @@ namespace Cleaning.BLL.Interfaces
         Task<PaymentDto> CreatePaymentAsync(CreatePaymentDto request);
         Task<PaymentDto?> GetPaymentByBookingAsync(Guid bookingId); // Trả về 1 record duy nhất
         Task<bool> ProcessPaymentCallbackAsync(Guid paymentId, PaymentCallbackDto request);
+        Task<VnpayAccountDto> GetVnpayAccountAsync(Guid accountId);
+        Task<VnpayAccountDto> LinkVnpayAccountAsync(Guid accountId, VnpayAccountDto request);
     }
 }

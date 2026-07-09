@@ -21,6 +21,7 @@ namespace Cleaning.BLL.DTOs
         public decimal DiscountAmount { get; set; } // Thêm dòng này
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = null!;
+        public string PaymentMethod { get; set; } = null!;
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
@@ -29,14 +30,42 @@ namespace Cleaning.BLL.DTOs
         public string? AddressText { get; set; }
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
+        public decimal? DistanceKm { get; set; }
 
         // BOOK-002: normalized answers to the service-defined questions, echoed back for the client summary.
         public string OptionAnswers { get; set; } = "{}";
+        public string BookingFormSchema { get; set; } = "{}";
 
         // BOOK-004: the server-authored pricing breakdown shown on the confirmation screen.
         public PricingBreakdownDto? PricingBreakdown { get; set; }
         public IReadOnlyList<BookingPhotoDto> Photos { get; set; } = [];
         public IReadOnlyList<BookingStatusLogDto> StatusTimeline { get; set; } = [];
+
+        // Only populated once a worker is actually assigned (WorkerId set) — never during broadcast,
+        // so candidate workers are still never exposed to the client (matches the dispatch model).
+        public WorkerSummaryDto? Worker { get; set; }
+    }
+
+    /// Assigned-worker info for the client's Booking Detail screen — identity + rating for the
+    /// worker card, plus their last-reported position so the OnTheWay live map has something to show.
+    public class WorkerSummaryDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = null!;
+        public string? AvatarUrl { get; set; }
+        public decimal Rating { get; set; }
+        public decimal? Latitude { get; set; }
+        public decimal? Longitude { get; set; }
+        public DateTime? LocationUpdatedAt { get; set; }
+    }
+
+    /// Anonymous coordinate only — deliberately no worker id/name/rating, so a candidate worker's
+    /// identity is never exposed to the client during broadcast (matches the existing dispatch
+    /// fairness model: first-accept-wins, no picking).
+    public class NearbyWorkerLocationDto
+    {
+        public decimal Latitude { get; set; }
+        public decimal Longitude { get; set; }
     }
 
     public class CreateBookingDto
@@ -48,6 +77,8 @@ namespace Cleaning.BLL.DTOs
         public BookingType BookingType { get; set; } // Phải biết khách đặt loại nào
         public DateTime? ScheduledStartTime { get; set; }
         public int ServiceVersion { get; set; } = 1;
+        // Chọn lúc tạo đơn; VNPay yêu cầu tài khoản đã liên kết (VNPAY_NOT_LINKED nếu chưa).
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
         [JsonIgnore, Obsolete("Duration is derived by the server.")]
         public decimal DurationHours { get; set; }
         [JsonIgnore, Obsolete("Discounts are derived by the server.")]

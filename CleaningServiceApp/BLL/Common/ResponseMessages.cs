@@ -17,6 +17,8 @@ public static class ResponseMessages
 
     public const string BookingStatusUpdated = "Cập nhật trạng thái đơn thành công.";
     public const string BookingAccepted = "Nhận đơn đặt lịch thành công!";
+    public const string BroadcastRestarted = "Đã phát lại yêu cầu tìm nhân viên.";
+    public const string JobHidden = "Đã ẩn công việc.";
 
     public const string AiMatchingSuccess = "Đã chạy thuật toán Matching thành công.";
 
@@ -31,5 +33,6 @@ public static class ResponseMessages
 
     public const string WorkerRegistered = "Worker profile registered successfully.";
     public const string WorkerLocationUpdated = "Location updated.";
+    public const string WorkerOnlineStatusUpdated = "Online status updated.";
     public const string WorkerSkillUpdated = "Skill updated successfully.";
 }

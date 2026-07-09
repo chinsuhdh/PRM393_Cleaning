@@ -97,4 +97,141 @@ public sealed partial class BookingDispatchTests
         Assert.Equal(from, booking.Status);
         Assert.DoesNotContain(scenario.StatusLogs, log => log.BookingId == booking.Id);
     }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-09] Client cancelling a pre-accept AwaitingWorker booking notifies "
+        + "the workers who had it in their feed, so it disappears there too")]
+    public async Task UpdateStatus_ClientCancelsAwaitingWorker_NotifiesEligibleWorkers()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.AwaitingWorker, bookingType: BookingType.Immediate);
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.ClientId, new UpdateBookingStatusDto { NewStatus = BookingStatus.Cancelled });
+
+        Assert.True(updated);
+        var recipients = Assert.Single(scenario.DispatchPublisher.CancelledRecipients);
+        Assert.Contains(scenario.WorkerId, recipients);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-10] Reporting/cancelling an already-accepted booking notifies "
+        + "specifically the assigned worker, so their own My Jobs / active-job view updates live")]
+    public async Task UpdateStatus_CancelAlreadyAcceptedBooking_NotifiesAssignedWorker()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.InProgress, workerId: scenario.WorkerId);
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId,
+            new UpdateBookingStatusDto { NewStatus = BookingStatus.Cancelled, Reason = "Khach vang mat" });
+
+        Assert.True(updated);
+        var recipients = Assert.Single(scenario.DispatchPublisher.CancelledRecipients);
+        Assert.Equal([scenario.WorkerId], recipients);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-DTL-01] Once a worker is assigned, booking detail exposes their "
+        + "name, rating, and current position (needed for the worker card + OnTheWay live map)")]
+    public async Task GetBookingById_WorkerAssigned_ExposesWorkerSummary()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        var dto = await scenario.BookingService.GetBookingByIdAsync(booking.Id, scenario.ClientId);
+
+        Assert.NotNull(dto!.Worker);
+        Assert.Equal(scenario.WorkerId, dto.Worker!.Id);
+        Assert.Equal("Anh Ba", dto.Worker.Name);
+        Assert.Equal(10.7769m, dto.Worker.Latitude);
+        Assert.Equal(106.7009m, dto.Worker.Longitude);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-DTL-02] An unassigned AwaitingWorker booking exposes no worker "
+        + "info — candidate workers are never shown to the client during broadcast")]
+    public async Task GetBookingById_Unassigned_ExposesNoWorker()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.AwaitingWorker);
+
+        var dto = await scenario.BookingService.GetBookingByIdAsync(booking.Id, scenario.ClientId);
+
+        Assert.Null(dto!.Worker);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-06] Worker plain-cancel releases the job: WorkerId cleared and re-broadcast (§ 4.10)")]
+    public async Task UpdateStatus_WorkerReleasesJob_ClearsWorkerAndRebroadcasts()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.AwaitingWorker });
+
+        Assert.True(updated);
+        Assert.Equal(BookingStatus.AwaitingWorker, booking.Status);
+        Assert.Null(booking.WorkerId);
+        // The released job must show up again in the broadcast feed for eligible workers.
+        var available = await scenario.BookingService.GetAvailableBookingsAsync(scenario.WorkerId);
+        Assert.Single(available, dto => dto.Id == booking.Id);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-07] Start and finish stamp ActualStartTime and ActualEndTime")]
+    public async Task UpdateStatus_StartAndFinish_StampActualTimes()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.OnTheWay, workerId: scenario.WorkerId);
+
+        await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.InProgress });
+        Assert.NotNull(booking.ActualStartTime);
+        Assert.Null(booking.ActualEndTime);
+
+        await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.PendingPayment });
+        Assert.NotNull(booking.ActualEndTime);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-08] A report-cancel from InProgress records who cancelled and why")]
+    public async Task UpdateStatus_ReportCancel_WritesCancellationRecord()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.InProgress, workerId: scenario.WorkerId);
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId,
+            new UpdateBookingStatusDto { NewStatus = BookingStatus.Cancelled, Reason = "Khach vang mat" });
+
+        Assert.True(updated);
+        var record = Assert.Single(scenario.Cancellations);
+        Assert.Equal(booking.Id, record.BookingId);
+        Assert.Equal(scenario.WorkerId, record.CancelledBy);
+        Assert.Equal(UserRole.Worker, record.ActorRole);
+        Assert.Equal("Khach vang mat", record.Reason);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-11] Accepting a booking pushes a booking-scoped status-changed event, " +
+        "so the client's Booking Detail live-updates without waiting on a poll")]
+    public async Task AcceptBooking_PublishesBookingStatusChanged()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.AwaitingWorker, bookingType: BookingType.Immediate);
+
+        await scenario.BookingService.AcceptBookingAsync(booking.Id, scenario.WorkerId);
+
+        Assert.Contains(scenario.DispatchPublisher.StatusChanges, change =>
+            change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.Accepted));
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-STS-12] Every allowed status transition pushes a booking-scoped " +
+        "status-changed event, not just Accept/Cancel")]
+    public async Task UpdateStatus_PublishesBookingStatusChanged()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.OnTheWay, workerId: scenario.WorkerId);
+
+        await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.InProgress });
+
+        Assert.Contains(scenario.DispatchPublisher.StatusChanges, change =>
+            change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.InProgress));
+    }
 }

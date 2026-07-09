@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
@@ -34,6 +35,20 @@ namespace CleaningService.API.Controllers
             if (payment == null) throw new AppException(AppErrors.PaymentNotFound);
 
             return Ok(payment);
+        }
+
+        [HttpGet("vnpay-account")]
+        public async Task<IActionResult> GetVnpayAccount()
+        {
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return Ok(await _paymentService.GetVnpayAccountAsync(accountId));
+        }
+
+        [HttpPut("vnpay-account")]
+        public async Task<IActionResult> LinkVnpayAccount([FromBody] VnpayAccountDto request)
+        {
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return Ok(await _paymentService.LinkVnpayAccountAsync(accountId, request));
         }
 
         // Thường API này sẽ được gọi bởi Webhook của MoMo/VNPay thay vì từ Flutter App

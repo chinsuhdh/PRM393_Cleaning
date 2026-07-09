@@ -33,6 +33,12 @@ namespace Cleaning.BLL.DTOs
         public string? TransactionId { get; set; }
     }
 
+    // Cổng VNPay mô phỏng: liên kết luôn thành công miễn là chuỗi không rỗng, không gọi hệ thống ngoài.
+    public class VnpayAccountDto
+    {
+        public string? VnpayAccount { get; set; }
+    }
+
     // --- REVIEW DTOs ---
     public class ReviewDto
     {

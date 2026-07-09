@@ -129,6 +129,7 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
             entity.Property(e => e.PasswordSalt).HasColumnName("password_salt");
             entity.Property(e => e.PhoneNumber).HasColumnName("phone_number");
+            entity.Property(e => e.VnpayAccount).HasColumnName("vnpay_account");
 
             // Map Enum
             entity.Property(e => e.Role).HasColumnType("user_role").HasColumnName("role");
@@ -267,6 +268,10 @@ public partial class AppDbContext : DbContext
             // Map Enum
             entity.Property(e => e.BookingType).HasColumnType("booking_type").HasColumnName("booking_type");
             entity.Property(e => e.Status).HasColumnType("booking_status").HasColumnName("status");
+            entity.Property(e => e.PaymentMethod)
+                .HasColumnType("payment_method")
+                .HasColumnName("payment_method")
+                .HasDefaultValue(PaymentMethod.Cash);
 
             entity.Property(e => e.ClientId).HasColumnName("client_id");
             entity.Property(e => e.CreatedAt)

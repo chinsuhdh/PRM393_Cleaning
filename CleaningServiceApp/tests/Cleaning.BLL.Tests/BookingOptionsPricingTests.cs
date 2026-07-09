@@ -391,6 +391,45 @@ public sealed class BookingOptionsPricingTests
         Assert.False(stored.RootElement.TryGetProperty("future", out _));
     }
 
+    // ----------------------- one in-flight Immediate booking at a time -----------------------
+
+    [Fact(DisplayName = "[UT-BOOK-004-13] Creating a second Immediate booking while one is still " +
+        "AwaitingWorker is rejected")]
+    public async Task Create_SecondImmediate_WhileFirstStillAwaitingWorker_Throws()
+    {
+        var scenario = FeatureScenario.Create();
+        await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId, "first-immediate", scenario.CreateRequest(BookingType.Immediate));
+
+        var error = await Assert.ThrowsAsync<AppException>(() =>
+            scenario.BookingService.CreateBookingAsync(
+                scenario.ClientId, "second-immediate", scenario.CreateRequest(BookingType.Immediate)));
+
+        Assert.Equal("BOOKING_IMMEDIATE_ALREADY_ACTIVE", error.Code);
+        Assert.Single(scenario.Bookings);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-004-14] A Scheduled booking is unaffected by an in-flight Immediate " +
+        "booking, and a new Immediate booking is allowed once the first is no longer AwaitingWorker")]
+    public async Task Create_ScheduledUnaffected_AndImmediateAllowedOnceFirstResolved()
+    {
+        var scenario = FeatureScenario.Create();
+        await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId, "first-immediate", scenario.CreateRequest(BookingType.Immediate));
+
+        // Scheduled bookings are never blocked by an in-flight Immediate search.
+        await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId, "scheduled-ok",
+            scenario.CreateRequest(BookingType.Scheduled, start: DateTime.UtcNow.Date.AddDays(3).AddHours(9)));
+        Assert.Equal(2, scenario.Bookings.Count);
+
+        // Once the first Immediate booking leaves AwaitingWorker, a new one is allowed again.
+        scenario.Bookings.Single(b => b.BookingType == BookingType.Immediate).Status = BookingStatus.Cancelled;
+        await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId, "second-immediate-after-cancel", scenario.CreateRequest(BookingType.Immediate));
+        Assert.Equal(3, scenario.Bookings.Count);
+    }
+
     // ----------------------- helpers -----------------------
 
     private const string RoomsLevelNoteSchema =

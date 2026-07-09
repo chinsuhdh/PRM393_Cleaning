@@ -1,4 +1,5 @@
 using Cleaning.BLL.Common;
+using Cleaning.BLL.Constants;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
@@ -9,11 +10,6 @@ namespace Cleaning.BLL.Services;
 
 public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookingAvailabilityService
 {
-    private const int ImmediateLeadMinutes = 15;
-    private const int ScheduledLeadHours = 2;
-    private const int TravelBufferMinutes = 30;
-    private const int LocationFreshnessMinutes = 10;
-    private const int SlotIntervalMinutes = 30;
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     public async Task<BookingAvailabilityDto> GetAsync(Guid clientId, BookingAvailabilityRequestDto request)
@@ -51,7 +47,7 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
         {
             var from = request.From?.ToUniversalTime()
                 ?? throw new AppException(AppErrors.StartRequired);
-            if (from < DateTime.UtcNow.AddHours(ScheduledLeadHours))
+            if (from < DateTime.UtcNow.AddHours(BookingTimingConstants.ScheduledLeadHours))
                 throw new AppException(AppErrors.StartTooSoon);
             if (from > DateTime.UtcNow.AddDays(30))
                 throw new AppException(AppErrors.TimeSlotInvalid);
@@ -78,7 +74,7 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
 
         var workers = (await _unitOfWork.Repository<WorkerProfile>().FindAsync(worker =>
                 skilledWorkerIds.Contains(worker.UserId) &&
-                worker.VerificationStatus == "approved" &&
+                worker.VerificationStatus == BookingDomainConstants.WorkerVerificationStatusApproved &&
                 worker.SuspendedAt == null))
             .Where(worker => IsWorkerWithinServiceRadius(worker, address))
             .ToList();
@@ -105,8 +101,8 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
                 booking.Status == BookingStatus.Accepted ||
                 booking.Status == BookingStatus.OnTheWay ||
                 booking.Status == BookingStatus.InProgress) &&
-            booking.ScheduledStartTime < latestEnd.AddMinutes(TravelBufferMinutes) &&
-            booking.ScheduledEndTime > earliestStart.AddMinutes(-TravelBufferMinutes));
+            booking.ScheduledStartTime < latestEnd.AddMinutes(BookingTimingConstants.TravelBufferMinutes) &&
+            booking.ScheduledEndTime > earliestStart.AddMinutes(-BookingTimingConstants.TravelBufferMinutes));
 
         var slots = new List<BookingSlotDto>();
         foreach (var start in starts)
@@ -135,18 +131,21 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
             }
         }
 
-        return slots.Take(request.BookingType == BookingType.Immediate ? 1 : 12).ToList();
+        return slots.Take(request.BookingType == BookingType.Immediate
+            ? BookingTimingConstants.ImmediateSlotCap
+            : BookingTimingConstants.ScheduledSlotCap).ToList();
     }
 
     private static IEnumerable<DateTime> GetCandidateStarts(BookingAvailabilityRequestDto request, DateTime now)
     {
         if (request.BookingType == BookingType.Immediate)
         {
-            yield return RoundUp(now.AddMinutes(ImmediateLeadMinutes), TimeSpan.FromMinutes(5));
+            yield return RoundUp(now.AddMinutes(BookingTimingConstants.ImmediateLeadMinutes),
+                TimeSpan.FromMinutes(BookingTimingConstants.ImmediateSlotRoundingMinutes));
             yield break;
         }
 
-        var from = (request.From ?? now.AddHours(ScheduledLeadHours)).ToUniversalTime();
+        var from = (request.From ?? now.AddHours(BookingTimingConstants.ScheduledLeadHours)).ToUniversalTime();
         var to = (request.To ?? from).ToUniversalTime();
         if (to <= from)
         {
@@ -154,7 +153,7 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
             yield break;
         }
 
-        for (var start = RoundUp(from, TimeSpan.FromMinutes(SlotIntervalMinutes)); start <= to; start = start.AddMinutes(SlotIntervalMinutes))
+        for (var start = RoundUp(from, TimeSpan.FromMinutes(BookingTimingConstants.SlotIntervalMinutes)); start <= to; start = start.AddMinutes(BookingTimingConstants.SlotIntervalMinutes))
         {
             yield return start;
         }
@@ -167,12 +166,12 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
     }
 
     private static bool OverlapsWithBuffer(Booking booking, DateTime start, DateTime end) =>
-        booking.ScheduledStartTime < end.AddMinutes(TravelBufferMinutes) &&
-        booking.ScheduledEndTime > start.AddMinutes(-TravelBufferMinutes);
+        booking.ScheduledStartTime < end.AddMinutes(BookingTimingConstants.TravelBufferMinutes) &&
+        booking.ScheduledEndTime > start.AddMinutes(-BookingTimingConstants.TravelBufferMinutes);
 
     private static bool IsLocationFresh(WorkerProfile worker, DateTime now) =>
         worker.LocationUpdatedAt.HasValue &&
-        worker.LocationUpdatedAt.Value >= now.AddMinutes(-LocationFreshnessMinutes);
+        worker.LocationUpdatedAt.Value >= now.AddMinutes(-BookingTimingConstants.LocationFreshnessMinutes);
 
     private static bool IsWorkerWithinServiceRadius(WorkerProfile worker, UserAddress address)
     {
@@ -184,24 +183,10 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
         if (!workerLat.HasValue || !workerLng.HasValue)
             return false;
 
-        return DistanceKm(
+        return GeoConstants.DistanceKm(
             (double)address.Latitude.Value,
             (double)address.Longitude.Value,
             (double)workerLat.Value,
             (double)workerLng.Value) <= (double)worker.ServiceRadiusKm;
     }
-
-    private static double DistanceKm(double lat1, double lng1, double lat2, double lng2)
-    {
-        const double earthRadiusKm = 6371;
-        var dLat = DegreesToRadians(lat2 - lat1);
-        var dLng = DegreesToRadians(lng2 - lng1);
-        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                Math.Cos(DegreesToRadians(lat1)) * Math.Cos(DegreesToRadians(lat2)) *
-                Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
-        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-        return earthRadiusKm * c;
-    }
-
-    private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180;
 }
