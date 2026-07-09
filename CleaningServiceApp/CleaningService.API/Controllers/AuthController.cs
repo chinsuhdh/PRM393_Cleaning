@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
@@ -122,6 +122,22 @@ namespace CleaningService.API.Controllers
             if (!result) throw new AppException(AppErrors.AuthVerifyPhoneFailed);
 
             return Ok(ApiResponse.Message(ResponseMessages.VerifyPhoneSuccess));
+        }
+
+        [HttpPost("reauth")]
+        [Authorize]
+        public async Task<IActionResult> Reauthenticate([FromBody] ReauthRequestDto request)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                throw new AppException(AppErrors.Unauthorized);
+
+            var reauthToken = await _authService.ReauthenticateAsync(userId, request.Password);
+
+            if (reauthToken == null)
+                throw new AppException(AppErrors.AuthInvalidCredentials); // Ném lỗi sai mật khẩu
+
+            return Ok(new { ReauthToken = reauthToken });
         }
     }
 }

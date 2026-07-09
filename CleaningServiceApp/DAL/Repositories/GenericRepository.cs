@@ -84,6 +84,11 @@ namespace Cleaning.DAL.Repositories
             return await _dbSet.AnyAsync(expression);
         }
 
+        public async Task<int> CountAsync(Expression<Func<T, bool>> expression)
+        {
+            return await _dbSet.CountAsync(expression);
+        }
+
         public IQueryable<T> GetQueryable()
         {
             return _context.Set<T>().AsQueryable();

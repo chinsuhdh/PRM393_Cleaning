@@ -15,6 +15,8 @@ namespace Cleaning.DAL.Interfaces
         void RemoveRange(IEnumerable<T> entities);
         Task<bool> ExistsAsync(Expression<Func<T, bool>> expression);
 
+        Task<int> CountAsync(Expression<Func<T, bool>> expression);
+
         IQueryable<T> GetQueryable();
     }
 }

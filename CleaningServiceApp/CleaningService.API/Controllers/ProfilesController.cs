@@ -1,4 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
@@ -6,6 +8,7 @@ using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 
 namespace CleaningService.API.Controllers
 {
@@ -16,16 +19,16 @@ namespace CleaningService.API.Controllers
     {
         private readonly IProfileService _profileService;
         private readonly IWebHostEnvironment _environment;
+        private readonly IConfiguration _configuration; // Dùng để xác thực Reauth Token
 
-        public ProfilesController(IProfileService profileService, IWebHostEnvironment environment)
+        public ProfilesController(IProfileService profileService, IWebHostEnvironment environment, IConfiguration configuration)
         {
             _profileService = profileService;
             _environment = environment;
+            _configuration = configuration;
         }
 
         [HttpGet("me")]
-        [ProducesResponseType(typeof(ProfileDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetMyProfile()
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -33,16 +36,21 @@ namespace CleaningService.API.Controllers
                 throw new AppException(AppErrors.Unauthorized);
 
             var profile = await _profileService.GetProfileAsync(userId);
-            if (profile == null)
-                throw new AppException(AppErrors.ProfileNotFound);
+            if (profile == null) throw new AppException(AppErrors.ProfileNotFound);
+
+            return Ok(profile);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetProfileById(Guid id)
+        {
+            var profile = await _profileService.GetProfileAsync(id);
+            if (profile == null) throw new AppException(AppErrors.ProfileNotFound);
 
             return Ok(profile);
         }
 
         [HttpPut("me")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileDto request)
         {
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -50,16 +58,17 @@ namespace CleaningService.API.Controllers
                 throw new AppException(AppErrors.Unauthorized);
 
             var result = await _profileService.UpdateProfileAsync(userId, request);
+            if (!result) throw new AppException(AppErrors.ProfileUpdateFailed);
 
-            if (!result)
-                throw new AppException(AppErrors.ProfileUpdateFailed);
-
-            return Ok(ApiResponse.Message(ResponseMessages.ProfileUpdated));
+            // Trả về một JSON Object rõ ràng để Flutter (Dio) có thể parse dễ dàng
+            return Ok(new
+            {
+                success = true,
+                message = ResponseMessages.ProfileUpdated
+            });
         }
 
         [HttpPost("me/avatar")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UploadAvatar(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -76,7 +85,6 @@ namespace CleaningService.API.Controllers
 
             try
             {
-                // [FIX LỖI PATH1 NULL]: Lấy đường dẫn wwwroot, nếu chưa có thì tự động tạo từ thư mục gốc
                 string webRootPath = _environment.WebRootPath;
                 if (string.IsNullOrWhiteSpace(webRootPath))
                 {
@@ -105,6 +113,65 @@ namespace CleaningService.API.Controllers
             {
                 throw new AppException(AppErrors.AvatarUploadFailed);
             }
+        }
+
+        [HttpPost("me/onboarding")]
+        public async Task<IActionResult> CompleteOnboarding()
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                throw new AppException(AppErrors.Unauthorized);
+
+            var result = await _profileService.CompleteOnboardingAsync(userId);
+            if (!result) throw new AppException(AppErrors.ProfileUpdateFailed);
+
+            return Ok(ApiResponse.Message("Onboarding completed successfully."));
+        }
+
+        [HttpDelete("delete-account")]
+        public async Task<IActionResult> DeleteAccount([FromHeader(Name = "X-Reauth-Token")] string reauthToken)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdClaim, out var userId))
+                throw new AppException(AppErrors.Unauthorized);
+
+            if (string.IsNullOrWhiteSpace(reauthToken))
+                throw new AppException(AppErrors.Unauthorized); // Đã xóa string
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_configuration["JwtConfig:Secret"]!);
+            try
+            {
+                tokenHandler.ValidateToken(reauthToken, new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(key),
+                    ValidateIssuer = true,
+                    ValidIssuer = _configuration["JwtConfig:Issuer"],
+                    ValidateAudience = true,
+                    ValidAudience = _configuration["JwtConfig:Audience"],
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                }, out SecurityToken validatedToken);
+
+                var jwtToken = (JwtSecurityToken)validatedToken;
+                var tokenType = jwtToken.Claims.FirstOrDefault(x => x.Type == "TokenType")?.Value;
+                var tokenUserId = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Sub)?.Value;
+
+                if (tokenType != "Reauth" || tokenUserId != userId.ToString())
+                {
+                    throw new AppException(AppErrors.Unauthorized); // Đã xóa string
+                }
+            }
+            catch
+            {
+                throw new AppException(AppErrors.Unauthorized); // Đã xóa string
+            }
+
+            var result = await _profileService.DeleteAccountAsync(userId);
+            if (!result) throw new AppException(AppErrors.ProfileUpdateFailed); // Đã xóa string
+
+            return Ok(ApiResponse.Message("Tài khoản đã được xóa vĩnh viễn."));
         }
     }
 }

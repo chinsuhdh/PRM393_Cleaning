@@ -404,5 +404,36 @@ namespace Cleaning.BLL.Services
         {
             return RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         }
+
+        public async Task<string?> ReauthenticateAsync(Guid userId, string password)
+        {
+            var account = await _context.Accounts.FindAsync(userId);
+            if (account == null || !BCrypt.Net.BCrypt.Verify(password, account.PasswordHash))
+            {
+                return null; // Sai mật khẩu
+            }
+
+            // Tạo Token Reauth ngắn hạn (5 phút)
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_configuration["JwtConfig:Secret"]!);
+
+            var claims = new List<Claim>
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
+        new Claim("TokenType", "Reauth") // Đánh dấu đây là token dùng cho Reauth
+    };
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddMinutes(5), // Rất ngắn
+                Issuer = _configuration["JwtConfig:Issuer"],
+                Audience = _configuration["JwtConfig:Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            return tokenHandler.WriteToken(token);
+        }
     }
 }

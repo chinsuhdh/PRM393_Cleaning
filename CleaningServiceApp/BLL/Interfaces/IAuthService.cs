@@ -16,5 +16,8 @@ namespace Cleaning.BLL.Interfaces
         Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordDto request);
         Task<bool> VerifyPhoneAsync(VerifyPhoneDto request);
         Task<bool> SendPhoneVerificationOtpAsync(Guid userId);
+
+
+        Task<string?> ReauthenticateAsync(Guid userId, string password);
     }
 }
