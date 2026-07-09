@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
 using Cleaning.BLL.DTOs;
@@ -41,27 +40,49 @@ public sealed class DispatchApiTests(PostgreSqlApiFixture fixture) : IAsyncLifet
             BookingApiTestData.Profile(WorkerId, "Dispatch Worker", now));
         db.Services.Add(new Service
         {
-            Id = ServiceId, Name = "Dispatch Service", PropertyType = PropertyType.Apartment,
-            UnitType = ServiceUnitType.Hour, BasePrice = 100_000, MinimumHours = 2,
-            IsActive = true, CreatedAt = now, UpdatedAt = now
+            Id = ServiceId,
+            Name = "Dispatch Service",
+            PropertyType = PropertyType.Apartment,
+            UnitType = ServiceUnitType.Hour,
+            BasePrice = 100_000,
+            MinimumHours = 2,
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.UserAddresses.Add(new UserAddress
         {
-            Id = AddressId, UserId = ClientId, Label = "Home", AddressText = "District 1",
-            Latitude = 10.7769m, Longitude = 106.7009m, PropertyType = PropertyType.Apartment,
-            CreatedAt = now, UpdatedAt = now
+            Id = AddressId,
+            UserId = ClientId,
+            Label = "Home",
+            AddressText = "District 1",
+            Latitude = 10.7769m,
+            Longitude = 106.7009m,
+            PropertyType = PropertyType.Apartment,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.WorkerProfiles.Add(new WorkerProfile
         {
-            UserId = WorkerId, VerificationStatus = "approved", OnlineStatus = WorkerOnlineStatus.Online,
-            BaseLatitude = 10.7769m, BaseLongitude = 106.7009m, CurrentLat = 10.7769m,
-            CurrentLng = 106.7009m, ServiceRadiusKm = 10, LocationUpdatedAt = now,
-            CreatedAt = now, UpdatedAt = now
+            UserId = WorkerId,
+            VerificationStatus = "approved",
+            OnlineStatus = WorkerOnlineStatus.Online,
+            BaseLatitude = 10.7769m,
+            BaseLongitude = 106.7009m,
+            CurrentLat = 10.7769m,
+            CurrentLng = 106.7009m,
+            ServiceRadiusKm = 10,
+            LocationUpdatedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.WorkerServices.Add(new Cleaning.DAL.Entities.WorkerService
         {
-            WorkerId = WorkerId, ServiceId = ServiceId, IsVerified = true,
-            CreatedAt = now, UpdatedAt = now
+            WorkerId = WorkerId,
+            ServiceId = ServiceId,
+            IsVerified = true,
+            CreatedAt = now,
+            UpdatedAt = now
         });
         db.Bookings.AddRange(
             Booking(EligibleBookingId, ClientId, now),
@@ -228,11 +249,21 @@ public sealed class DispatchApiTests(PostgreSqlApiFixture fixture) : IAsyncLifet
 
     private static Booking Booking(Guid id, Guid clientId, DateTime now) => new()
     {
-        Id = id, ClientId = clientId, ServiceId = ServiceId, AddressId = AddressId,
-        BookingType = BookingType.Immediate, ScheduledStartTime = now.AddMinutes(15),
-        ScheduledEndTime = now.AddHours(2), DurationHours = 2, UnitPrice = 100_000,
-        TotalPrice = 200_000, Status = BookingStatus.AwaitingWorker,
-        AddressSnapshot = "{}", OptionAnswers = "{}", PricingBreakdown = "{}",
-        CreatedAt = now, UpdatedAt = now
+        Id = id,
+        ClientId = clientId,
+        ServiceId = ServiceId,
+        AddressId = AddressId,
+        BookingType = BookingType.Immediate,
+        ScheduledStartTime = now.AddMinutes(15),
+        ScheduledEndTime = now.AddHours(2),
+        DurationHours = 2,
+        UnitPrice = 100_000,
+        TotalPrice = 200_000,
+        Status = BookingStatus.AwaitingWorker,
+        AddressSnapshot = "{}",
+        OptionAnswers = "{}",
+        PricingBreakdown = "{}",
+        CreatedAt = now,
+        UpdatedAt = now
     };
 }
