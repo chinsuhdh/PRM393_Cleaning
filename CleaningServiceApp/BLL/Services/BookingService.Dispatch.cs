@@ -163,9 +163,11 @@ public partial class BookingService
         var worker = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
         if (worker == null || worker.VerificationStatus != BookingDomainConstants.WorkerVerificationStatusApproved || worker.SuspendedAt.HasValue)
             return false;
-        // Busy only means "currently on a job", not "opted out" — a worker keeps browsing the feed while
-        // busy and is blocked from *accepting* a conflicting job by HasScheduleConflictAsync instead.
+
         if (booking.BookingType == BookingType.Immediate && worker.OnlineStatus == WorkerOnlineStatus.Offline)
+            return false;
+
+        if (booking.BookingType == BookingType.Scheduled && await HasScheduleConflictAsync(booking, workerId))
             return false;
         var address = booking.AddressId.HasValue
             ? await _unitOfWork.Repository<UserAddress>().GetByIdAsync(booking.AddressId.Value)
@@ -174,9 +176,9 @@ public partial class BookingService
         return true;
     }
 
-    /// Accept-only: real time conflicts (worker's own accepted/active bookings, or a blocked availability
-    /// range) block *accepting* a job, but never hide it from the browse feed — a worker should still be
-    /// able to see what's out there even while busy or scheduled elsewhere.
+    /// Real time conflicts: the worker's own accepted/active bookings, or a blocked availability range.
+    /// Always blocks *accepting* a job (both booking types); also gates *browse* eligibility (E.1) but
+    /// only for Scheduled bookings — see IsEligibleAsync.
     private async Task<bool> HasScheduleConflictAsync(Booking booking, Guid workerId)
     {
         if (await _unitOfWork.Repository<WorkerAvailability>().ExistsAsync(block =>

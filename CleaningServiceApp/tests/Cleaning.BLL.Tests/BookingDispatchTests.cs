@@ -83,13 +83,29 @@ public sealed partial class BookingDispatchTests
         Assert.Empty(available);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-DSP-08] A job overlapping the worker's own accepted booking is still visible to browse")]
-    public async Task GetAvailable_OverlapsOwnAcceptedBooking_StillSurfaced()
+    [Fact(DisplayName = "[UT-BOOK-DSP-08] A Scheduled job overlapping the worker's own accepted booking is " +
+        "hidden from browse — E.1 calendar/overlap eligibility applies to Scheduled, not just Accept-time")]
+    public async Task GetAvailable_ScheduledOverlapsOwnAcceptedBooking_IsHidden()
     {
         var scenario = DispatchScenario.Create();
         var start = DateTime.UtcNow.AddHours(3);
         scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId, start: start, durationHours: 2);
-        var overlapping = scenario.AddBooking(BookingStatus.AwaitingWorker, start: start.AddHours(1), durationHours: 2);
+        scenario.AddBooking(BookingStatus.AwaitingWorker, start: start.AddHours(1), durationHours: 2);
+
+        var available = await scenario.BookingService.GetAvailableBookingsAsync(scenario.WorkerId);
+
+        Assert.Empty(available);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-DSP-08b] An Immediate job overlapping the worker's own accepted booking is " +
+        "still visible to browse — E.1 marks overlap as ignored for Immediate (only Accept-time is blocked)")]
+    public async Task GetAvailable_ImmediateOverlapsOwnAcceptedBooking_StillSurfaced()
+    {
+        var scenario = DispatchScenario.Create();
+        var start = DateTime.UtcNow.AddHours(3);
+        scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId, start: start, durationHours: 2);
+        var overlapping = scenario.AddBooking(
+            BookingStatus.AwaitingWorker, bookingType: BookingType.Immediate, start: start.AddHours(1), durationHours: 2);
 
         var available = await scenario.BookingService.GetAvailableBookingsAsync(scenario.WorkerId);
 
