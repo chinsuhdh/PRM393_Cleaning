@@ -77,5 +77,8 @@ internal sealed class InMemoryRepository<T>(List<T> entities) : IGenericReposito
         Task.FromResult(entities.Any(expression.Compile()));
 
     public IQueryable<T> GetQueryable() => entities.AsQueryable();
+
+    public Task<int> CountAsync(Expression<Func<T, bool>> expression) =>
+        Task.FromResult(entities.Count(expression.Compile()));
 }
 
