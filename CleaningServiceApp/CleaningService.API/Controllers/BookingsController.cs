@@ -109,6 +109,53 @@ namespace CleaningService.API.Controllers
             return Ok(ApiResponse.Message(ResponseMessages.BookingStatusUpdated));
         }
 
+        [HttpPost("{id}/cancel")]
+        [Authorize(Roles = "Client")]
+        public async Task<IActionResult> CancelByClient(Guid id)
+        {
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _bookingService.CancelByClientAsync(id, clientId);
+
+            if (!result) throw new AppException(AppErrors.BookingCancelNotAllowed);
+
+            return Ok(ApiResponse.Message(ResponseMessages.BookingCancelled));
+        }
+
+        [HttpPost("{id}/worker-cancel")]
+        [Authorize(Roles = "Worker")]
+        public async Task<IActionResult> WorkerCancel(Guid id, [FromBody] WorkerCancelBookingDto request)
+        {
+            var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _bookingService.WorkerCancelAsync(id, workerId, request);
+
+            return Ok(ApiResponse.Message(ResponseMessages.BookingWorkerCancelled));
+        }
+
+        [HttpPost("{id}/report")]
+        public async Task<IActionResult> ReportBooking(Guid id, [FromBody] ReportBookingDto request)
+        {
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _bookingService.ReportBookingAsync(id, accountId, request);
+
+            return Ok(ApiResponse.Message(ResponseMessages.BookingReported));
+        }
+
+        [HttpPost("{id}/reschedule")]
+        public async Task<IActionResult> ProposeReschedule(Guid id, [FromBody] ProposeRescheduleDto request)
+        {
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var booking = await _bookingService.ProposeRescheduleAsync(id, accountId, request);
+            return Ok(booking);
+        }
+
+        [HttpPatch("{id}/reschedule/{reqId}")]
+        public async Task<IActionResult> RespondReschedule(Guid id, Guid reqId, [FromBody] RespondRescheduleDto request)
+        {
+            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var booking = await _bookingService.RespondRescheduleAsync(id, reqId, accountId, request.Action);
+            return Ok(booking);
+        }
+
         [HttpGet("available")]
         [Authorize(Roles = "Worker")]
         public async Task<IActionResult> GetAvailableBookings()

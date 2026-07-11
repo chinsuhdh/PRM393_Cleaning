@@ -1,5 +1,5 @@
+using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Services;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
@@ -84,5 +84,42 @@ public class WorkerServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Busy }));
+    }
+
+    [Fact(DisplayName = "[UT-WRK-SUS-06] A suspended worker cannot go back Online")]
+    public async Task UpdateOnlineStatusAsync_SuspendedToOnline_ThrowsWorkerSuspended()
+    {
+        var workerId = Guid.NewGuid();
+        var worker = new WorkerProfile
+        {
+            UserId = workerId,
+            OnlineStatus = WorkerOnlineStatus.Offline,
+            SuspendedAt = DateTime.UtcNow
+        };
+        var (_, unitOfWork) = MockUnitOfWork(worker);
+        var service = new WorkerService(unitOfWork.Object);
+
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Online }));
+        Assert.Equal(AppErrors.WorkerSuspended.Code, ex.Code);
+        Assert.Equal(WorkerOnlineStatus.Offline, worker.OnlineStatus);
+    }
+
+    [Fact(DisplayName = "[UT-WRK-SUS-07] A suspended worker can still go Offline")]
+    public async Task UpdateOnlineStatusAsync_SuspendedToOffline_Allowed()
+    {
+        var workerId = Guid.NewGuid();
+        var worker = new WorkerProfile
+        {
+            UserId = workerId,
+            OnlineStatus = WorkerOnlineStatus.Offline,
+            SuspendedAt = DateTime.UtcNow
+        };
+        var (_, unitOfWork) = MockUnitOfWork(worker);
+        var service = new WorkerService(unitOfWork.Object);
+
+        var result = await service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Offline });
+
+        Assert.True(result);
     }
 }

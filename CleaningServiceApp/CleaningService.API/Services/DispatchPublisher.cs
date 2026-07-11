@@ -48,6 +48,9 @@ public sealed class DispatchPublisher(
     public Task NearbyWorkerLocationsAsync(Guid bookingId, IReadOnlyList<NearbyWorkerLocationDto> locations) =>
         hub.Clients.Group($"booking:{bookingId}").SendAsync("nearbyWorkersUpdated", locations);
 
+    public Task WorkerSuspendedAsync(Guid workerId) =>
+        hub.Clients.Group($"worker:{workerId}").SendAsync("workerSuspended", workerId);
+
     private async Task SendToWorkersAsync(string eventName, Guid bookingId, IEnumerable<Guid> workerIds)
     {
         foreach (var workerId in workerIds)

@@ -328,7 +328,7 @@ public partial class AppDbContext : DbContext
 
             entity.ToTable("booking_cancellations");
 
-            entity.HasIndex(e => e.BookingId, "booking_cancellations_booking_id_key").IsUnique();
+            entity.HasIndex(e => e.BookingId, "booking_cancellations_booking_id_key");
 
             entity.HasIndex(e => e.CreatedAt, "idx_booking_cancellations_created_at");
 
@@ -349,8 +349,8 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("reason_code");
             entity.Property(e => e.Reason).HasColumnName("reason");
 
-            entity.HasOne(d => d.Booking).WithOne(p => p.BookingCancellation)
-                .HasForeignKey<BookingCancellation>(d => d.BookingId)
+            entity.HasOne(d => d.Booking).WithMany(p => p.BookingCancellations)
+                .HasForeignKey(d => d.BookingId)
                 .HasConstraintName("booking_cancellations_booking_id_fkey");
 
             entity.HasOne(d => d.CancelledByNavigation).WithMany(p => p.BookingCancellations)

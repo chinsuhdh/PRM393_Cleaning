@@ -79,5 +79,27 @@ public partial class BookingService
             Reason = log.Reason,
             CreatedAt = log.CreatedAt
         }).ToList();
+
+        var reschedules = (await _unitOfWork.Repository<BookingRescheduleRequest>()
+            .FindAsync(r => r.BookingId == booking.Id)).OrderBy(r => r.CreatedAt).ToList();
+        dto.RescheduleHistory = reschedules.Select(ToRescheduleDto).ToList();
+        dto.PendingReschedule = reschedules
+            .FirstOrDefault(r => r.Status == RescheduleStatus.Pending) is { } pending
+                ? ToRescheduleDto(pending)
+                : null;
     }
+
+    private static BookingRescheduleRequestDto ToRescheduleDto(BookingRescheduleRequest request) => new()
+    {
+        Id = request.Id,
+        RequestedBy = request.RequestedBy,
+        OldStartTime = request.OldStartTime,
+        OldEndTime = request.OldEndTime,
+        NewStartTime = request.NewStartTime,
+        NewEndTime = request.NewEndTime,
+        Status = request.Status.ToString(),
+        Reason = request.Reason,
+        CreatedAt = request.CreatedAt,
+        RespondedAt = request.RespondedAt
+    };
 }

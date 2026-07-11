@@ -1,3 +1,5 @@
+using Cleaning.BLL.Constants;
+
 namespace Cleaning.BLL.Common;
 
 public sealed record AppError(string Code, string Message, int StatusCode = 400);
@@ -112,4 +114,30 @@ public static class AppErrors
         "WORKER_PROFILE_NOT_FOUND", "Worker profile not found.", 404);
     public static readonly AppError WorkerProfileExists = new(
         "WORKER_PROFILE_EXISTS", "Worker profile already exists.", 400);
+
+    public static readonly AppError BookingCancelNotAllowed = new(
+        "BOOKING_CANCEL_NOT_ALLOWED", "Không thể hủy đơn ở trạng thái hiện tại.", 409);
+    public static readonly AppError WorkerCancelReasonRequired = new(
+        "WORKER_CANCEL_REASON_REQUIRED", "Vui lòng chọn lý do hủy việc hợp lệ.", 400);
+    public static readonly AppError WorkerSuspended = new(
+        "WORKER_SUSPENDED",
+        "Tài khoản của bạn đã bị tạm khóa do hủy việc quá nhiều lần. Vui lòng liên hệ hỗ trợ.", 403);
+
+    public static readonly AppError ReportReasonInvalid = new(
+        "REPORT_REASON_INVALID", "Vui lòng chọn lý do báo cáo hợp lệ.", 400);
+    public static readonly AppError ReportFreeTextTooShort = new(
+        "REPORT_FREE_TEXT_TOO_SHORT", $"Vui lòng mô tả chi tiết hơn (tối thiểu {CancellationConstants.ReportMinFreeTextLength} ký tự).", 400);
+    public static readonly AppError ReportNotAllowed = new(
+        "REPORT_NOT_ALLOWED", "Không thể báo cáo đơn ở trạng thái hiện tại.", 409);
+
+    public static readonly AppError RescheduleNotAllowed = new(
+        "RESCHEDULE_NOT_ALLOWED", "Không thể đề nghị dời lịch ở trạng thái hiện tại.", 409);
+    public static readonly AppError RescheduleImmediateNotAllowed = new(
+        "RESCHEDULE_IMMEDIATE_NOT_ALLOWED", "Đơn đặt ngay không thể dời lịch.", 400);
+    public static readonly AppError RescheduleAlreadyPending = new(
+        "RESCHEDULE_ALREADY_PENDING", "Đã có một yêu cầu dời lịch đang chờ phản hồi.", 409);
+    public static readonly AppError RescheduleRequestNotFound = new(
+        "RESCHEDULE_REQUEST_NOT_FOUND", "Không tìm thấy yêu cầu dời lịch này.", 404);
+    public static readonly AppError RescheduleRequestNotPending = new(
+        "RESCHEDULE_REQUEST_NOT_PENDING", "Yêu cầu dời lịch này đã được xử lý.", 409);
 }

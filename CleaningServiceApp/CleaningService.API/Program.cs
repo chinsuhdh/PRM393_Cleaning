@@ -54,7 +54,6 @@ namespace CleaningService.API
 
             var dataSource = dataSourceBuilder.Build();
 
-            // Đăng ký AppDbContext với DI
             var seedDevelopmentData = builder.Environment.IsDevelopment();
 
             builder.Services.AddDbContext<AppDbContext>(options =>
@@ -91,9 +90,6 @@ namespace CleaningService.API
                         }
                     }));
 
-            // ==========================================
-            // 2. CẤU HÌNH AUTHENTICATION & JWT
-            // ==========================================
             builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
                 {
@@ -152,9 +148,6 @@ namespace CleaningService.API
                 configuration.AddProfile<BookingMappingProfile>());
             builder.Services.AddEndpointsApiExplorer();
 
-            // ==========================================
-            // 3. CẤU HÌNH SWAGGER (CÓ BEARER TOKEN)
-            // ==========================================
             builder.Services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v1", new OpenApiInfo { Title = "Cleaning Service API", Version = "v1" });
@@ -185,49 +178,36 @@ namespace CleaningService.API
                 });
             });
 
-            // ==========================================
-            // 4. BINDING CẤU HÌNH TỪ APPSETTINGS
-            // ==========================================
             builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("EmailConfiguration"));
 
-            // ==========================================
-            // 5. ĐĂNG KÝ DEPENDENCY INJECTION (DI)
-            // ==========================================
-
-            // Core & Repositories
             builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-            // Business Services
             builder.Services.AddScoped<IEmailService, EmailService>();
 
-            // [ĐÃ THÊM] Đăng ký ISmsService để sửa lỗi DI Crash
             builder.Services.AddScoped<ISmsService, SmsService>();
 
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IProfileService, ProfileService>();
             builder.Services.AddScoped<IUserAddressService, UserAddressService>();
 
-            // Chỉ định rõ namespace để tránh xung đột với Entity WorkerService trong DAL
             builder.Services.AddScoped<IWorkerService, Cleaning.BLL.Services.WorkerService>();
 
             builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
             builder.Services.AddScoped<IBookingAvailabilityService, BookingAvailabilityService>();
             builder.Services.AddScoped<IBookingCreationService, BookingCreationService>();
+            builder.Services.AddScoped<IBookingSweepService, BookingSweepService>();
             builder.Services.AddScoped<IDispatchPublisher, DispatchPublisher>();
             builder.Services.AddSingleton<IWorkerPushSender, NullWorkerPushSender>();
             builder.Services.AddHostedService<NearbyWorkerLocationsBroadcastService>();
+            builder.Services.AddHostedService<BookingSweeperService>();
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
 
-            // AI Service sử dụng HttpClient
             builder.Services.AddHttpClient<IAiService, AiService>();
 
-            // ==========================================
-            // 6. KHỞI TẠO APP VÀ PIPELINE
-            // ==========================================
             var app = builder.Build();
 
             app.UseExceptionHandler();
@@ -243,10 +223,8 @@ namespace CleaningService.API
                 app.UseHttpsRedirection();
             }
 
-            // [ĐÃ THÊM] Cho phép truy cập file tĩnh (Avatar upload)
             app.UseStaticFiles();
 
-            // Lưu ý: UseAuthentication phải nằm TRƯỚC UseAuthorization
             app.UseAuthentication();
             app.UseAuthorization();
 

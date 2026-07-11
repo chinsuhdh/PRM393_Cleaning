@@ -57,7 +57,7 @@ public partial class Booking
 
     public virtual UserAddress? Address { get; set; }
 
-    public virtual BookingCancellation? BookingCancellation { get; set; }
+    public virtual ICollection<BookingCancellation> BookingCancellations { get; set; } = new List<BookingCancellation>();
 
     public virtual ICollection<BookingPhoto> BookingPhotos { get; set; } = new List<BookingPhoto>();
 
