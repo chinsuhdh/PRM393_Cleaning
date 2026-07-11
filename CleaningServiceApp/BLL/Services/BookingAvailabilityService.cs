@@ -47,15 +47,20 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
         {
             var from = request.From?.ToUniversalTime()
                 ?? throw new AppException(AppErrors.StartRequired);
-            if (from < DateTime.UtcNow.AddHours(BookingTimingConstants.ScheduledLeadHours))
-                throw new AppException(AppErrors.StartTooSoon);
-            if (from > DateTime.UtcNow.AddDays(30))
-                throw new AppException(AppErrors.TimeSlotInvalid);
-            if (from.Minute is not (0 or 30) || from.Second != 0)
-                throw new AppException(AppErrors.TimeSlotInvalid);
+            ValidateScheduledStartTime(from);
         }
 
         return (service, address);
+    }
+
+    public static void ValidateScheduledStartTime(DateTime from)
+    {
+        if (from < DateTime.UtcNow.AddHours(BookingTimingConstants.ScheduledLeadHours))
+            throw new AppException(AppErrors.StartTooSoon);
+        if (from > DateTime.UtcNow.AddDays(30))
+            throw new AppException(AppErrors.TimeSlotInvalid);
+        if (from.Minute is not (0 or 30) || from.Second != 0)
+            throw new AppException(AppErrors.TimeSlotInvalid);
     }
 
     private async Task<List<BookingSlotDto>> FindAvailableSlotsAsync(

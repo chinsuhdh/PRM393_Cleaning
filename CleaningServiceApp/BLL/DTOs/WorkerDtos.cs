@@ -12,6 +12,7 @@ namespace Cleaning.BLL.DTOs
         public decimal? CurrentLat { get; set; }
         public decimal? CurrentLng { get; set; }
         public DateTime? VerifiedAt { get; set; }
+        public DateTime? SuspendedAt { get; set; }
     }
 
     public class RegisterWorkerProfileDto

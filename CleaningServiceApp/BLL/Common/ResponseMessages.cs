@@ -19,6 +19,9 @@ public static class ResponseMessages
     public const string BookingAccepted = "Nhận đơn đặt lịch thành công!";
     public const string BroadcastRestarted = "Đã phát lại yêu cầu tìm nhân viên.";
     public const string JobHidden = "Đã ẩn công việc.";
+    public const string BookingCancelled = "Đã hủy đơn đặt lịch.";
+    public const string BookingWorkerCancelled = "Đã hủy nhận việc và trả đơn về danh sách chờ.";
+    public const string BookingReported = "Đã gửi báo cáo và hủy đơn đặt lịch.";
 
     public const string AiMatchingSuccess = "Đã chạy thuật toán Matching thành công.";
 
