@@ -129,7 +129,6 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
             entity.Property(e => e.PasswordSalt).HasColumnName("password_salt");
             entity.Property(e => e.PhoneNumber).HasColumnName("phone_number");
-            entity.Property(e => e.VnpayAccount).HasColumnName("vnpay_account");
 
             // Map Enum
             entity.Property(e => e.Role).HasColumnType("user_role").HasColumnName("role");

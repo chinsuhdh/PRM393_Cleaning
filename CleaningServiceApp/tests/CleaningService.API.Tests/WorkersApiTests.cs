@@ -81,6 +81,40 @@ public sealed class WorkersApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact(DisplayName = "[UT-WORKER-PAYOUT-API-01] A worker can set their payout bank account")]
+    public async Task UpdatePayoutAccount_ValidInput_Succeeds()
+    {
+        using var client = AuthenticatedClient(WorkerId, UserRole.Worker);
+        var response = await client.PutAsJsonAsync("/api/Workers/me/payout-account", new UpdatePayoutAccountDto
+        {
+            BankBin = "970422",
+            AccountNumber = "0123456789",
+            AccountName = "Nguyen Van A"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        await using var scope = fixture.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var worker = await db.WorkerProfiles.SingleAsync(w => w.UserId == WorkerId);
+        Assert.Equal("970422", worker.PayoutBankBin);
+        Assert.Equal("0123456789", worker.PayoutBankAccountNumber);
+        Assert.Equal("Nguyen Van A", worker.PayoutBankAccountName);
+    }
+
+    [Fact(DisplayName = "[UT-WORKER-PAYOUT-API-02] Blank payout bank details are rejected")]
+    public async Task UpdatePayoutAccount_BlankInput_Rejected()
+    {
+        using var client = AuthenticatedClient(WorkerId, UserRole.Worker);
+        var response = await client.PutAsJsonAsync("/api/Workers/me/payout-account", new UpdatePayoutAccountDto
+        {
+            BankBin = "970422",
+            AccountNumber = "   ",
+            AccountName = "Nguyen Van A"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     private HttpClient AuthenticatedClient(Guid accountId, UserRole role)
     {
         var client = fixture.CreateClient();

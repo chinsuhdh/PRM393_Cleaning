@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Cleaning.DAL.Enums;
 
 namespace Cleaning.BLL.DTOs
 {
@@ -16,27 +15,16 @@ namespace Cleaning.BLL.DTOs
         public DateTime CreatedAt { get; set; }
     }
 
-    public class CreatePaymentDto
+    public class PayNowRequestDto
     {
         [Required]
         public Guid BookingId { get; set; }
-        [Required]
-        public decimal Amount { get; set; }
-        [Required]
-        public PaymentMethod Method { get; set; }
     }
 
-    public class PaymentCallbackDto
+    public class PayNowResponseDto
     {
-        [Required]
-        public PaymentStatus Status { get; set; }
-        public string? TransactionId { get; set; }
-    }
-
-    // Cổng VNPay mô phỏng: liên kết luôn thành công miễn là chuỗi không rỗng, không gọi hệ thống ngoài.
-    public class VnpayAccountDto
-    {
-        public string? VnpayAccount { get; set; }
+        public Guid PaymentId { get; set; }
+        public string PaymentUrl { get; set; } = null!;
     }
 
     // --- REVIEW DTOs ---

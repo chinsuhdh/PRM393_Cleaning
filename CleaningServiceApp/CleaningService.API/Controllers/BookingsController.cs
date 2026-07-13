@@ -131,6 +131,16 @@ namespace CleaningService.API.Controllers
             return Ok(ApiResponse.Message(ResponseMessages.BookingWorkerCancelled));
         }
 
+        [HttpPost("{id}/switch-to-cash")]
+        [Authorize(Roles = "Client")]
+        public async Task<IActionResult> SwitchToCash(Guid id)
+        {
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _bookingService.SwitchToCashAsync(id, clientId);
+
+            return Ok(ApiResponse.Message(ResponseMessages.BookingSwitchedToCash));
+        }
+
         [HttpPost("{id}/report")]
         public async Task<IActionResult> ReportBooking(Guid id, [FromBody] ReportBookingDto request)
         {

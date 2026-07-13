@@ -2,7 +2,6 @@ using System.Security.Claims;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
-using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,10 +20,13 @@ namespace CleaningService.API.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentDto request)
+        [Authorize(Roles = "Client")]
+        public async Task<IActionResult> PayNow([FromBody] PayNowRequestDto request)
         {
-            var payment = await _paymentService.CreatePaymentAsync(request);
-            return Ok(payment);
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            var result = await _paymentService.PayNowAsync(clientId, request, ipAddress);
+            return Ok(result);
         }
 
         [HttpGet("booking/{bookingId}")]
@@ -37,30 +39,19 @@ namespace CleaningService.API.Controllers
             return Ok(payment);
         }
 
-        [HttpGet("vnpay-account")]
-        public async Task<IActionResult> GetVnpayAccount()
-        {
-            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            return Ok(await _paymentService.GetVnpayAccountAsync(accountId));
-        }
-
-        [HttpPut("vnpay-account")]
-        public async Task<IActionResult> LinkVnpayAccount([FromBody] VnpayAccountDto request)
-        {
-            var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            return Ok(await _paymentService.LinkVnpayAccountAsync(accountId, request));
-        }
-
-        // Thường API này sẽ được gọi bởi Webhook của MoMo/VNPay thay vì từ Flutter App
-        [HttpPost("{id}/callback")]
+        [HttpPost("payos-webhook")]
         [AllowAnonymous]
-        public async Task<IActionResult> PaymentCallback(Guid id, [FromBody] PaymentCallbackDto request)
+        public async Task<IActionResult> PayOsWebhook()
         {
-            var result = await _paymentService.ProcessPaymentCallbackAsync(id, request);
-
-            if (!result) throw new AppException(AppErrors.PaymentCallbackFailed);
-
-            return Ok(ApiResponse.Message(ResponseMessages.PaymentCallbackProcessed));
+            using var reader = new StreamReader(Request.Body);
+            var rawJson = await reader.ReadToEndAsync();
+            var success = await _paymentService.ProcessPayOsWebhookAsync(rawJson);
+            return success ? Ok() : BadRequest();
         }
+
+        [HttpGet("payos-return")]
+        [AllowAnonymous]
+        public IActionResult PayOsReturn() =>
+            Content("Bạn có thể đóng cửa sổ này.", "text/plain");
     }
 }

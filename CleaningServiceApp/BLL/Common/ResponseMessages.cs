@@ -22,6 +22,7 @@ public static class ResponseMessages
     public const string BookingCancelled = "Đã hủy đơn đặt lịch.";
     public const string BookingWorkerCancelled = "Đã hủy nhận việc và trả đơn về danh sách chờ.";
     public const string BookingReported = "Đã gửi báo cáo và hủy đơn đặt lịch.";
+    public const string BookingSwitchedToCash = "Đã chuyển sang thanh toán tiền mặt.";
 
     public const string AiMatchingSuccess = "Đã chạy thuật toán Matching thành công.";
 
@@ -38,4 +39,5 @@ public static class ResponseMessages
     public const string WorkerLocationUpdated = "Location updated.";
     public const string WorkerOnlineStatusUpdated = "Online status updated.";
     public const string WorkerSkillUpdated = "Skill updated successfully.";
+    public const string WorkerPayoutAccountUpdated = "Payout account updated successfully.";
 }

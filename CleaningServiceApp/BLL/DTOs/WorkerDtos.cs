@@ -13,6 +13,32 @@ namespace Cleaning.BLL.DTOs
         public decimal? CurrentLng { get; set; }
         public DateTime? VerifiedAt { get; set; }
         public DateTime? SuspendedAt { get; set; }
+        public string? PayoutBankBin { get; set; }
+        public string? PayoutBankAccountNumber { get; set; }
+        public string? PayoutBankAccountName { get; set; }
+    }
+
+    public class UpdatePayoutAccountDto
+    {
+        [Required]
+        public string BankBin { get; set; } = null!;
+
+        [Required]
+        public string AccountNumber { get; set; } = null!;
+
+        [Required]
+        public string AccountName { get; set; } = null!;
+    }
+
+    public class WorkerEarningDto
+    {
+        public Guid Id { get; set; }
+        public Guid BookingId { get; set; }
+        public decimal Amount { get; set; }
+        public string Status { get; set; } = null!;
+        public DateTime EarnedAt { get; set; }
+        public DateTime? PaidAt { get; set; }
+        public string? PayoutFailureReason { get; set; }
     }
 
     public class RegisterWorkerProfileDto

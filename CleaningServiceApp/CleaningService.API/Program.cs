@@ -28,13 +28,9 @@ namespace CleaningService.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // ==========================================
-            // 1. CẤU HÌNH DATABASE & ENUMS POSTGRESQL
-            // ==========================================
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 
-            // Map TẤT CẢ các Enum để đồng bộ với PostgreSQL Schema
             dataSourceBuilder.MapEnum<UserRole>("user_role");
             dataSourceBuilder.MapEnum<AccountStatus>("account_status");
             dataSourceBuilder.MapEnum<VerificationPurpose>("verification_purpose");
@@ -179,6 +175,7 @@ namespace CleaningService.API
             });
 
             builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("EmailConfiguration"));
+            builder.Services.Configure<PayOsSettings>(builder.Configuration.GetSection("PayOS"));
 
             builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -205,8 +202,12 @@ namespace CleaningService.API
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
+            builder.Services.AddScoped<IPayoutSweepService, PayoutSweepService>();
+            builder.Services.AddHostedService<PayoutSweeperService>();
 
             builder.Services.AddHttpClient<IAiService, AiService>();
+            builder.Services.AddHttpClient<IPayoutGateway, PayOsPayoutGateway>();
+            builder.Services.AddHttpClient<IPayOsCheckoutService, PayOsCheckoutService>();
 
             var app = builder.Build();
 

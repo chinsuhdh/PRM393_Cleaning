@@ -4,6 +4,7 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cleaning.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260713024649_WorkerPayoutFields")]
+    partial class WorkerPayoutFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -28,7 +31,7 @@ namespace Cleaning.DAL.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "booking_type", new[] { "scheduled", "immediate" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "cleanliness_level", new[] { "clean", "light", "medium", "heavy" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "notification_type", new[] { "booking", "payment", "schedule", "system", "ai" });
-            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_method", new[] { "cash", "payos" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_method", new[] { "cash", "vnpay" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_status", new[] { "pending", "success", "failed" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "photo_type", new[] { "before", "after", "issue", "ai_reference" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "property_type", new[] { "apartment", "house" });
@@ -107,6 +110,10 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("now()");
+
+                    b.Property<string>("VnpayAccount")
+                        .HasColumnType("text")
+                        .HasColumnName("vnpay_account");
 
                     b.HasKey("Id")
                         .HasName("accounts_pkey");
@@ -1079,10 +1086,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_at");
 
-                    b.Property<long?>("PayosOrderCode")
-                        .HasColumnType("bigint")
-                        .HasColumnName("payos_order_code");
-
                     b.Property<string>("ProviderReference")
                         .HasColumnType("text")
                         .HasColumnName("provider_reference");
@@ -1107,10 +1110,6 @@ namespace Cleaning.DAL.Migrations
                     b.HasIndex("IdempotencyKey")
                         .IsUnique()
                         .HasFilter("idempotency_key IS NOT NULL");
-
-                    b.HasIndex("PayosOrderCode")
-                        .IsUnique()
-                        .HasFilter("payos_order_code IS NOT NULL");
 
                     b.HasIndex("ProviderReference")
                         .IsUnique()

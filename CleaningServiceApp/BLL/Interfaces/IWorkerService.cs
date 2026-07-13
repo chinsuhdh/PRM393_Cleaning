@@ -10,5 +10,7 @@ namespace Cleaning.BLL.Interfaces
         Task<bool> UpdateOnlineStatusAsync(Guid workerId, UpdateOnlineStatusDto request);
         Task<IEnumerable<WorkerSkillDto>> GetWorkerSkillsAsync(Guid workerId);
         Task<bool> AddOrUpdateWorkerSkillAsync(Guid workerId, WorkerSkillDto request);
+        Task<bool> UpdatePayoutAccountAsync(Guid workerId, UpdatePayoutAccountDto request);
+        Task<IEnumerable<WorkerEarningDto>> GetWorkerEarningsAsync(Guid workerId);
     }
 }

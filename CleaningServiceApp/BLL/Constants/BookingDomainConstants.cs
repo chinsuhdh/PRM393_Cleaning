@@ -12,8 +12,9 @@ public static class BookingDomainConstants
 public static class BookingReasons
 {
     public const string ClientCreatedBooking = "Khách hàng tạo đơn đặt lịch";
-    public const string SystemAutoChargedVnpay = "Hệ thống tự động thanh toán VNPay (mô phỏng)";
     public const string SystemConfirmedCashPayment = "Hệ thống xác nhận thanh toán thành công";
+    public const string SystemConfirmedPayosPayment = "Hệ thống xác nhận thanh toán trực tuyến thành công";
+    public const string ClientSwitchedToCash = "Khách chuyển sang thanh toán tiền mặt";
     public const string WorkerAcceptedBooking = "Nhân viên đã nhận đơn";
 
     public const string RescheduleProposed = "Đã đề nghị dời lịch hẹn";

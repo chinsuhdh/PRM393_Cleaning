@@ -96,5 +96,27 @@ namespace CleaningService.API.Controllers
 
             return Ok(ApiResponse.Message(ResponseMessages.WorkerSkillUpdated));
         }
+
+        [HttpPut("me/payout-account")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdatePayoutAccount([FromBody] UpdatePayoutAccountDto request)
+        {
+            var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _workerService.UpdatePayoutAccountAsync(workerId, request);
+
+            if (!result) throw new AppException(AppErrors.WorkerProfileNotFound);
+            return Ok(ApiResponse.Message(ResponseMessages.WorkerPayoutAccountUpdated));
+        }
+
+        [HttpGet("me/earnings")]
+        [ProducesResponseType(typeof(IEnumerable<WorkerEarningDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetMyEarnings()
+        {
+            var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var earnings = await _workerService.GetWorkerEarningsAsync(workerId);
+            return Ok(earnings);
+        }
     }
 }

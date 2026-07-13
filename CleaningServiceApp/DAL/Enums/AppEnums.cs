@@ -9,7 +9,7 @@
     public enum BookingStatus { PendingPayment, Accepted, RescheduleRequested, InProgress, Completed, Cancelled, AwaitingWorker, OnTheWay }
     public enum WorkerOnlineStatus { Offline, Online, Busy }
     public enum AvailabilityStatus { Available, Blocked, Booked }
-    public enum PaymentMethod { Cash, Vnpay }
+    public enum PaymentMethod { Cash, Payos }
     public enum PaymentStatus { Pending, Success, Failed }
     public enum RescheduleStatus { Pending, Accepted, Rejected, Cancelled }
     public enum AiSenderType { User, Ai }

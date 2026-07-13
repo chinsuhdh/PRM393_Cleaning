@@ -33,7 +33,10 @@ namespace Cleaning.BLL.Services
                 CurrentLat = worker.CurrentLat,
                 CurrentLng = worker.CurrentLng,
                 VerifiedAt = worker.VerifiedAt,
-                SuspendedAt = worker.SuspendedAt
+                SuspendedAt = worker.SuspendedAt,
+                PayoutBankBin = worker.PayoutBankBin,
+                PayoutBankAccountNumber = worker.PayoutBankAccountNumber,
+                PayoutBankAccountName = worker.PayoutBankAccountName
             };
         }
 
@@ -150,6 +153,47 @@ namespace Cleaning.BLL.Services
 
             await _unitOfWork.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<bool> UpdatePayoutAccountAsync(Guid workerId, UpdatePayoutAccountDto request)
+        {
+            var bankBin = request.BankBin?.Trim();
+            var accountNumber = request.AccountNumber?.Trim();
+            var accountName = request.AccountName?.Trim();
+            if (string.IsNullOrEmpty(bankBin) || string.IsNullOrEmpty(accountNumber) || string.IsNullOrEmpty(accountName))
+                throw new AppException(AppErrors.PayoutAccountInvalid);
+
+            var worker = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
+            if (worker == null) return false;
+
+            worker.PayoutBankBin = bankBin;
+            worker.PayoutBankAccountNumber = accountNumber;
+            worker.PayoutBankAccountName = accountName;
+            worker.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Repository<WorkerProfile>().Update(worker);
+            await _unitOfWork.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<IEnumerable<WorkerEarningDto>> GetWorkerEarningsAsync(Guid workerId)
+        {
+            var earnings = await _unitOfWork.Repository<WorkerEarning>().FindAsync(e => e.WorkerId == workerId);
+
+            return earnings
+                .OrderByDescending(e => e.EarnedAt)
+                .Select(e => new WorkerEarningDto
+                {
+                    Id = e.Id,
+                    BookingId = e.BookingId,
+                    Amount = e.Amount,
+                    Status = e.Status,
+                    EarnedAt = e.EarnedAt,
+                    PaidAt = e.PaidAt,
+                    PayoutFailureReason = e.PayoutFailureReason
+                })
+                .ToList();
         }
     }
 }

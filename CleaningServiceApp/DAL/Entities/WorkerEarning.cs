@@ -9,5 +9,7 @@ public class WorkerEarning
     public string Status { get; set; } = "pending";
     public DateTime EarnedAt { get; set; }
     public DateTime? PaidAt { get; set; }
+    public string? PayoutId { get; set; }
+    public string? PayoutFailureReason { get; set; }
     public DateTime CreatedAt { get; set; }
 }
