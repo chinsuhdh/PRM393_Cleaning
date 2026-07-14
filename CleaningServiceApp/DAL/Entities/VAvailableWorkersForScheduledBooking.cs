@@ -18,4 +18,8 @@ public partial class VAvailableWorkersForScheduledBooking
     public DateTime? StartTime { get; set; }
 
     public DateTime? EndTime { get; set; }
+
+    public decimal? CurrentLat { get; set; }
+
+    public decimal? CurrentLng { get; set; }
 }

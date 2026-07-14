@@ -209,7 +209,9 @@ public sealed partial class BookingDispatchTests
     }
 
     [Fact(DisplayName = "[UT-BOOK-STS-11] Accepting a booking pushes a booking-scoped status-changed event, " +
-        "so the client's Booking Detail live-updates without waiting on a poll")]
+        "so the client's Booking Detail live-updates without waiting on a poll — and carries the " +
+        "booking's ClientId, so the client's always-joined client:{clientId} group also gets it (the " +
+        "active-booking bar/list live-update without that specific booking's detail screen open)")]
     public async Task AcceptBooking_PublishesBookingStatusChanged()
     {
         var scenario = DispatchScenario.Create();
@@ -218,7 +220,9 @@ public sealed partial class BookingDispatchTests
         await scenario.BookingService.AcceptBookingAsync(booking.Id, scenario.WorkerId);
 
         Assert.Contains(scenario.DispatchPublisher.StatusChanges, change =>
-            change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.Accepted));
+            change.BookingId == booking.Id &&
+            change.ClientId == scenario.ClientId &&
+            change.NewStatus == nameof(BookingStatus.Accepted));
     }
 
     [Fact(DisplayName = "[UT-BOOK-STS-12] Every allowed status transition pushes a booking-scoped " +

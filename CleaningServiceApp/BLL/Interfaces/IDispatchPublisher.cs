@@ -8,7 +8,7 @@ public interface IDispatchPublisher
     Task JobTakenAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds);
     Task JobCancelledAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds);
 
-    Task BookingStatusChangedAsync(Guid bookingId, string newStatus);
+    Task BookingStatusChangedAsync(Guid bookingId, Guid clientId, string newStatus);
 
     Task WorkerPositionAsync(Guid bookingId, decimal latitude, decimal longitude);
 

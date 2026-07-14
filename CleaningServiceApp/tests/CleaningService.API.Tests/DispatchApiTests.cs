@@ -23,6 +23,7 @@ public sealed class DispatchApiTests(PostgreSqlApiFixture fixture) : IAsyncLifet
     private static readonly Guid AddressId = Guid.Parse("83000000-0000-0000-0000-000000000001");
     private static readonly Guid EligibleBookingId = Guid.Parse("84000000-0000-0000-0000-000000000001");
     private static readonly Guid OwnBookingId = Guid.Parse("84000000-0000-0000-0000-000000000002");
+    private static readonly Guid ScheduledBookingId = Guid.Parse("84000000-0000-0000-0000-000000000003");
 
     public async Task InitializeAsync()
     {
@@ -214,6 +215,49 @@ public sealed class DispatchApiTests(PostgreSqlApiFixture fixture) : IAsyncLifet
         Assert.Empty(locations!);
     }
 
+    [Fact(DisplayName = "[UT-BOOK-NEARBY-06] A Scheduled booking's own client sees an eligible worker's coordinates too")]
+    public async Task NearbyWorkers_ScheduledBooking_EligibleWorker_IsReturned()
+    {
+        await AddScheduledBookingAsync();
+        using var client = AuthenticatedClient(ClientId);
+
+        var response = await client.GetAsync($"/api/Bookings/{ScheduledBookingId}/nearby-workers");
+        var locations = await response.Content.ReadDataAsync<List<NearbyWorkerLocationDto>>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var location = Assert.Single(locations!);
+        Assert.Equal(10.7769m, location.Latitude);
+        Assert.Equal(106.7009m, location.Longitude);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-NEARBY-07] A Scheduled booking excludes an offline worker, same as Immediate")]
+    public async Task NearbyWorkers_ScheduledBooking_OfflineWorker_Excluded()
+    {
+        await AddScheduledBookingAsync();
+        await using (var scope = fixture.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var worker = await db.WorkerProfiles.SingleAsync(w => w.UserId == WorkerId);
+            worker.OnlineStatus = WorkerOnlineStatus.Offline;
+            await db.SaveChangesAsync();
+        }
+        using var client = AuthenticatedClient(ClientId);
+
+        var response = await client.GetAsync($"/api/Bookings/{ScheduledBookingId}/nearby-workers");
+        var locations = await response.Content.ReadDataAsync<List<NearbyWorkerLocationDto>>();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(locations!);
+    }
+
+    private async Task AddScheduledBookingAsync()
+    {
+        await using var scope = fixture.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Bookings.Add(ScheduledBooking(ScheduledBookingId, ClientId, DateTime.UtcNow));
+        await db.SaveChangesAsync();
+    }
+
     private HttpClient AuthenticatedWorker()
     {
         var client = fixture.CreateClient();
@@ -256,6 +300,26 @@ public sealed class DispatchApiTests(PostgreSqlApiFixture fixture) : IAsyncLifet
         BookingType = BookingType.Immediate,
         ScheduledStartTime = now.AddMinutes(15),
         ScheduledEndTime = now.AddHours(2),
+        DurationHours = 2,
+        UnitPrice = 100_000,
+        TotalPrice = 200_000,
+        Status = BookingStatus.AwaitingWorker,
+        AddressSnapshot = "{}",
+        OptionAnswers = "{}",
+        PricingBreakdown = "{}",
+        CreatedAt = now,
+        UpdatedAt = now
+    };
+
+    private static Booking ScheduledBooking(Guid id, Guid clientId, DateTime now) => new()
+    {
+        Id = id,
+        ClientId = clientId,
+        ServiceId = ServiceId,
+        AddressId = AddressId,
+        BookingType = BookingType.Scheduled,
+        ScheduledStartTime = now.AddDays(1),
+        ScheduledEndTime = now.AddDays(1).AddHours(2),
         DurationHours = 2,
         UnitPrice = 100_000,
         TotalPrice = 200_000,

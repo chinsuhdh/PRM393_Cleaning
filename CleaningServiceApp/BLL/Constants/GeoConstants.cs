@@ -17,5 +17,11 @@ public static class GeoConstants
         return EarthRadiusKm * c;
     }
 
+    public const double AssumedAverageSpeedKmh = 25.0;
+
+    // Straight-line ETA fallback for the worker's job list, where no OSRM route is ever fetched —
+    // mirrors the same assumption used client-side (estimatedTravelDuration in live_tracking_map.dart).
+    public static double EstimatedMinutes(double distanceKm) => distanceKm / AssumedAverageSpeedKmh * 60;
+
     private static double DegreesToRadians(double degrees) => degrees * Math.PI / 180;
 }

@@ -182,6 +182,101 @@ public sealed partial class BookingDispatchTests
         Assert.Null(scenario.Worker.SuspendedAt);
     }
 
+    [Theory(DisplayName = "[UT-BOOK-CXL-08] Client plain-cancel succeeds for every reason code and releases the job")]
+    [InlineData("client_cancel.no_longer_needed")]
+    [InlineData("client_cancel.found_another_provider")]
+    public async Task ClientCancel_EachReasonCode_ReleasesJob(string reasonCode)
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        await scenario.BookingService.ClientCancelAsync(
+            booking.Id, scenario.ClientId, new ClientCancelBookingDto { ReasonCode = reasonCode });
+
+        Assert.Equal(BookingStatus.AwaitingWorker, booking.Status);
+        Assert.Null(booking.WorkerId);
+        var record = Assert.Single(scenario.Cancellations);
+        Assert.Equal(reasonCode, record.ReasonCode);
+        Assert.Equal(UserRole.Client, record.ActorRole);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-CXL-09] Client plain-cancel with \"other\" requires free text and records it")]
+    public async Task ClientCancel_OtherWithText_RecordsFreeText()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        await scenario.BookingService.ClientCancelAsync(
+            booking.Id, scenario.ClientId,
+            new ClientCancelBookingDto { ReasonCode = ClientCancelReasonCodes.Other, FreeText = "Đổi ý" });
+
+        var record = Assert.Single(scenario.Cancellations);
+        Assert.Contains("Đổi ý", record.Reason);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-CXL-10] Client plain-cancel with \"other\" and no free text is rejected")]
+    public async Task ClientCancel_OtherWithoutText_Throws()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        await Assert.ThrowsAsync<AppException>(() => scenario.BookingService.ClientCancelAsync(
+            booking.Id, scenario.ClientId, new ClientCancelBookingDto { ReasonCode = ClientCancelReasonCodes.Other }));
+        Assert.Equal(BookingStatus.Accepted, booking.Status);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-CXL-11] An unrecognized client-cancel reason code is rejected")]
+    public async Task ClientCancel_UnknownReasonCode_Throws()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        await Assert.ThrowsAsync<AppException>(() => scenario.BookingService.ClientCancelAsync(
+            booking.Id, scenario.ClientId, new ClientCancelBookingDto { ReasonCode = "not_a_real_code" }));
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-CXL-12] Client plain-cancel is rejected once the job has moved past Accepted")]
+    public async Task ClientCancel_PastAccepted_Throws()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.OnTheWay, workerId: scenario.WorkerId);
+
+        await Assert.ThrowsAsync<AppException>(() => scenario.BookingService.ClientCancelAsync(
+            booking.Id, scenario.ClientId,
+            new ClientCancelBookingDto { ReasonCode = ClientCancelReasonCodes.NoLongerNeeded }));
+        Assert.Equal(BookingStatus.OnTheWay, booking.Status);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-CXL-13] Client plain-cancel re-broadcasts the released job to eligible workers")]
+    public async Task ClientCancel_ReleasesJob_TriggersRebroadcast()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+
+        await scenario.BookingService.ClientCancelAsync(
+            booking.Id, scenario.ClientId,
+            new ClientCancelBookingDto { ReasonCode = ClientCancelReasonCodes.FoundAnotherProvider });
+
+        Assert.Contains(scenario.DispatchPublisher.PostedJobs, dto => dto.Id == booking.Id);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-CXL-14] Client plain-cancel does not apply the worker-suspension penalty")]
+    public async Task ClientCancel_DoesNotAffectWorkerSuspension()
+    {
+        var scenario = DispatchScenario.Create();
+
+        for (var i = 0; i < 3; i++)
+        {
+            var booking = scenario.AddBooking(BookingStatus.Accepted, workerId: scenario.WorkerId);
+            await scenario.BookingService.ClientCancelAsync(
+                booking.Id, scenario.ClientId,
+                new ClientCancelBookingDto { ReasonCode = ClientCancelReasonCodes.NoLongerNeeded });
+        }
+
+        Assert.Null(scenario.Worker.SuspendedAt);
+        Assert.Empty(scenario.DispatchPublisher.SuspendedWorkerIds);
+    }
+
     [Fact(DisplayName = "[UT-WRK-SUS-05] A suspended worker is still excluded from eligibility (regression)")]
     public async Task GetAvailableBookings_SuspendedWorker_ExcludesJobs()
     {
