@@ -157,7 +157,7 @@ namespace Cleaning.BLL.Services
                     // (Accepted -> OnTheWay -> InProgress -> ... as well as Cancelled), not just the
                     // dispatch-feed-specific pushes below. booking.Status (not request.NewStatus):
                     // a VNPay Finish lands on Completed, and that's the state the screens must show.
-                    await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.Status.ToString());
+                    await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, booking.Status.ToString());
 
                     // Cancelling from AwaitingWorker means the job was live in eligible workers' feeds;
                     // includeTaken recomputes eligibility as if it were still AwaitingWorker/unassigned

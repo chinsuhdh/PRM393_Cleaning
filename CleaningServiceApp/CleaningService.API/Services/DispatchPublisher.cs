@@ -34,8 +34,14 @@ public sealed class DispatchPublisher(
     public Task JobCancelledAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds) =>
         SendToWorkersAsync("jobCancelled", bookingId, workerIds);
 
-    public Task BookingStatusChangedAsync(Guid bookingId, string newStatus) =>
-        hub.Clients.Group($"booking:{bookingId}").SendAsync("bookingStatusChanged", bookingId, newStatus);
+    public async Task BookingStatusChangedAsync(Guid bookingId, Guid clientId, string newStatus)
+    {
+        await hub.Clients.Group($"booking:{bookingId}").SendAsync("bookingStatusChanged", bookingId, newStatus);
+        // Also reaches the client's always-joined client:{clientId} group, so the persistent active-
+        // booking bar / booking list refresh live even when the client isn't on this booking's detail
+        // screen (and thus never called SubscribeBooking for it).
+        await hub.Clients.Group($"client:{clientId}").SendAsync("bookingStatusChanged", bookingId, newStatus);
+    }
 
     public Task WorkerPositionAsync(Guid bookingId, decimal latitude, decimal longitude) =>
         hub.Clients.Group($"booking:{bookingId}").SendAsync("workerPosition", new

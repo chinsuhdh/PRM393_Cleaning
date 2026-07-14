@@ -50,6 +50,7 @@ public partial class BookingService
                     dto.DistanceKm = (decimal)GeoConstants.DistanceKm(
                         (double)workerLat.Value, (double)workerLng.Value,
                         (double)dto.Latitude.Value, (double)dto.Longitude.Value);
+                    dto.EstimatedMinutes = (decimal)GeoConstants.EstimatedMinutes((double)dto.DistanceKm.Value);
                 }
             }
         }
@@ -60,25 +61,42 @@ public partial class BookingService
             .ThenBy(dto => dto.ScheduledStartTime);
     }
 
-    /// Anonymous coordinates only for nearby online, in-radius workers eligible for this booking —
-    /// reuses the same eligibility view the dispatch broadcast itself is scoped to, rather than
-    /// duplicating that logic. Only meaningful while the booking is still an Immediate search; any
-    /// other state (already assigned, scheduled, not this client's own booking) yields an empty list
-    /// rather than an error, matching how the search map already tolerates missing data.
+    /// Anonymous coordinates only for eligible, currently-online workers for this booking — reuses
+    /// the same eligibility views the dispatch broadcast itself is scoped to, rather than
+    /// duplicating that logic. Immediate bookings read v_online_workers_for_immediate_booking;
+    /// Scheduled bookings read v_available_workers_for_scheduled_booking — both views require
+    /// online_status = 'online', so a dot always means "online right now" regardless of booking
+    /// type. Only meaningful while the booking is still AwaitingWorker; any other state (already
+    /// assigned, not this client's own booking) yields an empty list rather than an error, matching
+    /// how the search map already tolerates missing data.
     public async Task<IReadOnlyList<NearbyWorkerLocationDto>> GetNearbyOnlineWorkerLocationsAsync(
         Guid bookingId, Guid requestingClientId)
     {
         var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
-        if (booking == null || booking.ClientId != requestingClientId ||
-            booking.BookingType != BookingType.Immediate || booking.Status != BookingStatus.AwaitingWorker)
+        if (booking == null || booking.ClientId != requestingClientId || booking.Status != BookingStatus.AwaitingWorker)
             return [];
 
-        var rows = await _unitOfWork.Repository<VOnlineWorkersForImmediateBooking>()
-            .FindAsync(row => row.BookingId == bookingId);
-        return rows
-            .Where(row => row.CurrentLat.HasValue && row.CurrentLng.HasValue)
-            .Select(row => new NearbyWorkerLocationDto { Latitude = row.CurrentLat!.Value, Longitude = row.CurrentLng!.Value })
-            .ToList();
+        if (booking.BookingType == BookingType.Immediate)
+        {
+            var rows = await _unitOfWork.Repository<VOnlineWorkersForImmediateBooking>()
+                .FindAsync(row => row.BookingId == bookingId);
+            return rows
+                .Where(row => row.CurrentLat.HasValue && row.CurrentLng.HasValue)
+                .Select(row => new NearbyWorkerLocationDto { Latitude = row.CurrentLat!.Value, Longitude = row.CurrentLng!.Value })
+                .ToList();
+        }
+
+        if (booking.BookingType == BookingType.Scheduled)
+        {
+            var rows = await _unitOfWork.Repository<VAvailableWorkersForScheduledBooking>()
+                .FindAsync(row => row.BookingId == bookingId);
+            return rows
+                .Where(row => row.CurrentLat.HasValue && row.CurrentLng.HasValue)
+                .Select(row => new NearbyWorkerLocationDto { Latitude = row.CurrentLat!.Value, Longitude = row.CurrentLng!.Value })
+                .ToList();
+        }
+
+        return [];
     }
 
     public async Task<bool> HideBookingAsync(Guid bookingId, Guid workerId)
@@ -139,7 +157,7 @@ public partial class BookingService
             if (_dispatchPublisher != null)
             {
                 await _dispatchPublisher.JobTakenAsync(booking.Id, await EligibleWorkerIdsAsync(booking, includeTaken: true));
-                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, nameof(BookingStatus.Accepted));
+                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, nameof(BookingStatus.Accepted));
             }
             return true;
         }
