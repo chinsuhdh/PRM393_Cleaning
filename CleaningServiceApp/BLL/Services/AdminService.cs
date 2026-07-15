@@ -1,4 +1,4 @@
-using Cleaning.BLL.DTOs;
+﻿using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -111,11 +111,18 @@ namespace Cleaning.BLL.Services
 
         public async Task<IEnumerable<AccountAdminDto>> GetAccountsAsync()
         {
-            var accounts = await _unitOfWork.Repository<Account>().GetQueryable().ToListAsync();
+            // Thêm .Include(a => a.Profile) để JOIN với bảng Profile
+            var accounts = await _unitOfWork.Repository<Account>()
+                .GetQueryable()
+                .Include(a => a.Profile)
+                .ToListAsync();
+
             return accounts.Select(a => new AccountAdminDto
             {
                 Id = a.Id,
                 Email = a.Email ?? "",
+                FullName = a.Profile?.FullName, 
+                PhoneNumber = a.PhoneNumber,    
                 Role = a.Role.ToString(),
                 Status = a.Status.ToString(),
                 CreatedAt = a.CreatedAt
@@ -136,6 +143,24 @@ namespace Cleaning.BLL.Services
                 return true;
             }
             return false;
+        }
+
+        public async Task<IEnumerable<ServiceDto>> GetAllServicesAsync()
+        {
+            var services = await _unitOfWork.Repository<Service>().GetQueryable().ToListAsync();
+
+            return services.Select(service => new ServiceDto
+            {
+                Id = service.Id,
+                Name = service.Name,
+                Description = service.Description,
+                PropertyType = service.PropertyType.ToString(),
+                UnitType = service.UnitType.ToString(),
+                BasePrice = service.BasePrice,
+                MinimumHours = service.MinimumHours,
+                IsActive = service.IsActive,
+                BookingFormSchema = service.BookingFormSchema
+            });
         }
 
         public async Task<ServiceDto> CreateServiceAsync(CreateServiceDto dto)

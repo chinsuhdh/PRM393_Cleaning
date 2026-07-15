@@ -16,6 +16,7 @@ namespace Cleaning.BLL.Interfaces
         Task<bool> ChangeAccountStatusAsync(Guid accountId, UpdateAccountStatusDto dto);
 
         // Service Management
+        Task<IEnumerable<ServiceDto>> GetAllServicesAsync(); // <-- THÊM DÒNG NÀY
         Task<ServiceDto> CreateServiceAsync(CreateServiceDto dto);
         Task<ServiceDto?> UpdateServiceAsync(Guid serviceId, UpdateServiceDto dto);
         Task<bool> ArchiveServiceAsync(Guid serviceId);

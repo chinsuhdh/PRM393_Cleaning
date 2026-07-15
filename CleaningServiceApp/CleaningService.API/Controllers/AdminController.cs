@@ -79,6 +79,14 @@ namespace CleaningService.API.Controllers
 
         // --- Service Management ---
 
+        [HttpGet("services")]
+        [ProducesResponseType(typeof(IEnumerable<ServiceDto>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllServices()
+        {
+            var services = await _adminService.GetAllServicesAsync();
+            return Ok(services);
+        }
+
         [HttpPost("services")]
         [ProducesResponseType(typeof(ServiceDto), StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateService([FromBody] CreateServiceDto dto)
