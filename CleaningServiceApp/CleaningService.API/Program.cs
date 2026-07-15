@@ -29,6 +29,20 @@ namespace CleaningService.API
             var builder = WebApplication.CreateBuilder(args);
 
             // ==========================================
+            // CẤU HÌNH CORS CHO REACT ADMIN
+            // ==========================================
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowReactAdmin", policy =>
+                {
+                    policy.WithOrigins("http://localhost:5173") // Domain của React FE
+                          .AllowAnyHeader()                     // Cho phép mọi loại header (Authorization, Content-Type...)
+                          .AllowAnyMethod()                     // Cho phép mọi method (GET, POST, PUT, DELETE...)
+                          .AllowCredentials();                  // Bắt buộc phải có để SignalR và xác thực hoạt động
+                });
+            });
+
+            // ==========================================
             // 1. CẤU HÌNH DATABASE & ENUMS POSTGRESQL
             // ==========================================
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -118,9 +132,9 @@ namespace CleaningService.API
                 });
 
             builder.Services.AddControllers(options =>
-                {
-                    options.Filters.Add<ApiResponseWrapperFilter>();
-                })
+            {
+                options.Filters.Add<ApiResponseWrapperFilter>();
+            })
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -224,6 +238,12 @@ namespace CleaningService.API
             }
 
             app.UseStaticFiles();
+
+            // ==========================================
+            // KÍCH HOẠT CORS MIDDLEWARE
+            // Lưu ý: Phải đặt UseCors TRƯỚC UseAuthentication và UseAuthorization
+            // ==========================================
+            app.UseCors("AllowReactAdmin");
 
             app.UseAuthentication();
             app.UseAuthorization();
