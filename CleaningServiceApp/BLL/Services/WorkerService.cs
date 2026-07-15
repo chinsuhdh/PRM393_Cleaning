@@ -1,10 +1,10 @@
-﻿using Cleaning.BLL.DTOs;
+﻿using Cleaning.BLL.Common;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Interfaces;
 using Cleaning.DAL.Enums;
 
-// Thêm dòng Alias này để phân biệt Entity trong DB với Class Service hiện tại
 using DalWorkerService = Cleaning.DAL.Entities.WorkerService;
 
 namespace Cleaning.BLL.Services
@@ -32,7 +32,8 @@ namespace Cleaning.BLL.Services
                 OnlineStatus = worker.OnlineStatus,
                 CurrentLat = worker.CurrentLat,
                 CurrentLng = worker.CurrentLng,
-                VerifiedAt = worker.VerifiedAt
+                VerifiedAt = worker.VerifiedAt,
+                SuspendedAt = worker.SuspendedAt
             };
         }
 
@@ -74,10 +75,12 @@ namespace Cleaning.BLL.Services
 
             if (_dispatchPublisher != null)
             {
-                // F.2/F.3: only forward while the worker is actually en route to a job — the client's
-                // live-tracking map is only shown during OnTheWay, so this is the sole state that needs it.
+                // F.2/F.3: forward while the worker has a job they're assigned to and en route for —
+                // LiveTrackingMap shows the route/ETA for both Accepted and OnTheWay (see showRoute in
+                // live_tracking_map.dart), so both need the live push, not just OnTheWay.
                 var activeBooking = await _unitOfWork.Repository<Booking>().FirstOrDefaultAsync(
-                    b => b.WorkerId == workerId && b.Status == BookingStatus.OnTheWay);
+                    b => b.WorkerId == workerId &&
+                         (b.Status == BookingStatus.Accepted || b.Status == BookingStatus.OnTheWay));
                 if (activeBooking != null)
                     await _dispatchPublisher.WorkerPositionAsync(activeBooking.Id, request.CurrentLat, request.CurrentLng);
             }
@@ -93,9 +96,9 @@ namespace Cleaning.BLL.Services
             var worker = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
             if (worker == null) return false;
 
-            // Busy is system-owned by dispatch (set on accept, cleared as the job lifecycle
-            // progresses) — a worker mid-job can still explicitly go Offline so they stop getting
-            // new dispatch, but cannot self-toggle back to Online while Busy.
+            if (worker.SuspendedAt.HasValue && request.OnlineStatus != WorkerOnlineStatus.Offline)
+                throw new AppException(AppErrors.WorkerSuspended);
+
             if (worker.OnlineStatus == WorkerOnlineStatus.Busy && request.OnlineStatus != WorkerOnlineStatus.Offline)
                 throw new InvalidOperationException("Không thể chuyển sang Online khi đang có công việc.");
 
@@ -124,7 +127,6 @@ namespace Cleaning.BLL.Services
 
         public async Task<bool> AddOrUpdateWorkerSkillAsync(Guid workerId, WorkerSkillDto request)
         {
-            // Sử dụng DalWorkerService thay vì WorkerService
             var skill = await _unitOfWork.Repository<DalWorkerService>()
                 .FirstOrDefaultAsync(ws => ws.WorkerId == workerId && ws.ServiceId == request.ServiceId);
 
@@ -136,7 +138,6 @@ namespace Cleaning.BLL.Services
             }
             else
             {
-                // Khởi tạo instance của Entity bằng Alias
                 var newSkill = new DalWorkerService
                 {
                     WorkerId = workerId,

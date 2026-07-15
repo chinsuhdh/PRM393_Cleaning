@@ -14,9 +14,15 @@ public sealed partial class BookingDispatchTests
     public sealed class FakeDispatchPublisher : IDispatchPublisher
     {
         public List<IReadOnlyCollection<Guid>> CancelledRecipients { get; } = [];
-        public List<(Guid BookingId, string NewStatus)> StatusChanges { get; } = [];
+        public List<(Guid BookingId, Guid ClientId, string NewStatus)> StatusChanges { get; } = [];
+        public List<BookingDto> PostedJobs { get; } = [];
+        public List<Guid> SuspendedWorkerIds { get; } = [];
 
-        public Task JobPostedAsync(BookingDto booking, IReadOnlyCollection<Guid> workerIds) => Task.CompletedTask;
+        public Task JobPostedAsync(BookingDto booking, IReadOnlyCollection<Guid> workerIds)
+        {
+            PostedJobs.Add(booking);
+            return Task.CompletedTask;
+        }
         public Task JobTakenAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds) => Task.CompletedTask;
 
         public Task JobCancelledAsync(Guid bookingId, IReadOnlyCollection<Guid> workerIds)
@@ -25,9 +31,9 @@ public sealed partial class BookingDispatchTests
             return Task.CompletedTask;
         }
 
-        public Task BookingStatusChangedAsync(Guid bookingId, string newStatus)
+        public Task BookingStatusChangedAsync(Guid bookingId, Guid clientId, string newStatus)
         {
-            StatusChanges.Add((bookingId, newStatus));
+            StatusChanges.Add((bookingId, clientId, newStatus));
             return Task.CompletedTask;
         }
 
@@ -35,6 +41,12 @@ public sealed partial class BookingDispatchTests
 
         public Task NearbyWorkerLocationsAsync(Guid bookingId, IReadOnlyList<NearbyWorkerLocationDto> locations) =>
             Task.CompletedTask;
+
+        public Task WorkerSuspendedAsync(Guid workerId)
+        {
+            SuspendedWorkerIds.Add(workerId);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class DispatchScenario
@@ -52,6 +64,8 @@ public sealed partial class BookingDispatchTests
         public List<Account> Accounts { get; } = [];
         public WorkerProfile Worker { get; private set; } = null!;
         public FakeDispatchPublisher DispatchPublisher { get; } = new();
+        public InMemoryUnitOfWork UnitOfWork { get; private set; } = null!;
+        public List<BookingRescheduleRequest> RescheduleRequests { get; } = [];
 
         public static DispatchScenario Create(
             bool workerSkillVerified = true,
@@ -124,7 +138,9 @@ public sealed partial class BookingDispatchTests
                 .With(scenario.Cancellations)
                 .With(scenario.Photos)
                 .With(scenario.Payments)
-                .With(scenario.Accounts);
+                .With(scenario.Accounts)
+                .With(scenario.RescheduleRequests);
+            scenario.UnitOfWork = unitOfWork;
 
             var availabilityService = new BookingAvailabilityService(unitOfWork);
             var mapper = new MapperConfiguration(
@@ -175,8 +191,6 @@ public sealed partial class BookingDispatchTests
             BookingType = BookingType.Immediate
         };
 
-        /// Seeds the client's Account row — needed only by tests touching VNPay linking, since the
-        /// dispatch scenarios themselves never load Account.
         public Account AddClientAccount(string? vnpayAccount = null)
         {
             var account = new Account

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Cleaning.BLL.Constants;
 using Cleaning.DAL.Enums;
 
 namespace Cleaning.BLL.DTOs
@@ -12,13 +13,13 @@ namespace Cleaning.BLL.DTOs
         public Guid? WorkerId { get; set; }
         public Guid ServiceId { get; set; }
         public Guid? AddressId { get; set; }
-        public string BookingType { get; set; } = null!; // Thêm dòng này
+        public string BookingType { get; set; } = null!;
         public DateTime ScheduledStartTime { get; set; }
         public DateTime ScheduledEndTime { get; set; }
         public decimal DurationHours { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal ExtraFee { get; set; }
-        public decimal DiscountAmount { get; set; } // Thêm dòng này
+        public decimal DiscountAmount { get; set; }
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = null!;
         public string PaymentMethod { get; set; } = null!;
@@ -31,23 +32,21 @@ namespace Cleaning.BLL.DTOs
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
         public decimal? DistanceKm { get; set; }
+        public decimal? EstimatedMinutes { get; set; }
 
-        // BOOK-002: normalized answers to the service-defined questions, echoed back for the client summary.
         public string OptionAnswers { get; set; } = "{}";
         public string BookingFormSchema { get; set; } = "{}";
 
-        // BOOK-004: the server-authored pricing breakdown shown on the confirmation screen.
         public PricingBreakdownDto? PricingBreakdown { get; set; }
         public IReadOnlyList<BookingPhotoDto> Photos { get; set; } = [];
         public IReadOnlyList<BookingStatusLogDto> StatusTimeline { get; set; } = [];
 
-        // Only populated once a worker is actually assigned (WorkerId set) — never during broadcast,
-        // so candidate workers are still never exposed to the client (matches the dispatch model).
         public WorkerSummaryDto? Worker { get; set; }
+
+        public BookingRescheduleRequestDto? PendingReschedule { get; set; }
+        public IReadOnlyList<BookingRescheduleRequestDto> RescheduleHistory { get; set; } = [];
     }
 
-    /// Assigned-worker info for the client's Booking Detail screen — identity + rating for the
-    /// worker card, plus their last-reported position so the OnTheWay live map has something to show.
     public class WorkerSummaryDto
     {
         public Guid Id { get; set; }
@@ -59,9 +58,6 @@ namespace Cleaning.BLL.DTOs
         public DateTime? LocationUpdatedAt { get; set; }
     }
 
-    /// Anonymous coordinate only — deliberately no worker id/name/rating, so a candidate worker's
-    /// identity is never exposed to the client during broadcast (matches the existing dispatch
-    /// fairness model: first-accept-wins, no picking).
     public class NearbyWorkerLocationDto
     {
         public decimal Latitude { get; set; }
@@ -74,10 +70,9 @@ namespace Cleaning.BLL.DTOs
         public Guid ServiceId { get; set; }
         public Guid? AddressId { get; set; }
         [Required]
-        public BookingType BookingType { get; set; } // Phải biết khách đặt loại nào
+        public BookingType BookingType { get; set; }
         public DateTime? ScheduledStartTime { get; set; }
         public int ServiceVersion { get; set; } = 1;
-        // Chọn lúc tạo đơn; VNPay yêu cầu tài khoản đã liên kết (VNPAY_NOT_LINKED nếu chưa).
         public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
         [JsonIgnore, Obsolete("Duration is derived by the server.")]
         public decimal DurationHours { get; set; }
@@ -85,11 +80,9 @@ namespace Cleaning.BLL.DTOs
         public decimal DiscountAmount { get; set; }
         public string? Notes { get; set; }
 
-        // BOOK-002: answers to the service-defined questions, validated by the API against the service schema.
         public Dictionary<string, JsonElement>? OptionAnswers { get; set; }
     }
 
-    // BOOK-004: a server-calculated price quote the client can request before creating a booking.
     public class BookingQuoteRequestDto
     {
         [Required]
@@ -102,7 +95,6 @@ namespace Cleaning.BLL.DTOs
         public decimal DiscountAmount { get; set; }
     }
 
-    // BOOK-004: the authoritative line-item breakdown; the client displays these values and never computes them.
     public class PricingBreakdownDto
     {
         public decimal UnitPrice { get; set; }
@@ -173,5 +165,56 @@ namespace Cleaning.BLL.DTOs
         [Required]
         public BookingStatus NewStatus { get; set; }
         public string? Reason { get; set; }
+    }
+
+    public class WorkerCancelBookingDto
+    {
+        [Required]
+        public string ReasonCode { get; set; } = null!;
+        public string? FreeText { get; set; }
+    }
+
+    public class ClientCancelBookingDto
+    {
+        [Required]
+        public string ReasonCode { get; set; } = null!;
+        public string? FreeText { get; set; }
+    }
+
+    public class ReportBookingDto
+    {
+        [Required]
+        public string ReasonCode { get; set; } = null!;
+        [Required, MinLength(CancellationConstants.ReportMinFreeTextLength)]
+        public string FreeText { get; set; } = null!;
+    }
+
+    public enum RescheduleAction { Accept, Reject, Withdraw }
+
+    public class ProposeRescheduleDto
+    {
+        [Required]
+        public DateTime NewStartTime { get; set; }
+        public string? Message { get; set; }
+    }
+
+    public class RespondRescheduleDto
+    {
+        [Required]
+        public RescheduleAction Action { get; set; }
+    }
+
+    public class BookingRescheduleRequestDto
+    {
+        public Guid Id { get; set; }
+        public Guid RequestedBy { get; set; }
+        public DateTime OldStartTime { get; set; }
+        public DateTime OldEndTime { get; set; }
+        public DateTime NewStartTime { get; set; }
+        public DateTime NewEndTime { get; set; }
+        public string Status { get; set; } = null!;
+        public string? Reason { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? RespondedAt { get; set; }
     }
 }

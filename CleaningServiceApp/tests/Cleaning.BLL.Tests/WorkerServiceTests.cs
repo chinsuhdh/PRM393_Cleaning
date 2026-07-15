@@ -1,5 +1,6 @@
+using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Services;
+using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
@@ -19,6 +20,38 @@ public class WorkerServiceTests
         unitOfWork.Setup(w => w.Repository<WorkerProfile>()).Returns(repository.Object);
         unitOfWork.Setup(w => w.SaveChangesAsync()).ReturnsAsync(1);
         return (repository, unitOfWork);
+    }
+
+    [Theory(DisplayName = "[UT-WORKER-LOC-01] Location updates broadcast live while Accepted or OnTheWay")]
+    [InlineData(BookingStatus.Accepted, true)]
+    [InlineData(BookingStatus.OnTheWay, true)]
+    [InlineData(BookingStatus.AwaitingWorker, false)]
+    [InlineData(BookingStatus.InProgress, false)]
+    [InlineData(BookingStatus.Completed, false)]
+    public async Task UpdateLocationAsync_BroadcastsOnlyForAssignedActiveJob(BookingStatus bookingStatus, bool expectBroadcast)
+    {
+        var workerId = Guid.NewGuid();
+        var bookingId = Guid.NewGuid();
+        var worker = new WorkerProfile { UserId = workerId };
+        var (_, unitOfWork) = MockUnitOfWork(worker);
+
+        var booking = new Booking { Id = bookingId, WorkerId = workerId, Status = bookingStatus };
+        var bookingRepository = new Mock<IGenericRepository<Booking>>();
+        bookingRepository
+            .Setup(r => r.FirstOrDefaultAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Booking, bool>>>(), null))
+            .ReturnsAsync((System.Linq.Expressions.Expression<Func<Booking, bool>> predicate, string? _) =>
+                predicate.Compile()(booking) ? booking : null);
+        unitOfWork.Setup(w => w.Repository<Booking>()).Returns(bookingRepository.Object);
+
+        var dispatchPublisher = new Mock<IDispatchPublisher>();
+        var service = new WorkerService(unitOfWork.Object, dispatchPublisher.Object);
+
+        var result = await service.UpdateLocationAsync(workerId, new UpdateLocationDto { CurrentLat = 10.77m, CurrentLng = 106.70m });
+
+        Assert.True(result);
+        dispatchPublisher.Verify(
+            p => p.WorkerPositionAsync(bookingId, 10.77m, 106.70m),
+            expectBroadcast ? Times.Once : Times.Never);
     }
 
     [Fact(DisplayName = "[UT-WORKER-ONLINE-01] Toggling Offline to Online succeeds")]
@@ -84,5 +117,42 @@ public class WorkerServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Busy }));
+    }
+
+    [Fact(DisplayName = "[UT-WRK-SUS-06] A suspended worker cannot go back Online")]
+    public async Task UpdateOnlineStatusAsync_SuspendedToOnline_ThrowsWorkerSuspended()
+    {
+        var workerId = Guid.NewGuid();
+        var worker = new WorkerProfile
+        {
+            UserId = workerId,
+            OnlineStatus = WorkerOnlineStatus.Offline,
+            SuspendedAt = DateTime.UtcNow
+        };
+        var (_, unitOfWork) = MockUnitOfWork(worker);
+        var service = new WorkerService(unitOfWork.Object);
+
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Online }));
+        Assert.Equal(AppErrors.WorkerSuspended.Code, ex.Code);
+        Assert.Equal(WorkerOnlineStatus.Offline, worker.OnlineStatus);
+    }
+
+    [Fact(DisplayName = "[UT-WRK-SUS-07] A suspended worker can still go Offline")]
+    public async Task UpdateOnlineStatusAsync_SuspendedToOffline_Allowed()
+    {
+        var workerId = Guid.NewGuid();
+        var worker = new WorkerProfile
+        {
+            UserId = workerId,
+            OnlineStatus = WorkerOnlineStatus.Offline,
+            SuspendedAt = DateTime.UtcNow
+        };
+        var (_, unitOfWork) = MockUnitOfWork(worker);
+        var service = new WorkerService(unitOfWork.Object);
+
+        var result = await service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Offline });
+
+        Assert.True(result);
     }
 }

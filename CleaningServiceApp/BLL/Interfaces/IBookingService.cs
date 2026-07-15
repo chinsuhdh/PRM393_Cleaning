@@ -10,6 +10,17 @@ namespace Cleaning.BLL.Interfaces
         Task<IEnumerable<BookingDto>> GetClientBookingsAsync(Guid clientId);
         Task<IEnumerable<BookingDto>> GetWorkerBookingsAsync(Guid workerId);
         Task<bool> UpdateBookingStatusAsync(Guid bookingId, Guid accountId, UpdateBookingStatusDto request);
+        Task<bool> CancelByClientAsync(Guid bookingId, Guid clientId);
+        Task WorkerCancelAsync(Guid bookingId, Guid workerId, WorkerCancelBookingDto request);
+        Task ClientCancelAsync(Guid bookingId, Guid clientId, ClientCancelBookingDto request);
+
+        Task<int> CountRecentPlainCancelsAsync(Guid workerId);
+        Task ReportBookingAsync(Guid bookingId, Guid actorId, ReportBookingDto request);
+
+        Task<BookingDto?> ProposeRescheduleAsync(Guid bookingId, Guid actorId, ProposeRescheduleDto request);
+
+        Task<BookingDto?> RespondRescheduleAsync(
+            Guid bookingId, Guid requestId, Guid actorId, RescheduleAction action, bool isSystemActor = false);
 
         Task<IEnumerable<BookingDto>> GetAvailableBookingsAsync(Guid workerId);
 

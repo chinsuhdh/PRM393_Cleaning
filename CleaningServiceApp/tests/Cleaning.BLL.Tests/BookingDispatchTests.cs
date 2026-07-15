@@ -1,3 +1,4 @@
+using Cleaning.BLL.Constants;
 using Cleaning.DAL.Enums;
 
 namespace Cleaning.BLL.Tests;
@@ -15,6 +16,21 @@ public sealed partial class BookingDispatchTests
         var dto = Assert.Single(available);
         Assert.Equal(scenario.ServiceEntity.Id, dto.ServiceId);
         Assert.Null(dto.WorkerId);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-DSP-01b] EstimatedMinutes is populated alongside DistanceKm, computed from the same distance")]
+    public async Task GetAvailable_SetsEstimatedMinutes_ConsistentWithDistanceKm()
+    {
+        var scenario = DispatchScenario.Create();
+        scenario.AddBooking(BookingStatus.AwaitingWorker);
+
+        var available = await scenario.BookingService.GetAvailableBookingsAsync(scenario.WorkerId);
+
+        var dto = Assert.Single(available);
+        Assert.NotNull(dto.DistanceKm);
+        Assert.NotNull(dto.EstimatedMinutes);
+        var expectedMinutes = (decimal)GeoConstants.EstimatedMinutes((double)dto.DistanceKm!.Value);
+        Assert.Equal(expectedMinutes, dto.EstimatedMinutes!.Value);
     }
 
     [Fact(DisplayName = "[UT-BOOK-DSP-02] Dispatch does not surface post-job PendingPayment bookings")]

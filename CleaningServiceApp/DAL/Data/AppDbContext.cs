@@ -328,7 +328,7 @@ public partial class AppDbContext : DbContext
 
             entity.ToTable("booking_cancellations");
 
-            entity.HasIndex(e => e.BookingId, "booking_cancellations_booking_id_key").IsUnique();
+            entity.HasIndex(e => e.BookingId, "booking_cancellations_booking_id_key");
 
             entity.HasIndex(e => e.CreatedAt, "idx_booking_cancellations_created_at");
 
@@ -349,8 +349,8 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("reason_code");
             entity.Property(e => e.Reason).HasColumnName("reason");
 
-            entity.HasOne(d => d.Booking).WithOne(p => p.BookingCancellation)
-                .HasForeignKey<BookingCancellation>(d => d.BookingId)
+            entity.HasOne(d => d.Booking).WithMany(p => p.BookingCancellations)
+                .HasForeignKey(d => d.BookingId)
                 .HasConstraintName("booking_cancellations_booking_id_fkey");
 
             entity.HasOne(d => d.CancelledByNavigation).WithMany(p => p.BookingCancellations)
@@ -753,6 +753,12 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.AverageRating)
                 .HasPrecision(3, 2)
                 .HasColumnName("average_rating");
+            entity.Property(e => e.CurrentLat)
+                .HasPrecision(10, 7)
+                .HasColumnName("current_lat");
+            entity.Property(e => e.CurrentLng)
+                .HasPrecision(10, 7)
+                .HasColumnName("current_lng");
             entity.Property(e => e.EndTime).HasColumnName("end_time");
             entity.Property(e => e.FullName).HasColumnName("full_name");
             entity.Property(e => e.ServiceId).HasColumnName("service_id");
