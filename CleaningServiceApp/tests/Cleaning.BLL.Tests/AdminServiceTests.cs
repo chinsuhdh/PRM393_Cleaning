@@ -90,4 +90,25 @@ public sealed class AdminServiceTests
         var updatedAccount = await unitOfWork.Repository<Account>().GetByIdAsync(userId);
         Assert.Equal(AccountStatus.Banned, updatedAccount.Status);
     }
+    [Fact(DisplayName = "[UT-ADM-04] GetAllServicesAsync returns all services")]
+    public async Task GetAllServicesAsync_ReturnsAllServices()
+    {
+        // Arrange
+        var services = new[] {
+            new Service { Id = Guid.NewGuid(), Name = "Basic Cleaning", PropertyType = PropertyType.House, UnitType = ServiceUnitType.Hour, IsActive = true, BasePrice = 100000 },
+            new Service { Id = Guid.NewGuid(), Name = "Deep Cleaning", PropertyType = PropertyType.Apartment, UnitType = ServiceUnitType.Hour, IsActive = false, BasePrice = 200000 }
+        };
+
+        var unitOfWork = new InMemoryUnitOfWork().With(services.ToList());
+        var service = new AdminService(unitOfWork);
+
+        // Act
+        var result = await service.GetAllServicesAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count());
+        Assert.Contains(result, s => s.Name == "Basic Cleaning");
+        Assert.Contains(result, s => s.Name == "Deep Cleaning");
+    }
 }

@@ -194,7 +194,23 @@ public sealed class AdminApiTests(PostgreSqlApiFixture fixture) : IAsyncLifetime
         var response = await client.GetAsync("/api/Admin/dashboard-stats");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+    [Fact(DisplayName = "[IT-ADM-API-09] GetAllServices returns 200 OK and list of services")]
+    public async Task GetAllServices_AsAdmin_Succeeds()
+    {
+        // Arrange
+        using var client = AuthenticatedClient(AdminId, UserRole.Admin);
 
+        // Act
+        var response = await client.GetAsync("/api/Admin/services");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var services = await response.Content.ReadFromJsonAsync<IEnumerable<ServiceDto>>();
+        Assert.NotNull(services);
+        Assert.NotEmpty(services);
+        Assert.Contains(services, s => s.Id == ServiceId && s.Name == "House Cleaning");
+    }
     private HttpClient AuthenticatedClient(Guid accountId, UserRole role)
     {
         var client = fixture.CreateClient();
