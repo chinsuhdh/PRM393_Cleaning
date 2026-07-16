@@ -62,7 +62,7 @@ public sealed class AdminServiceTests
         Assert.Equal("approved", updatedApp!.Status);
         Assert.Equal(adminId, updatedApp.ReviewedBy);
         Assert.NotNull(updatedApp.ReviewedAt);
-        
+
         var updatedAccount = await unitOfWork.Repository<Account>().GetByIdAsync(userId);
         Assert.Equal(UserRole.Worker, updatedAccount!.Role);
 

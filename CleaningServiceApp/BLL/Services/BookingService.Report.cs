@@ -11,7 +11,10 @@ public partial class BookingService
 {
     private static readonly BookingStatus[] ReportableStatuses =
     [
-        BookingStatus.Accepted, BookingStatus.OnTheWay, BookingStatus.InProgress, BookingStatus.PendingPayment
+        BookingStatus.Accepted,
+        BookingStatus.OnTheWay,
+        BookingStatus.InProgress,
+        BookingStatus.PendingPayment
     ];
 
     public async Task ReportBookingAsync(Guid bookingId, Guid actorId, ReportBookingDto request)

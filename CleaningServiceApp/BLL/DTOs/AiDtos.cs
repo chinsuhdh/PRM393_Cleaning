@@ -8,13 +8,18 @@
 
     public class ChatResponseDto
     {
+        public string SessionId { get; set; } = null!;
         public string Reply { get; set; } = null!;
         public int LatencyMs { get; set; }
+
+        /// <summary>False when this is the canned overload/fallback message, not a real model reply.</summary>
+        public bool Success { get; set; }
     }
 
-    // Class dùng nội bộ để đọc JSON từ Ollama trả về
-    public class OllamaResponse
+    public class AiChatMessageDto
     {
-        public string response { get; set; } = string.Empty;
+        public string SenderType { get; set; } = null!;
+        public string Message { get; set; } = null!;
+        public DateTime CreatedAt { get; set; }
     }
 }

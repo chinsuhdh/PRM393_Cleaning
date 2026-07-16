@@ -6,5 +6,7 @@ namespace Cleaning.BLL.Interfaces
     {
         // Chatbot RAG (AI = chatbot only; worker matching is broadcast dispatch, not AI)
         Task<ChatResponseDto> ChatWithRagAsync(Guid userId, ChatRequestDto request);
+        Task<IReadOnlyList<AiChatMessageDto>> GetHistoryAsync(Guid userId, string sessionId);
+        Task ClearHistoryAsync(Guid userId, string sessionId);
     }
 }
