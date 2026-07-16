@@ -29,7 +29,7 @@ namespace Cleaning.BLL.Services
 
             var completedBookings = await _unitOfWork.Repository<Booking>()
                 .FindAsync(b => b.Status == BookingStatus.Completed);
-                
+
             var totalRevenue = completedBookings.Sum(b => (decimal?)b.TotalPrice) ?? 0m;
 
             return new AdminDashboardStatsDto
@@ -121,8 +121,8 @@ namespace Cleaning.BLL.Services
             {
                 Id = a.Id,
                 Email = a.Email ?? "",
-                FullName = a.Profile?.FullName, 
-                PhoneNumber = a.PhoneNumber,    
+                FullName = a.Profile?.FullName,
+                PhoneNumber = a.PhoneNumber,
                 Role = a.Role.ToString(),
                 Status = a.Status.ToString(),
                 CreatedAt = a.CreatedAt
@@ -147,7 +147,7 @@ namespace Cleaning.BLL.Services
 
         public async Task<IEnumerable<ServiceDto>> GetAllServicesAsync()
         {
-            var services = await _unitOfWork.Repository<Service>().GetQueryable().ToListAsync();
+            var services = await _unitOfWork.Repository<Service>().GetAllAsync();
 
             return services.Select(service => new ServiceDto
             {
@@ -247,7 +247,7 @@ namespace Cleaning.BLL.Services
 
         public async Task<IEnumerable<BookingAdminDto>> GetAllBookingsAsync()
         {
-            var bookings = await _unitOfWork.Repository<Booking>().GetQueryable().ToListAsync();
+            var bookings = await _unitOfWork.Repository<Booking>().GetAllAsync();
             return bookings.Select(b => new BookingAdminDto
             {
                 Id = b.Id,

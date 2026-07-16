@@ -32,12 +32,15 @@ public sealed class AdminApiTests(PostgreSqlApiFixture fixture) : IAsyncLifetime
 
         // Seed Admin Account
         db.Accounts.Add(BookingApiTestData.Account(AdminId, "admin@test.local", UserRole.Admin, now));
-        
+        db.Profiles.Add(BookingApiTestData.Profile(AdminId, "Admin", now));
+
         // Seed Client Account
         db.Accounts.Add(BookingApiTestData.Account(ClientId, "client@test.local", UserRole.Client, now));
-        
+        db.Profiles.Add(BookingApiTestData.Profile(ClientId, "Client", now));
+
         // Seed Pending Worker Account and Application
         db.Accounts.Add(BookingApiTestData.Account(WorkerId, "pendingworker@test.local", UserRole.Client, now));
+        db.Profiles.Add(BookingApiTestData.Profile(WorkerId, "Pending Worker", now));
         db.WorkerApplications.Add(new WorkerApplication
         {
             Id = ApplicationId,
@@ -74,7 +77,7 @@ public sealed class AdminApiTests(PostgreSqlApiFixture fixture) : IAsyncLifetime
         var response = await client.GetAsync("/api/Admin/dashboard-stats");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var stats = await response.Content.ReadFromJsonAsync<AdminDashboardStatsDto>();
+        var stats = await response.Content.ReadDataAsync<AdminDashboardStatsDto>();
         Assert.NotNull(stats);
         Assert.Equal(2, stats!.TotalClients); // ClientId and WorkerId are currently Clients
     }
@@ -131,7 +134,7 @@ public sealed class AdminApiTests(PostgreSqlApiFixture fixture) : IAsyncLifetime
         var response = await client.PostAsJsonAsync("/api/Admin/services", dto);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var createdService = await response.Content.ReadFromJsonAsync<ServiceDto>();
+        var createdService = await response.Content.ReadDataAsync<ServiceDto>();
         Assert.NotNull(createdService);
         Assert.Equal("Deep Cleaning", createdService!.Name);
 
@@ -159,7 +162,7 @@ public sealed class AdminApiTests(PostgreSqlApiFixture fixture) : IAsyncLifetime
         await using var scope = fixture.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var serviceInDb = await db.Services.FindAsync(ServiceId);
-        
+
         Assert.Equal("House Cleaning Updated", serviceInDb!.Name);
         Assert.False(serviceInDb.IsActive);
     }
@@ -176,7 +179,7 @@ public sealed class AdminApiTests(PostgreSqlApiFixture fixture) : IAsyncLifetime
         await using var scope = fixture.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var accountInDb = await db.Accounts.FindAsync(ClientId);
-        
+
         Assert.Equal(AccountStatus.Banned, accountInDb!.Status);
     }
 
@@ -206,7 +209,7 @@ public sealed class AdminApiTests(PostgreSqlApiFixture fixture) : IAsyncLifetime
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var services = await response.Content.ReadFromJsonAsync<IEnumerable<ServiceDto>>();
+        var services = await response.Content.ReadDataAsync<IEnumerable<ServiceDto>>();
         Assert.NotNull(services);
         Assert.NotEmpty(services);
         Assert.Contains(services, s => s.Id == ServiceId && s.Name == "House Cleaning");
