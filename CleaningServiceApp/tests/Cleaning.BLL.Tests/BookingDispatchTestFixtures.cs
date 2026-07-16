@@ -14,7 +14,7 @@ public sealed partial class BookingDispatchTests
     public sealed class FakeDispatchPublisher : IDispatchPublisher
     {
         public List<IReadOnlyCollection<Guid>> CancelledRecipients { get; } = [];
-        public List<(Guid BookingId, string NewStatus)> StatusChanges { get; } = [];
+        public List<(Guid BookingId, Guid ClientId, string NewStatus)> StatusChanges { get; } = [];
         public List<BookingDto> PostedJobs { get; } = [];
         public List<Guid> SuspendedWorkerIds { get; } = [];
 
@@ -31,9 +31,9 @@ public sealed partial class BookingDispatchTests
             return Task.CompletedTask;
         }
 
-        public Task BookingStatusChangedAsync(Guid bookingId, string newStatus)
+        public Task BookingStatusChangedAsync(Guid bookingId, Guid clientId, string newStatus)
         {
-            StatusChanges.Add((bookingId, newStatus));
+            StatusChanges.Add((bookingId, clientId, newStatus));
             return Task.CompletedTask;
         }
 

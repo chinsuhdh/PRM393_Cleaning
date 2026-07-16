@@ -12,6 +12,7 @@ namespace Cleaning.BLL.Interfaces
         Task<bool> UpdateBookingStatusAsync(Guid bookingId, Guid accountId, UpdateBookingStatusDto request);
         Task<bool> CancelByClientAsync(Guid bookingId, Guid clientId);
         Task WorkerCancelAsync(Guid bookingId, Guid workerId, WorkerCancelBookingDto request);
+        Task ClientCancelAsync(Guid bookingId, Guid clientId, ClientCancelBookingDto request);
 
         Task<int> CountRecentPlainCancelsAsync(Guid workerId);
         Task ReportBookingAsync(Guid bookingId, Guid actorId, ReportBookingDto request);

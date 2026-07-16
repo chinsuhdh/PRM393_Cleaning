@@ -119,6 +119,8 @@ public static class AppErrors
         "BOOKING_CANCEL_NOT_ALLOWED", "Không thể hủy đơn ở trạng thái hiện tại.", 409);
     public static readonly AppError WorkerCancelReasonRequired = new(
         "WORKER_CANCEL_REASON_REQUIRED", "Vui lòng chọn lý do hủy việc hợp lệ.", 400);
+    public static readonly AppError ClientCancelReasonRequired = new(
+        "CLIENT_CANCEL_REASON_REQUIRED", "Vui lòng chọn lý do hủy đơn hợp lệ.", 400);
     public static readonly AppError WorkerSuspended = new(
         "WORKER_SUSPENDED",
         "Tài khoản của bạn đã bị tạm khóa do hủy việc quá nhiều lần. Vui lòng liên hệ hỗ trợ.", 403);

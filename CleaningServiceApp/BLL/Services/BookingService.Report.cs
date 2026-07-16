@@ -82,7 +82,7 @@ public partial class BookingService
 
             if (_dispatchPublisher != null)
             {
-                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.Status.ToString());
+                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, booking.Status.ToString());
                 if (assignedWorkerId.HasValue)
                     await _dispatchPublisher.JobCancelledAsync(booking.Id, [assignedWorkerId.Value]);
             }

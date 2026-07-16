@@ -753,6 +753,12 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.AverageRating)
                 .HasPrecision(3, 2)
                 .HasColumnName("average_rating");
+            entity.Property(e => e.CurrentLat)
+                .HasPrecision(10, 7)
+                .HasColumnName("current_lat");
+            entity.Property(e => e.CurrentLng)
+                .HasPrecision(10, 7)
+                .HasColumnName("current_lng");
             entity.Property(e => e.EndTime).HasColumnName("end_time");
             entity.Property(e => e.FullName).HasColumnName("full_name");
             entity.Property(e => e.ServiceId).HasColumnName("service_id");

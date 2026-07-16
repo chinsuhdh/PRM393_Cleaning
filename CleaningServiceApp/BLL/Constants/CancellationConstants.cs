@@ -24,6 +24,23 @@ public static class WorkerCancelReasonCodes
     public static readonly IReadOnlySet<string> All = Labels.Keys.ToHashSet();
 }
 
+public static class ClientCancelReasonCodes
+{
+    public const string Prefix = "client_cancel.";
+    public const string NoLongerNeeded = Prefix + "no_longer_needed";
+    public const string FoundAnotherProvider = Prefix + "found_another_provider";
+    public const string Other = Prefix + "other";
+
+    public static readonly IReadOnlyDictionary<string, string> Labels = new Dictionary<string, string>
+    {
+        [NoLongerNeeded] = "Không còn cần dịch vụ",
+        [FoundAnotherProvider] = "Đã tìm được đơn vị khác",
+        [Other] = "Lý do khác",
+    };
+
+    public static readonly IReadOnlySet<string> All = Labels.Keys.ToHashSet();
+}
+
 // H.1: report reason codes, separated per reporting role — a client reports a worker, a worker
 // reports a client — sharing the same "report.*" varchar column and the same POST {id}/report
 // endpoint (BookingService.Report.cs), but validated against the caller's own role-specific set.
