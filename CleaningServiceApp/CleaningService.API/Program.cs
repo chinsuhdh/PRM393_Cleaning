@@ -15,6 +15,7 @@ using CleaningService.API.Hubs;
 using CleaningService.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -127,6 +128,17 @@ namespace CleaningService.API
                 });
             builder.Services.AddSignalR();
 
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.AddFixedWindowLimiter(RateLimiterPolicies.AiChat, limiterOptions =>
+                {
+                    limiterOptions.PermitLimit = 15;
+                    limiterOptions.Window = TimeSpan.FromMinutes(1);
+                    limiterOptions.QueueLimit = 0;
+                });
+            });
+
             builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
             builder.Services.AddProblemDetails();
 
@@ -227,6 +239,7 @@ namespace CleaningService.API
 
             app.UseAuthentication();
             app.UseAuthorization();
+            app.UseRateLimiter();
 
             app.MapControllers();
             app.MapHub<DispatchHub>("/hubs/dispatch");
