@@ -1,4 +1,0 @@
-CleaningServiceApp/BLL/Services/AuthService.cs
-CleaningServiceApp/DAL/Data/AppDbContext.cs
-CleaningServiceApp/tests/CleaningService.API.Tests/BookingApiTests.cs
-CleaningServiceApp/tests/Cleaning.BLL.Tests/BookingOptionsPricingTests.cs
