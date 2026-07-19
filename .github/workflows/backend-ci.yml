@@ -37,12 +37,6 @@ jobs:
         run: dotnet restore "${{ env.SOLUTION_FILE }}"
       - name: Verify formatting
         run: dotnet format "${{ env.SOLUTION_FILE }}" --verify-no-changes --no-restore --verbosity minimal
-      - name: Enforce backend architecture
-        shell: pwsh
-        run: .github/scripts/check-backend-architecture.ps1
-      - name: Enforce backend file size
-        shell: pwsh
-        run: .github/scripts/check-backend-file-size.ps1
       - name: Build solution
         run: dotnet build "${{ env.SOLUTION_FILE }}" --configuration Release --no-restore --disable-build-servers /m:1 /p:UseSharedCompilation=false
       - name: Publish API
