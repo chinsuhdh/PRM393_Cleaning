@@ -11,7 +11,10 @@ public partial class BookingService
 {
     private static readonly BookingStatus[] ReportableStatuses =
     [
-        BookingStatus.Accepted, BookingStatus.OnTheWay, BookingStatus.InProgress, BookingStatus.PendingPayment
+        BookingStatus.Accepted,
+        BookingStatus.OnTheWay,
+        BookingStatus.InProgress,
+        BookingStatus.PendingPayment
     ];
 
     public async Task ReportBookingAsync(Guid bookingId, Guid actorId, ReportBookingDto request)
@@ -82,7 +85,7 @@ public partial class BookingService
 
             if (_dispatchPublisher != null)
             {
-                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.Status.ToString());
+                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, booking.Status.ToString());
                 if (assignedWorkerId.HasValue)
                     await _dispatchPublisher.JobCancelledAsync(booking.Id, [assignedWorkerId.Value]);
             }

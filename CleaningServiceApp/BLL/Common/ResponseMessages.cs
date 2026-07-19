@@ -21,6 +21,7 @@ public static class ResponseMessages
     public const string JobHidden = "Đã ẩn công việc.";
     public const string BookingCancelled = "Đã hủy đơn đặt lịch.";
     public const string BookingWorkerCancelled = "Đã hủy nhận việc và trả đơn về danh sách chờ.";
+    public const string BookingClientCancelled = "Đã hủy đơn và trả về danh sách chờ nhân viên.";
     public const string BookingReported = "Đã gửi báo cáo và hủy đơn đặt lịch.";
     public const string BookingSwitchedToCash = "Đã chuyển sang thanh toán tiền mặt.";
 

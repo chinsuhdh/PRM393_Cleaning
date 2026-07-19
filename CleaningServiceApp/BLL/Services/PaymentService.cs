@@ -133,6 +133,7 @@ namespace Cleaning.BLL.Services
 
                 var completedAt = DateTime.UtcNow;
                 Guid? completedBookingId = null;
+                Guid? completedClientId = null;
 
                 payment.Status = PaymentStatus.Success;
                 payment.TransactionId = callback.TransactionNo;
@@ -182,13 +183,15 @@ namespace Cleaning.BLL.Services
                     }
 
                     completedBookingId = booking.Id;
+                    completedClientId = booking.ClientId;
                 }
 
                 await _unitOfWork.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 if (completedBookingId.HasValue && _dispatchPublisher != null)
-                    await _dispatchPublisher.BookingStatusChangedAsync(completedBookingId.Value, nameof(BookingStatus.Completed));
+                    await _dispatchPublisher.BookingStatusChangedAsync(
+                        completedBookingId.Value, completedClientId!.Value, nameof(BookingStatus.Completed));
 
                 return VnpayConfirmOutcome.Success;
             }

@@ -13,6 +13,8 @@ public sealed class DispatchHub(IBookingService bookingService) : Hub
         var accountId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         if (accountId != null && Context.User!.IsInRole("Worker"))
             await Groups.AddToGroupAsync(Context.ConnectionId, $"worker:{accountId}");
+        if (accountId != null && Context.User!.IsInRole("Client"))
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"client:{accountId}");
         await base.OnConnectedAsync();
     }
 

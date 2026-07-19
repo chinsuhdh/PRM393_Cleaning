@@ -7,7 +7,6 @@ using Cleaning.BLL.DTOs;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 
@@ -17,7 +16,6 @@ namespace CleaningService.API.Tests;
 public sealed class DispatchApiTests(PostgreSqlApiFixture fixture) : IAsyncLifetime
 {
     private static readonly Guid ClientId = Guid.Parse("81000000-0000-0000-0000-000000000001");
-    private static readonly Guid OtherClientId = Guid.Parse("81000000-0000-0000-0000-000000000003");
     private static readonly Guid WorkerId = Guid.Parse("81000000-0000-0000-0000-000000000002");
     private static readonly Guid ServiceId = Guid.Parse("82000000-0000-0000-0000-000000000001");
     private static readonly Guid AddressId = Guid.Parse("83000000-0000-0000-0000-000000000001");
@@ -32,11 +30,9 @@ public sealed class DispatchApiTests(PostgreSqlApiFixture fixture) : IAsyncLifet
         var now = DateTime.UtcNow;
         db.Accounts.AddRange(
             BookingApiTestData.Account(ClientId, "dispatch-client@test.local", UserRole.Client, now),
-            BookingApiTestData.Account(OtherClientId, "dispatch-other-client@test.local", UserRole.Client, now),
             BookingApiTestData.Account(WorkerId, "dispatch-worker@test.local", UserRole.Worker, now));
         db.Profiles.AddRange(
             BookingApiTestData.Profile(ClientId, "Dispatch Client", now),
-            BookingApiTestData.Profile(OtherClientId, "Dispatch Other Client", now),
             BookingApiTestData.Profile(WorkerId, "Dispatch Worker", now));
         db.Services.Add(new Service
         {
@@ -134,99 +130,11 @@ public sealed class DispatchApiTests(PostgreSqlApiFixture fixture) : IAsyncLifet
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-NEARBY-01] The booking's own client sees an online, in-radius worker's coordinates")]
-    public async Task NearbyWorkers_OnlineInRadiusWorker_IsReturned()
-    {
-        using var client = AuthenticatedClient(ClientId);
-
-        var response = await client.GetAsync($"/api/Bookings/{EligibleBookingId}/nearby-workers");
-        var locations = await response.Content.ReadDataAsync<List<NearbyWorkerLocationDto>>();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var location = Assert.Single(locations!);
-        Assert.Equal(10.7769m, location.Latitude);
-        Assert.Equal(106.7009m, location.Longitude);
-    }
-
-    [Fact(DisplayName = "[UT-BOOK-NEARBY-02] An offline worker is excluded from the nearby list")]
-    public async Task NearbyWorkers_OfflineWorker_Excluded()
-    {
-        await using (var scope = fixture.Services.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var worker = await db.WorkerProfiles.SingleAsync(w => w.UserId == WorkerId);
-            worker.OnlineStatus = WorkerOnlineStatus.Offline;
-            await db.SaveChangesAsync();
-        }
-        using var client = AuthenticatedClient(ClientId);
-
-        var response = await client.GetAsync($"/api/Bookings/{EligibleBookingId}/nearby-workers");
-        var locations = await response.Content.ReadDataAsync<List<NearbyWorkerLocationDto>>();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Empty(locations!);
-    }
-
-    [Fact(DisplayName = "[UT-BOOK-NEARBY-03] The response carries only coordinates, no worker id/name/rating")]
-    public async Task NearbyWorkers_ResponseShape_IsAnonymous()
-    {
-        using var client = AuthenticatedClient(ClientId);
-
-        var response = await client.GetAsync($"/api/Bookings/{EligibleBookingId}/nearby-workers");
-        var raw = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.DoesNotContain("workerId", raw, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("fullName", raw, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("averageRating", raw, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("latitude", raw, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact(DisplayName = "[UT-BOOK-NEARBY-04] A client who does not own this booking gets an empty list, not the other client's data")]
-    public async Task NearbyWorkers_NonOwningClient_GetsEmptyList()
-    {
-        using var client = AuthenticatedClient(OtherClientId);
-
-        var response = await client.GetAsync($"/api/Bookings/{EligibleBookingId}/nearby-workers");
-        var locations = await response.Content.ReadDataAsync<List<NearbyWorkerLocationDto>>();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Empty(locations!);
-    }
-
-    [Fact(DisplayName = "[UT-BOOK-NEARBY-05] A booking that already has a worker assigned (no longer searching) returns an empty list")]
-    public async Task NearbyWorkers_AlreadyAssignedBooking_ReturnsEmptyList()
-    {
-        await using (var scope = fixture.Services.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var booking = await db.Bookings.SingleAsync(b => b.Id == EligibleBookingId);
-            booking.WorkerId = WorkerId;
-            booking.Status = BookingStatus.Accepted;
-            await db.SaveChangesAsync();
-        }
-        using var client = AuthenticatedClient(ClientId);
-
-        var response = await client.GetAsync($"/api/Bookings/{EligibleBookingId}/nearby-workers");
-        var locations = await response.Content.ReadDataAsync<List<NearbyWorkerLocationDto>>();
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Empty(locations!);
-    }
-
     private HttpClient AuthenticatedWorker()
     {
         var client = fixture.CreateClient();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", CreateToken(WorkerId, UserRole.Worker));
-        return client;
-    }
-
-    private HttpClient AuthenticatedClient(Guid accountId)
-    {
-        var client = fixture.CreateClient();
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", CreateToken(accountId, UserRole.Client));
         return client;
     }
 

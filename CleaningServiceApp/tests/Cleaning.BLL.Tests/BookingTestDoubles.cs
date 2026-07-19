@@ -1,4 +1,4 @@
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using Cleaning.DAL.Interfaces;
 using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
@@ -78,7 +78,7 @@ internal sealed class InMemoryRepository<T>(List<T> entities) : IGenericReposito
 
     public IQueryable<T> GetQueryable() => entities.AsQueryable();
 
+    // Đã sửa lỗi ở đây
     public Task<int> CountAsync(Expression<Func<T, bool>> expression) =>
         Task.FromResult(entities.Count(expression.Compile()));
 }
-

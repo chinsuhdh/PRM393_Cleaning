@@ -39,7 +39,7 @@ public partial class BookingService
             await transaction.CommitAsync();
 
             if (_dispatchPublisher != null)
-                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.Status.ToString());
+                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, clientId, booking.Status.ToString());
         }
         catch (AppException)
         {

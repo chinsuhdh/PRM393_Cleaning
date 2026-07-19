@@ -4,6 +4,7 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cleaning.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260714111802_ScheduledWorkersOnlineOnly")]
+    partial class ScheduledWorkersOnlineOnly
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -107,6 +110,10 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("now()");
+
+                    b.Property<string>("VnpayAccount")
+                        .HasColumnType("text")
+                        .HasColumnName("vnpay_account");
 
                     b.HasKey("Id")
                         .HasName("accounts_pkey");
@@ -1097,10 +1104,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<string>("VnpTxnRef")
-                        .HasColumnType("text")
-                        .HasColumnName("vnp_txn_ref");
-
                     b.HasKey("Id")
                         .HasName("payments_pkey");
 
@@ -1111,10 +1114,6 @@ namespace Cleaning.DAL.Migrations
                     b.HasIndex("ProviderReference")
                         .IsUnique()
                         .HasFilter("provider_reference IS NOT NULL");
-
-                    b.HasIndex("VnpTxnRef")
-                        .IsUnique()
-                        .HasFilter("vnp_txn_ref IS NOT NULL");
 
                     b.HasIndex(new[] { "BookingId" }, "idx_payments_booking");
 
@@ -1816,14 +1815,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_at");
 
-                    b.Property<string>("PayoutFailureReason")
-                        .HasColumnType("text")
-                        .HasColumnName("payout_failure_reason");
-
-                    b.Property<string>("PayoutId")
-                        .HasColumnType("text")
-                        .HasColumnName("payout_id");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1914,18 +1905,6 @@ namespace Cleaning.DAL.Migrations
                     b.Property<WorkerOnlineStatus>("OnlineStatus")
                         .HasColumnType("worker_online_status")
                         .HasColumnName("online_status");
-
-                    b.Property<string>("PayoutBankAccountName")
-                        .HasColumnType("text")
-                        .HasColumnName("payout_bank_account_name");
-
-                    b.Property<string>("PayoutBankAccountNumber")
-                        .HasColumnType("text")
-                        .HasColumnName("payout_bank_account_number");
-
-                    b.Property<string>("PayoutBankBin")
-                        .HasColumnType("text")
-                        .HasColumnName("payout_bank_bin");
 
                     b.Property<decimal>("ServiceRadiusKm")
                         .ValueGeneratedOnAdd()

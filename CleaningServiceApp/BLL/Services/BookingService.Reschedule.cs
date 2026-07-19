@@ -67,7 +67,7 @@ public partial class BookingService
             await transaction.CommitAsync();
 
             if (_dispatchPublisher != null)
-                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.Status.ToString());
+                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, booking.Status.ToString());
 
             return await GetBookingByIdAsync(booking.Id, actorId);
         }
@@ -157,7 +157,7 @@ public partial class BookingService
             await transaction.CommitAsync();
 
             if (_dispatchPublisher != null)
-                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.Status.ToString());
+                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, booking.Status.ToString());
 
             return isSystemActor ? null : await GetBookingByIdAsync(booking.Id, actorId);
         }

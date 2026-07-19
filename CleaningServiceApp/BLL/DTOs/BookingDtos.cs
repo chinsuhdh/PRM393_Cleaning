@@ -32,6 +32,7 @@ namespace Cleaning.BLL.DTOs
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
         public decimal? DistanceKm { get; set; }
+        public decimal? EstimatedMinutes { get; set; }
 
         public string OptionAnswers { get; set; } = "{}";
         public string BookingFormSchema { get; set; } = "{}";
@@ -167,6 +168,13 @@ namespace Cleaning.BLL.DTOs
     }
 
     public class WorkerCancelBookingDto
+    {
+        [Required]
+        public string ReasonCode { get; set; } = null!;
+        public string? FreeText { get; set; }
+    }
+
+    public class ClientCancelBookingDto
     {
         [Required]
         public string ReasonCode { get; set; } = null!;

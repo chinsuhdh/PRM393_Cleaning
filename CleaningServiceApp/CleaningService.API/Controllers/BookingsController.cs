@@ -141,6 +141,16 @@ namespace CleaningService.API.Controllers
             return Ok(ApiResponse.Message(ResponseMessages.BookingSwitchedToCash));
         }
 
+        [HttpPost("{id}/client-cancel")]
+        [Authorize(Roles = "Client")]
+        public async Task<IActionResult> ClientCancel(Guid id, [FromBody] ClientCancelBookingDto request)
+        {
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            await _bookingService.ClientCancelAsync(id, clientId, request);
+
+            return Ok(ApiResponse.Message(ResponseMessages.BookingClientCancelled));
+        }
+
         [HttpPost("{id}/report")]
         public async Task<IActionResult> ReportBooking(Guid id, [FromBody] ReportBookingDto request)
         {
