@@ -38,14 +38,6 @@ public sealed class BookingCreationService(
         if (!request.AddressId.HasValue)
             throw new AppException(AppErrors.AddressRequired);
 
-        // Auto-payment: VNPay chỉ hợp lệ khi khách đã liên kết tài khoản (cổng mô phỏng, xem PaymentService).
-        if (request.PaymentMethod == PaymentMethod.Vnpay)
-        {
-            var account = await _unitOfWork.Repository<Account>().GetByIdAsync(clientId);
-            if (string.IsNullOrWhiteSpace(account?.VnpayAccount))
-                throw new AppException(AppErrors.VnpayNotLinked);
-        }
-
         // BOOK-002: validate the service-defined answers against the service schema before any write.
         var optionAnswers = BookingOptionValidator.Normalize(service.BookingFormSchema, request.OptionAnswers);
         if (request.ServiceVersion != service.Version)

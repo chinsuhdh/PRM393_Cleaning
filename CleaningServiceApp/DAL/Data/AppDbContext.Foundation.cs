@@ -78,6 +78,9 @@ public partial class AppDbContext
             entity.Property(e => e.ServiceRadiusKm).HasPrecision(6, 2).HasDefaultValue(10m).HasColumnName("service_radius_km");
             entity.Property(e => e.VerificationStatus).HasDefaultValue("pending").HasColumnName("verification_status");
             entity.Property(e => e.SuspendedAt).HasColumnName("suspended_at");
+            entity.Property(e => e.PayoutBankBin).HasColumnName("payout_bank_bin");
+            entity.Property(e => e.PayoutBankAccountNumber).HasColumnName("payout_bank_account_number");
+            entity.Property(e => e.PayoutBankAccountName).HasColumnName("payout_bank_account_name");
         });
 
         modelBuilder.Entity<WorkerService>(entity =>
@@ -109,8 +112,10 @@ public partial class AppDbContext
             entity.Property(e => e.FailureCode).HasColumnName("failure_code");
             entity.Property(e => e.FailureMessage).HasColumnName("failure_message");
             entity.Property(e => e.CallbackVerifiedAt).HasColumnName("callback_verified_at");
+            entity.Property(e => e.VnpTxnRef).HasColumnName("vnp_txn_ref");
             entity.HasIndex(e => e.IdempotencyKey).IsUnique().HasFilter("idempotency_key IS NOT NULL");
             entity.HasIndex(e => e.ProviderReference).IsUnique().HasFilter("provider_reference IS NOT NULL");
+            entity.HasIndex(e => e.VnpTxnRef).IsUnique().HasFilter("vnp_txn_ref IS NOT NULL");
         });
 
         modelBuilder.Entity<Notification>(entity =>

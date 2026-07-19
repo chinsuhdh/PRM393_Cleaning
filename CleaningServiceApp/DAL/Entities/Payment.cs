@@ -27,6 +27,8 @@ public partial class Payment
 
     public string? ProviderReference { get; set; }
 
+    public string? VnpTxnRef { get; set; }
+
     public string? FailureCode { get; set; }
 
     public string? FailureMessage { get; set; }

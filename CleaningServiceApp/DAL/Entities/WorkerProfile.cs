@@ -33,6 +33,12 @@ public partial class WorkerProfile
 
     public string VerificationStatus { get; set; } = "pending";
 
+    public string? PayoutBankBin { get; set; }
+
+    public string? PayoutBankAccountNumber { get; set; }
+
+    public string? PayoutBankAccountName { get; set; }
+
     public virtual ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public virtual Profile User { get; set; } = null!;

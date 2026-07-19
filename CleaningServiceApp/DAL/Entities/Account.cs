@@ -22,9 +22,6 @@ public partial class Account
 
     public bool IsPhoneVerified { get; set; }
 
-    // Tài khoản VNPay đã liên kết (mô phỏng) — bắt buộc trước khi tạo booking trả bằng VNPay
-    public string? VnpayAccount { get; set; }
-
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }

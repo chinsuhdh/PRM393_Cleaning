@@ -155,4 +155,97 @@ public class WorkerServiceTests
 
         Assert.True(result);
     }
+
+    [Fact(DisplayName = "[UT-WORKER-PAYOUT-01] Updating the payout account stores trimmed bank details")]
+    public async Task UpdatePayoutAccountAsync_ValidInput_StoresTrimmedValues()
+    {
+        var workerId = Guid.NewGuid();
+        var worker = new WorkerProfile { UserId = workerId };
+        var (repository, unitOfWork) = MockUnitOfWork(worker);
+        var service = new WorkerService(unitOfWork.Object);
+
+        var result = await service.UpdatePayoutAccountAsync(workerId, new UpdatePayoutAccountDto
+        {
+            BankBin = " 970422 ",
+            AccountNumber = " 0123456789 ",
+            AccountName = " Nguyen Van A "
+        });
+
+        Assert.True(result);
+        Assert.Equal("970422", worker.PayoutBankBin);
+        Assert.Equal("0123456789", worker.PayoutBankAccountNumber);
+        Assert.Equal("Nguyen Van A", worker.PayoutBankAccountName);
+        repository.Verify(r => r.Update(worker), Times.Once);
+    }
+
+    [Fact(DisplayName = "[UT-WORKER-PAYOUT-02] Blank bank details are rejected with PAYOUT_ACCOUNT_INVALID")]
+    public async Task UpdatePayoutAccountAsync_BlankInput_Throws()
+    {
+        var workerId = Guid.NewGuid();
+        var worker = new WorkerProfile { UserId = workerId };
+        var (_, unitOfWork) = MockUnitOfWork(worker);
+        var service = new WorkerService(unitOfWork.Object);
+
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            service.UpdatePayoutAccountAsync(workerId, new UpdatePayoutAccountDto
+            {
+                BankBin = "970422",
+                AccountNumber = "   ",
+                AccountName = "Nguyen Van A"
+            }));
+
+        Assert.Equal(AppErrors.PayoutAccountInvalid.Code, ex.Code);
+    }
+
+    [Fact(DisplayName = "[UT-WORKER-PAYOUT-03] Updating the payout account for an unknown worker returns false")]
+    public async Task UpdatePayoutAccountAsync_UnknownWorker_ReturnsFalse()
+    {
+        var (_, unitOfWork) = MockUnitOfWork(null);
+        var service = new WorkerService(unitOfWork.Object);
+
+        var result = await service.UpdatePayoutAccountAsync(Guid.NewGuid(), new UpdatePayoutAccountDto
+        {
+            BankBin = "970422",
+            AccountNumber = "0123456789",
+            AccountName = "Nguyen Van A"
+        });
+
+        Assert.False(result);
+    }
+
+    [Fact(DisplayName = "[UT-WORKER-PAYOUT-04] Earnings are returned newest-first")]
+    public async Task GetWorkerEarningsAsync_ReturnsOrderedByEarnedAtDescending()
+    {
+        var workerId = Guid.NewGuid();
+        var older = new WorkerEarning
+        {
+            Id = Guid.NewGuid(),
+            WorkerId = workerId,
+            BookingId = Guid.NewGuid(),
+            Amount = 100_000m,
+            Status = "paid",
+            EarnedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var newer = new WorkerEarning
+        {
+            Id = Guid.NewGuid(),
+            WorkerId = workerId,
+            BookingId = Guid.NewGuid(),
+            Amount = 200_000m,
+            Status = "pending",
+            EarnedAt = DateTime.UtcNow
+        };
+        var repository = new Mock<IGenericRepository<WorkerEarning>>();
+        repository.Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WorkerEarning, bool>>>()))
+            .ReturnsAsync([older, newer]);
+        var unitOfWork = new Mock<IUnitOfWork>();
+        unitOfWork.Setup(w => w.Repository<WorkerEarning>()).Returns(repository.Object);
+        var service = new WorkerService(unitOfWork.Object);
+
+        var result = (await service.GetWorkerEarningsAsync(workerId)).ToList();
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(newer.Id, result[0].Id);
+        Assert.Equal(older.Id, result[1].Id);
+    }
 }

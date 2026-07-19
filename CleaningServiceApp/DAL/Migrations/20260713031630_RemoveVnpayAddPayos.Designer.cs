@@ -4,6 +4,7 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cleaning.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260713031630_RemoveVnpayAddPayos")]
+    partial class RemoveVnpayAddPayos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -28,7 +31,7 @@ namespace Cleaning.DAL.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "booking_type", new[] { "scheduled", "immediate" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "cleanliness_level", new[] { "clean", "light", "medium", "heavy" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "notification_type", new[] { "booking", "payment", "schedule", "system", "ai" });
-            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_method", new[] { "cash", "vnpay" });
+            NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_method", new[] { "cash", "payos" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "payment_status", new[] { "pending", "success", "failed" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "photo_type", new[] { "before", "after", "issue", "ai_reference" });
             NpgsqlModelBuilderExtensions.HasPostgresEnum(modelBuilder, "property_type", new[] { "apartment", "house" });
@@ -1079,6 +1082,10 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paid_at");
 
+                    b.Property<long?>("PayosOrderCode")
+                        .HasColumnType("bigint")
+                        .HasColumnName("payos_order_code");
+
                     b.Property<string>("ProviderReference")
                         .HasColumnType("text")
                         .HasColumnName("provider_reference");
@@ -1097,10 +1104,6 @@ namespace Cleaning.DAL.Migrations
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("now()");
 
-                    b.Property<string>("VnpTxnRef")
-                        .HasColumnType("text")
-                        .HasColumnName("vnp_txn_ref");
-
                     b.HasKey("Id")
                         .HasName("payments_pkey");
 
@@ -1108,13 +1111,13 @@ namespace Cleaning.DAL.Migrations
                         .IsUnique()
                         .HasFilter("idempotency_key IS NOT NULL");
 
+                    b.HasIndex("PayosOrderCode")
+                        .IsUnique()
+                        .HasFilter("payos_order_code IS NOT NULL");
+
                     b.HasIndex("ProviderReference")
                         .IsUnique()
                         .HasFilter("provider_reference IS NOT NULL");
-
-                    b.HasIndex("VnpTxnRef")
-                        .IsUnique()
-                        .HasFilter("vnp_txn_ref IS NOT NULL");
 
                     b.HasIndex(new[] { "BookingId" }, "idx_payments_booking");
 
@@ -1538,16 +1541,6 @@ namespace Cleaning.DAL.Migrations
                     b.Property<Guid?>("BookingId")
                         .HasColumnType("uuid")
                         .HasColumnName("booking_id");
-
-                    b.Property<decimal?>("CurrentLat")
-                        .HasPrecision(10, 7)
-                        .HasColumnType("numeric(10,7)")
-                        .HasColumnName("current_lat");
-
-                    b.Property<decimal?>("CurrentLng")
-                        .HasPrecision(10, 7)
-                        .HasColumnType("numeric(10,7)")
-                        .HasColumnName("current_lng");
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("timestamp with time zone")

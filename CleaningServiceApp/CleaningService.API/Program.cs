@@ -49,7 +49,6 @@ namespace CleaningService.API
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 
-            // Map TẤT CẢ các Enum để đồng bộ với PostgreSQL Schema
             dataSourceBuilder.MapEnum<UserRole>("user_role");
             dataSourceBuilder.MapEnum<AccountStatus>("account_status");
             dataSourceBuilder.MapEnum<VerificationPurpose>("verification_purpose");
@@ -205,6 +204,7 @@ namespace CleaningService.API
             });
 
             builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("EmailConfiguration"));
+            builder.Services.Configure<VnpaySettings>(builder.Configuration.GetSection("VNPay"));
 
             builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -233,6 +233,7 @@ namespace CleaningService.API
             builder.Services.AddScoped<IAdminService, AdminService>();
 
             builder.Services.AddHttpClient<IAiService, AiService>();
+            builder.Services.AddScoped<IVnpayCheckoutService, VnpayCheckoutService>();
 
             var app = builder.Build();
 

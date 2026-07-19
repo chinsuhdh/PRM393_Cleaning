@@ -35,7 +35,11 @@ public sealed class PostgreSqlApiFixture : WebApplicationFactory<Program>, IAsyn
                     ["JwtConfig:Secret"] =
                         "3YlcESfqMCfUbxi5yDM0lAb7oh6XiOAniuq4Nm50Gjw=",
                     ["JwtConfig:Issuer"] = "CleaningService.Api.Tests",
-                    ["JwtConfig:Audience"] = "CleaningService.Api.Tests"
+                    ["JwtConfig:Audience"] = "CleaningService.Api.Tests",
+                    ["VNPay:TmnCode"] = "TESTCODE",
+                    ["VNPay:HashSecret"] = "TEST_HASH_SECRET",
+                    ["VNPay:BaseUrl"] = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                    ["VNPay:ReturnUrl"] = "https://api.test.local/api/Payments/vnpay-return"
                 });
         });
     }

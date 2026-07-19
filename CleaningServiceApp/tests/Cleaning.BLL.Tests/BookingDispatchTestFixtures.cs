@@ -61,6 +61,7 @@ public sealed partial class BookingDispatchTests
         public List<BookingCancellation> Cancellations { get; } = [];
         public List<BookingPhoto> Photos { get; } = [];
         public List<Payment> Payments { get; } = [];
+        public List<WorkerEarning> WorkerEarnings { get; } = [];
         public List<Account> Accounts { get; } = [];
         public WorkerProfile Worker { get; private set; } = null!;
         public FakeDispatchPublisher DispatchPublisher { get; } = new();
@@ -138,6 +139,7 @@ public sealed partial class BookingDispatchTests
                 .With(scenario.Cancellations)
                 .With(scenario.Photos)
                 .With(scenario.Payments)
+                .With(scenario.WorkerEarnings)
                 .With(scenario.Accounts)
                 .With(scenario.RescheduleRequests);
             scenario.UnitOfWork = unitOfWork;
@@ -191,13 +193,12 @@ public sealed partial class BookingDispatchTests
             BookingType = BookingType.Immediate
         };
 
-        public Account AddClientAccount(string? vnpayAccount = null)
+        public Account AddClientAccount()
         {
             var account = new Account
             {
                 Id = ClientId,
                 Email = "client@test.local",
-                VnpayAccount = vnpayAccount,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };

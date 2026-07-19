@@ -4,6 +4,7 @@ using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Cleaning.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717102803_ReplacePayosWithVnpay")]
+    partial class ReplacePayosWithVnpay
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1538,16 +1541,6 @@ namespace Cleaning.DAL.Migrations
                     b.Property<Guid?>("BookingId")
                         .HasColumnType("uuid")
                         .HasColumnName("booking_id");
-
-                    b.Property<decimal?>("CurrentLat")
-                        .HasPrecision(10, 7)
-                        .HasColumnType("numeric(10,7)")
-                        .HasColumnName("current_lat");
-
-                    b.Property<decimal?>("CurrentLng")
-                        .HasPrecision(10, 7)
-                        .HasColumnType("numeric(10,7)")
-                        .HasColumnName("current_lng");
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("timestamp with time zone")

@@ -1,19 +1,15 @@
-using AutoMapper;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Mapping;
-using Cleaning.BLL.Services;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Cleaning.BLL.Tests;
 
 public sealed partial class BookingDispatchTests
 {
-    [Fact(DisplayName = "[UT-BOOK-PAY-01] VNPay: worker Finish auto-charges (simulated) and closes the " +
-        "booking as Completed in one step, publishing Completed — the client never acts")]
-    public async Task UpdateStatus_VnpayFinish_AutoChargesAndCompletes()
+    [Fact(DisplayName = "[UT-BOOK-PAY-01] VNPay: worker Finish parks the booking at PendingPayment with no " +
+        "payment row and no auto-charge — the client must pay through the real VNPay flow")]
+    public async Task UpdateStatus_VnpayFinish_ParksAtPendingPaymentWithoutCharging()
     {
         var scenario = DispatchScenario.Create(workerOnlineStatus: WorkerOnlineStatus.Busy);
         var booking = scenario.AddBooking(
@@ -24,35 +20,35 @@ public sealed partial class BookingDispatchTests
             booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.PendingPayment });
 
         Assert.True(updated);
-        Assert.Equal(BookingStatus.Completed, booking.Status);
-        Assert.Equal(WorkerOnlineStatus.Online, scenario.Worker.OnlineStatus);
+        Assert.Equal(BookingStatus.PendingPayment, booking.Status);
+        Assert.Empty(scenario.Payments);
+        Assert.Empty(scenario.WorkerEarnings);
+        Assert.Equal(WorkerOnlineStatus.Busy, scenario.Worker.OnlineStatus);
 
-        var payment = Assert.Single(scenario.Payments);
-        Assert.Equal(booking.Id, payment.BookingId);
-        Assert.Equal(PaymentMethod.Vnpay, payment.Method);
-        Assert.Equal(PaymentStatus.Success, payment.Status);
-        Assert.Equal(250_000, payment.Amount);
-        Assert.NotNull(payment.PaidAt);
-        Assert.StartsWith("SIM-VNPAY-", payment.TransactionId);
-
-        // Both hops are recorded: the worker's Finish, then the system's auto-payment close.
-        Assert.Single(scenario.StatusLogs, log =>
-            log.OldStatus == BookingStatus.InProgress && log.NewStatus == BookingStatus.PendingPayment &&
-            log.ChangedBy == scenario.WorkerId);
-        Assert.Single(scenario.StatusLogs, log =>
-            log.OldStatus == BookingStatus.PendingPayment && log.NewStatus == BookingStatus.Completed &&
-            log.ChangedBy == null);
-
-        // Screens must land on the final state, not the transient PendingPayment.
-        Assert.Contains(scenario.DispatchPublisher.StatusChanges, change =>
-            change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.Completed));
         Assert.DoesNotContain(scenario.DispatchPublisher.StatusChanges, change =>
-            change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.PendingPayment));
+            change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.Completed));
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-PAY-01b] VNPay: a worker cannot bypass real payment by completing a " +
+        "PendingPayment booking directly through the generic status endpoint")]
+    public async Task UpdateStatus_VnpayDirectComplete_Rejected()
+    {
+        var scenario = DispatchScenario.Create();
+        var booking = scenario.AddBooking(
+            BookingStatus.PendingPayment, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Vnpay);
+
+        var updated = await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.Completed });
+
+        Assert.False(updated);
+        Assert.Equal(BookingStatus.PendingPayment, booking.Status);
+        Assert.Empty(scenario.Payments);
     }
 
     [Fact(DisplayName = "[UT-BOOK-PAY-02] Cash: Finish parks the booking at PendingPayment with no payment " +
-        "row; the worker's cash confirm then completes it and records a Cash/Success payment")]
-    public async Task UpdateStatus_CashFinishThenConfirm_WritesCashPayment()
+        "row; the worker's cash confirm then completes it, records a Cash/Success payment and a settled " +
+        "worker earning")]
+    public async Task UpdateStatus_CashFinishThenConfirm_WritesCashPaymentAndSettledEarning()
     {
         var scenario = DispatchScenario.Create();
         var booking = scenario.AddBooking(
@@ -75,66 +71,52 @@ public sealed partial class BookingDispatchTests
         Assert.Equal(180_000, payment.Amount);
         Assert.NotNull(payment.PaidAt);
         Assert.Null(payment.TransactionId);
+
+        var earning = Assert.Single(scenario.WorkerEarnings);
+        Assert.Equal(booking.Id, earning.BookingId);
+        Assert.Equal(scenario.WorkerId, earning.WorkerId);
+        Assert.Equal(180_000, earning.Amount);
+        Assert.Equal("settled", earning.Status);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-PAY-03] Creating a VNPay booking without a linked VNPay account is " +
-        "rejected with VNPAY_NOT_LINKED")]
-    public async Task Create_VnpayWithoutLinkedAccount_Throws()
+    [Fact(DisplayName = "[UT-BOOK-PAY-02b] Cash confirm is idempotent: writing the earning twice never " +
+        "produces more than one row")]
+    public async Task UpdateStatus_CashConfirmTwice_WritesEarningOnce()
     {
         var scenario = DispatchScenario.Create();
-        scenario.AddClientAccount(vnpayAccount: null);
+        var booking = scenario.AddBooking(
+            BookingStatus.PendingPayment, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Cash);
+        booking.TotalPrice = 180_000;
+        scenario.WorkerEarnings.Add(new WorkerEarning
+        {
+            Id = Guid.NewGuid(),
+            BookingId = booking.Id,
+            WorkerId = scenario.WorkerId,
+            Amount = 180_000,
+            Status = "settled",
+            EarnedAt = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await scenario.BookingService.UpdateBookingStatusAsync(
+            booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.Completed });
+
+        Assert.Single(scenario.WorkerEarnings);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-PAY-04] Creating a VNPay booking succeeds (no account-linking gate — VNPay " +
+        "checkout needs no pre-linking) and the booking carries PaymentMethod=Vnpay end to end")]
+    public async Task Create_Vnpay_Succeeds()
+    {
+        var scenario = DispatchScenario.Create();
+        scenario.AddClientAccount();
         var request = scenario.CreateRequest();
         request.PaymentMethod = PaymentMethod.Vnpay;
 
-        var exception = await Assert.ThrowsAsync<AppException>(() =>
-            scenario.BookingService.CreateBookingAsync(scenario.ClientId, "vnpay-unlinked", request));
-
-        Assert.Equal(AppErrors.VnpayNotLinked.Code, exception.Code);
-        Assert.Empty(scenario.Bookings);
-    }
-
-    [Fact(DisplayName = "[UT-BOOK-PAY-04] Creating a VNPay booking with a linked account succeeds and the " +
-        "booking carries PaymentMethod=Vnpay end to end")]
-    public async Task Create_VnpayWithLinkedAccount_Succeeds()
-    {
-        var scenario = DispatchScenario.Create();
-        scenario.AddClientAccount(vnpayAccount: "0901234567");
-        var request = scenario.CreateRequest();
-        request.PaymentMethod = PaymentMethod.Vnpay;
-
-        var dto = await scenario.BookingService.CreateBookingAsync(scenario.ClientId, "vnpay-linked", request);
+        var dto = await scenario.BookingService.CreateBookingAsync(scenario.ClientId, "vnpay-booking", request);
 
         Assert.Equal(nameof(PaymentMethod.Vnpay), dto.PaymentMethod);
         var booking = Assert.Single(scenario.Bookings);
         Assert.Equal(PaymentMethod.Vnpay, booking.PaymentMethod);
-    }
-
-    [Fact(DisplayName = "[UT-BOOK-PAY-05] Linking a VNPay account (simulated gateway) stores the trimmed " +
-        "value; blank input is rejected with VNPAY_ACCOUNT_INVALID")]
-    public async Task LinkVnpayAccount_SimulatedGateway_StoresValueAndRejectsBlank()
-    {
-        var accountId = Guid.NewGuid();
-        var unitOfWork = new InMemoryUnitOfWork().With<Account>([new Account
-        {
-            Id = accountId,
-            Email = "client@test.local",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        }]);
-        var mapper = new MapperConfiguration(
-            configuration => configuration.AddProfile<BookingMappingProfile>(),
-            NullLoggerFactory.Instance).CreateMapper();
-        var paymentService = new PaymentService(unitOfWork, NullLogger<PaymentService>.Instance, mapper);
-
-        var blank = await Assert.ThrowsAsync<AppException>(() =>
-            paymentService.LinkVnpayAccountAsync(accountId, new VnpayAccountDto { VnpayAccount = "   " }));
-        Assert.Equal(AppErrors.VnpayAccountInvalid.Code, blank.Code);
-
-        var linked = await paymentService.LinkVnpayAccountAsync(
-            accountId, new VnpayAccountDto { VnpayAccount = "  0901234567  " });
-        Assert.Equal("0901234567", linked.VnpayAccount);
-
-        var fetched = await paymentService.GetVnpayAccountAsync(accountId);
-        Assert.Equal("0901234567", fetched.VnpayAccount);
     }
 }
