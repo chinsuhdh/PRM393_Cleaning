@@ -57,6 +57,9 @@ public sealed class DispatchPublisher(
     public Task WorkerSuspendedAsync(Guid workerId) =>
         hub.Clients.Group($"worker:{workerId}").SendAsync("workerSuspended", workerId);
 
+    public Task ChatMessageReceivedAsync(Guid bookingId, BookingMessageDto message) =>
+        hub.Clients.Group($"booking:{bookingId}").SendAsync("receiveMessage", message);
+
     private async Task SendToWorkersAsync(string eventName, Guid bookingId, IEnumerable<Guid> workerIds)
     {
         foreach (var workerId in workerIds)

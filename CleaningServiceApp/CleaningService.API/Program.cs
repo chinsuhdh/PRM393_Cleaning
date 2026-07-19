@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json.Serialization;
 using Cleaning.BLL.Common;
 using Cleaning.BLL.DTOs;
@@ -231,6 +231,7 @@ namespace CleaningService.API
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
+            builder.Services.AddScoped<IChatService, ChatService>();
 
             builder.Services.AddHttpClient<IAiService, AiService>();
             builder.Services.AddScoped<IVnpayCheckoutService, VnpayCheckoutService>();
