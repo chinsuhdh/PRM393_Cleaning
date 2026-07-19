@@ -219,13 +219,21 @@ public class WorkerServiceTests
         var workerId = Guid.NewGuid();
         var older = new WorkerEarning
         {
-            Id = Guid.NewGuid(), WorkerId = workerId, BookingId = Guid.NewGuid(), Amount = 100_000m,
-            Status = "paid", EarnedAt = DateTime.UtcNow.AddDays(-1)
+            Id = Guid.NewGuid(),
+            WorkerId = workerId,
+            BookingId = Guid.NewGuid(),
+            Amount = 100_000m,
+            Status = "paid",
+            EarnedAt = DateTime.UtcNow.AddDays(-1)
         };
         var newer = new WorkerEarning
         {
-            Id = Guid.NewGuid(), WorkerId = workerId, BookingId = Guid.NewGuid(), Amount = 200_000m,
-            Status = "pending", EarnedAt = DateTime.UtcNow
+            Id = Guid.NewGuid(),
+            WorkerId = workerId,
+            BookingId = Guid.NewGuid(),
+            Amount = 200_000m,
+            Status = "pending",
+            EarnedAt = DateTime.UtcNow
         };
         var repository = new Mock<IGenericRepository<WorkerEarning>>();
         repository.Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<WorkerEarning, bool>>>()))
