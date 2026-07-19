@@ -69,7 +69,7 @@ namespace Cleaning.BLL.Services
                     return false;
                 if (oldStatus == BookingStatus.PendingPayment &&
                     request.NewStatus == BookingStatus.Completed &&
-                    booking.PaymentMethod == PaymentMethod.Payos)
+                    booking.PaymentMethod == PaymentMethod.Vnpay)
                     return false;
                 booking.Status = request.NewStatus;
                 booking.UpdatedAt = DateTime.UtcNow;
@@ -139,7 +139,7 @@ namespace Cleaning.BLL.Services
                     // Lets Booking Detail on the *other* party's screen pick up every transition live
                     // (Accepted -> OnTheWay -> InProgress -> ... as well as Cancelled), not just the
                     // dispatch-feed-specific pushes below. booking.Status (not request.NewStatus):
-                    // a payOS Finish lands on Completed, and that's the state the screens must show.
+                    // a VNPay Finish lands on Completed, and that's the state the screens must show.
                     await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.Status.ToString());
 
                     // Cancelling from AwaitingWorker means the job was live in eligible workers' feeds;

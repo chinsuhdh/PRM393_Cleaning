@@ -7,13 +7,13 @@ namespace Cleaning.BLL.Tests;
 
 public sealed partial class BookingDispatchTests
 {
-    [Fact(DisplayName = "[UT-BOOK-PAY-01] payOS: worker Finish parks the booking at PendingPayment with no " +
-        "payment row and no auto-charge — the client must pay through the real payOS flow")]
-    public async Task UpdateStatus_PayosFinish_ParksAtPendingPaymentWithoutCharging()
+    [Fact(DisplayName = "[UT-BOOK-PAY-01] VNPay: worker Finish parks the booking at PendingPayment with no " +
+        "payment row and no auto-charge — the client must pay through the real VNPay flow")]
+    public async Task UpdateStatus_VnpayFinish_ParksAtPendingPaymentWithoutCharging()
     {
         var scenario = DispatchScenario.Create(workerOnlineStatus: WorkerOnlineStatus.Busy);
         var booking = scenario.AddBooking(
-            BookingStatus.InProgress, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Payos);
+            BookingStatus.InProgress, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Vnpay);
         booking.TotalPrice = 250_000;
 
         var updated = await scenario.BookingService.UpdateBookingStatusAsync(
@@ -29,13 +29,13 @@ public sealed partial class BookingDispatchTests
             change.BookingId == booking.Id && change.NewStatus == nameof(BookingStatus.Completed));
     }
 
-    [Fact(DisplayName = "[UT-BOOK-PAY-01b] payOS: a worker cannot bypass real payment by completing a " +
+    [Fact(DisplayName = "[UT-BOOK-PAY-01b] VNPay: a worker cannot bypass real payment by completing a " +
         "PendingPayment booking directly through the generic status endpoint")]
-    public async Task UpdateStatus_PayosDirectComplete_Rejected()
+    public async Task UpdateStatus_VnpayDirectComplete_Rejected()
     {
         var scenario = DispatchScenario.Create();
         var booking = scenario.AddBooking(
-            BookingStatus.PendingPayment, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Payos);
+            BookingStatus.PendingPayment, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Vnpay);
 
         var updated = await scenario.BookingService.UpdateBookingStatusAsync(
             booking.Id, scenario.WorkerId, new UpdateBookingStatusDto { NewStatus = BookingStatus.Completed });
@@ -104,19 +104,19 @@ public sealed partial class BookingDispatchTests
         Assert.Single(scenario.WorkerEarnings);
     }
 
-    [Fact(DisplayName = "[UT-BOOK-PAY-04] Creating a payOS booking succeeds (no account-linking gate — payOS " +
-        "checkout needs no pre-linking) and the booking carries PaymentMethod=Payos end to end")]
-    public async Task Create_Payos_Succeeds()
+    [Fact(DisplayName = "[UT-BOOK-PAY-04] Creating a VNPay booking succeeds (no account-linking gate — VNPay " +
+        "checkout needs no pre-linking) and the booking carries PaymentMethod=Vnpay end to end")]
+    public async Task Create_Vnpay_Succeeds()
     {
         var scenario = DispatchScenario.Create();
         scenario.AddClientAccount();
         var request = scenario.CreateRequest();
-        request.PaymentMethod = PaymentMethod.Payos;
+        request.PaymentMethod = PaymentMethod.Vnpay;
 
-        var dto = await scenario.BookingService.CreateBookingAsync(scenario.ClientId, "payos-booking", request);
+        var dto = await scenario.BookingService.CreateBookingAsync(scenario.ClientId, "vnpay-booking", request);
 
-        Assert.Equal(nameof(PaymentMethod.Payos), dto.PaymentMethod);
+        Assert.Equal(nameof(PaymentMethod.Vnpay), dto.PaymentMethod);
         var booking = Assert.Single(scenario.Bookings);
-        Assert.Equal(PaymentMethod.Payos, booking.PaymentMethod);
+        Assert.Equal(PaymentMethod.Vnpay, booking.PaymentMethod);
     }
 }

@@ -20,19 +20,17 @@ public class PaymentServiceTests
 
     private static PaymentService CreateService(
         InMemoryUnitOfWork unitOfWork,
-        IPayOsCheckoutService? checkoutService = null,
-        IPayoutGateway? payoutGateway = null) =>
+        IVnpayCheckoutService? checkoutService = null) =>
         new(unitOfWork, NullLogger<PaymentService>.Instance, CreateMapper(),
-            checkoutService ?? Mock.Of<IPayOsCheckoutService>(),
-            payoutGateway ?? Mock.Of<IPayoutGateway>());
+            checkoutService ?? Mock.Of<IVnpayCheckoutService>());
 
-    private static Booking CreatePendingPayosBooking(Guid clientId, Guid workerId, decimal totalPrice) => new()
+    private static Booking CreatePendingVnpayBooking(Guid clientId, Guid workerId, decimal totalPrice) => new()
     {
         Id = Guid.NewGuid(),
         ClientId = clientId,
         WorkerId = workerId,
         Status = BookingStatus.PendingPayment,
-        PaymentMethod = PaymentMethod.Payos,
+        PaymentMethod = PaymentMethod.Vnpay,
         TotalPrice = totalPrice,
         CreatedAt = DateTime.UtcNow,
         UpdatedAt = DateTime.UtcNow
@@ -43,29 +41,29 @@ public class PaymentServiceTests
     {
         var clientId = Guid.NewGuid();
         var workerId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, workerId, 250_000m);
+        var booking = CreatePendingVnpayBooking(clientId, workerId, 250_000m);
         var unitOfWork = new InMemoryUnitOfWork().With([booking]).With(new List<Payment>());
 
-        var checkoutService = new Mock<IPayOsCheckoutService>();
+        var checkoutService = new Mock<IVnpayCheckoutService>();
         checkoutService
-            .Setup(s => s.CreatePaymentLinkAsync(250_000m, It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PayOsCheckoutLink(123456, "https://pay.payos.vn/web/abc123"));
+            .Setup(s => s.CreatePaymentUrl(250_000m, It.IsAny<string>(), It.IsAny<string>()))
+            .Returns(new VnpayCheckoutLink("txn-123456", "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=txn-123456"));
         var service = CreateService(unitOfWork, checkoutService.Object);
 
         var result = await service.PayNowAsync(clientId, new PayNowRequestDto { BookingId = booking.Id }, "127.0.0.1");
 
-        Assert.Equal("https://pay.payos.vn/web/abc123", result.PaymentUrl);
+        Assert.Equal("https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=txn-123456", result.PaymentUrl);
         var payment = Assert.Single(unitOfWork.Repository<Payment>().GetQueryable());
         Assert.Equal(250_000m, payment.Amount);
         Assert.Equal(PaymentStatus.Pending, payment.Status);
-        Assert.Equal(123456, payment.PayosOrderCode);
+        Assert.Equal("txn-123456", payment.VnpTxnRef);
     }
 
     [Fact(DisplayName = "[UT-BE-PAY-002] Pay-now bị từ chối nếu người gọi không phải chủ đơn")]
     public async Task PayNowAsync_NonOwningClient_Throws()
     {
         var clientId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, Guid.NewGuid(), 100_000m);
+        var booking = CreatePendingVnpayBooking(clientId, Guid.NewGuid(), 100_000m);
         var unitOfWork = new InMemoryUnitOfWork().With([booking]);
         var service = CreateService(unitOfWork);
 
@@ -79,7 +77,7 @@ public class PaymentServiceTests
     public async Task PayNowAsync_WrongStatus_Throws()
     {
         var clientId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, Guid.NewGuid(), 100_000m);
+        var booking = CreatePendingVnpayBooking(clientId, Guid.NewGuid(), 100_000m);
         booking.Status = BookingStatus.InProgress;
         var unitOfWork = new InMemoryUnitOfWork().With([booking]);
         var service = CreateService(unitOfWork);
@@ -94,7 +92,7 @@ public class PaymentServiceTests
     public async Task PayNowAsync_CashBooking_Throws()
     {
         var clientId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, Guid.NewGuid(), 100_000m);
+        var booking = CreatePendingVnpayBooking(clientId, Guid.NewGuid(), 100_000m);
         booking.PaymentMethod = PaymentMethod.Cash;
         var unitOfWork = new InMemoryUnitOfWork().With([booking]);
         var service = CreateService(unitOfWork);
@@ -102,20 +100,20 @@ public class PaymentServiceTests
         var exception = await Assert.ThrowsAsync<AppException>(() =>
             service.PayNowAsync(clientId, new PayNowRequestDto { BookingId = booking.Id }, "127.0.0.1"));
 
-        Assert.Equal(AppErrors.PaymentMethodNotPayos.Code, exception.Code);
+        Assert.Equal(AppErrors.PaymentMethodNotVnpay.Code, exception.Code);
     }
 
     [Fact(DisplayName = "[UT-BE-PAY-005] Pay-now bị từ chối nếu đơn đã thanh toán thành công")]
     public async Task PayNowAsync_AlreadyCompleted_Throws()
     {
         var clientId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, Guid.NewGuid(), 100_000m);
+        var booking = CreatePendingVnpayBooking(clientId, Guid.NewGuid(), 100_000m);
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
             BookingId = booking.Id,
             Amount = 100_000m,
-            Method = PaymentMethod.Payos,
+            Method = PaymentMethod.Vnpay,
             Status = PaymentStatus.Success,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -129,121 +127,128 @@ public class PaymentServiceTests
         Assert.Equal(AppErrors.PaymentAlreadyCompleted.Code, exception.Code);
     }
 
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-001] Webhook không xác thực được chữ ký bị từ chối và không thay đổi dữ liệu")]
-    public async Task ProcessPayOsWebhookAsync_InvalidSignature_Rejected()
+    private static Dictionary<string, string> SuccessfulConfirmParams(string txnRef = "txn-123456") => new()
+    {
+        ["vnp_TxnRef"] = txnRef,
+        ["vnp_ResponseCode"] = "00",
+        ["vnp_TransactionStatus"] = "00"
+    };
+
+    [Fact(DisplayName = "[UT-BE-CONFIRM-001] Xác nhận VNPay không xác thực được chữ ký bị từ chối và không thay đổi dữ liệu")]
+    public async Task ConfirmVnpayPaymentAsync_InvalidSignature_Rejected()
     {
         var unitOfWork = new InMemoryUnitOfWork().With(new List<Payment>());
-        var checkoutService = new Mock<IPayOsCheckoutService>();
-        checkoutService.Setup(s => s.VerifyWebhookAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PayOsWebhookResult?)null);
+        var checkoutService = new Mock<IVnpayCheckoutService>();
+        checkoutService.Setup(s => s.VerifyCallback(It.IsAny<IReadOnlyDictionary<string, string>>()))
+            .Returns(new VnpayCallbackResult(false, false, "", 0, null, "97"));
         var service = CreateService(unitOfWork, checkoutService.Object);
 
-        var success = await service.ProcessPayOsWebhookAsync("{}");
+        var outcome = await service.ConfirmVnpayPaymentAsync(new Dictionary<string, string>());
 
-        Assert.False(success);
+        Assert.Equal(VnpayConfirmOutcome.InvalidSignature, outcome);
     }
 
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-002] Webhook với orderCode không tồn tại bị từ chối")]
-    public async Task ProcessPayOsWebhookAsync_UnknownOrderCode_Rejected()
+    [Fact(DisplayName = "[UT-BE-CONFIRM-002] Xác nhận với TxnRef không tồn tại bị từ chối")]
+    public async Task ConfirmVnpayPaymentAsync_UnknownTxnRef_Rejected()
     {
         var unitOfWork = new InMemoryUnitOfWork().With(new List<Payment>());
-        var checkoutService = new Mock<IPayOsCheckoutService>();
-        checkoutService.Setup(s => s.VerifyWebhookAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PayOsWebhookResult(true, 999999, 100_000m, "ref-1"));
+        var checkoutService = new Mock<IVnpayCheckoutService>();
+        checkoutService.Setup(s => s.VerifyCallback(It.IsAny<IReadOnlyDictionary<string, string>>()))
+            .Returns(new VnpayCallbackResult(true, true, "unknown-txn", 100_000m, "ref-1", "00"));
         var service = CreateService(unitOfWork, checkoutService.Object);
 
-        var success = await service.ProcessPayOsWebhookAsync("{}");
+        var outcome = await service.ConfirmVnpayPaymentAsync(SuccessfulConfirmParams("unknown-txn"));
 
-        Assert.False(success);
+        Assert.Equal(VnpayConfirmOutcome.OrderNotFound, outcome);
     }
 
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-003] Webhook với số tiền không khớp bị từ chối")]
-    public async Task ProcessPayOsWebhookAsync_AmountMismatch_Rejected()
+    [Fact(DisplayName = "[UT-BE-CONFIRM-003] Xác nhận với số tiền không khớp bị từ chối")]
+    public async Task ConfirmVnpayPaymentAsync_AmountMismatch_Rejected()
     {
         var clientId = Guid.NewGuid();
         var workerId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, workerId, 250_000m);
+        var booking = CreatePendingVnpayBooking(clientId, workerId, 250_000m);
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
             BookingId = booking.Id,
             Amount = 250_000m,
-            Method = PaymentMethod.Payos,
+            Method = PaymentMethod.Vnpay,
             Status = PaymentStatus.Pending,
-            PayosOrderCode = 123456,
+            VnpTxnRef = "txn-123456",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
         var unitOfWork = new InMemoryUnitOfWork().With([booking]).With([payment]);
-        var checkoutService = new Mock<IPayOsCheckoutService>();
-        checkoutService.Setup(s => s.VerifyWebhookAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PayOsWebhookResult(true, 123456, 100_000m, "ref-1"));
+        var checkoutService = new Mock<IVnpayCheckoutService>();
+        checkoutService.Setup(s => s.VerifyCallback(It.IsAny<IReadOnlyDictionary<string, string>>()))
+            .Returns(new VnpayCallbackResult(true, true, "txn-123456", 100_000m, "ref-1", "00"));
         var service = CreateService(unitOfWork, checkoutService.Object);
 
-        var success = await service.ProcessPayOsWebhookAsync("{}");
+        var outcome = await service.ConfirmVnpayPaymentAsync(SuccessfulConfirmParams());
 
-        Assert.False(success);
+        Assert.Equal(VnpayConfirmOutcome.InvalidAmount, outcome);
         Assert.Equal(PaymentStatus.Pending, payment.Status);
     }
 
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-004] Webhook trùng lặp cho giao dịch đã thành công là no-op")]
-    public async Task ProcessPayOsWebhookAsync_DuplicateSuccessful_NoOp()
+    [Fact(DisplayName = "[UT-BE-CONFIRM-004] Xác nhận trùng lặp cho giao dịch đã thành công báo đã xác nhận, không ghi đè")]
+    public async Task ConfirmVnpayPaymentAsync_DuplicateSuccessful_ReportsAlreadyConfirmed()
     {
         var clientId = Guid.NewGuid();
         var workerId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, workerId, 250_000m);
+        var booking = CreatePendingVnpayBooking(clientId, workerId, 250_000m);
         booking.Status = BookingStatus.Completed;
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
             BookingId = booking.Id,
             Amount = 250_000m,
-            Method = PaymentMethod.Payos,
+            Method = PaymentMethod.Vnpay,
             Status = PaymentStatus.Success,
-            PayosOrderCode = 123456,
+            VnpTxnRef = "txn-123456",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
         var unitOfWork = new InMemoryUnitOfWork().With([booking]).With([payment]).With(new List<WorkerEarning>());
-        var checkoutService = new Mock<IPayOsCheckoutService>();
-        checkoutService.Setup(s => s.VerifyWebhookAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PayOsWebhookResult(true, 123456, 250_000m, "ref-1"));
+        var checkoutService = new Mock<IVnpayCheckoutService>();
+        checkoutService.Setup(s => s.VerifyCallback(It.IsAny<IReadOnlyDictionary<string, string>>()))
+            .Returns(new VnpayCallbackResult(true, true, "txn-123456", 250_000m, "ref-1", "00"));
         var service = CreateService(unitOfWork, checkoutService.Object);
 
-        var success = await service.ProcessPayOsWebhookAsync("{}");
+        var outcome = await service.ConfirmVnpayPaymentAsync(SuccessfulConfirmParams());
 
-        Assert.True(success);
+        Assert.Equal(VnpayConfirmOutcome.OrderAlreadyConfirmed, outcome);
         Assert.Empty(unitOfWork.Repository<WorkerEarning>().GetQueryable());
     }
 
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-005] Webhook thành công hoàn tất đơn, ghi nhận thu nhập pending và có " +
-        "tính idempotent khi webhook gửi lại lần hai")]
-    public async Task ProcessPayOsWebhookAsync_Successful_CompletesBookingAndWritesEarningOnce()
+    [Fact(DisplayName = "[UT-BE-CONFIRM-005] Xác nhận thành công hoàn tất đơn, ghi nhận thu nhập pending và có " +
+        "tính idempotent khi xác nhận gửi lại lần hai")]
+    public async Task ConfirmVnpayPaymentAsync_Successful_CompletesBookingAndWritesEarningOnce()
     {
         var clientId = Guid.NewGuid();
         var workerId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, workerId, 250_000m);
+        var booking = CreatePendingVnpayBooking(clientId, workerId, 250_000m);
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
             BookingId = booking.Id,
             Amount = 250_000m,
-            Method = PaymentMethod.Payos,
+            Method = PaymentMethod.Vnpay,
             Status = PaymentStatus.Pending,
-            PayosOrderCode = 123456,
+            VnpTxnRef = "txn-123456",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
         var unitOfWork = new InMemoryUnitOfWork()
             .With([booking]).With([payment]).With(new List<WorkerEarning>()).With(new List<BookingStatusLog>());
-        var checkoutService = new Mock<IPayOsCheckoutService>();
-        checkoutService.Setup(s => s.VerifyWebhookAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PayOsWebhookResult(true, 123456, 250_000m, "ref-777"));
+        var checkoutService = new Mock<IVnpayCheckoutService>();
+        checkoutService.Setup(s => s.VerifyCallback(It.IsAny<IReadOnlyDictionary<string, string>>()))
+            .Returns(new VnpayCallbackResult(true, true, "txn-123456", 250_000m, "ref-777", "00"));
         var service = CreateService(unitOfWork, checkoutService.Object);
 
-        var success = await service.ProcessPayOsWebhookAsync("{}");
+        var outcome = await service.ConfirmVnpayPaymentAsync(SuccessfulConfirmParams());
 
-        Assert.True(success);
+        Assert.Equal(VnpayConfirmOutcome.Success, outcome);
         Assert.Equal(BookingStatus.Completed, booking.Status);
         Assert.Equal(PaymentStatus.Success, payment.Status);
         Assert.Equal("ref-777", payment.TransactionId);
@@ -251,145 +256,45 @@ public class PaymentServiceTests
         Assert.Equal("pending", earning.Status);
         Assert.Equal(workerId, earning.WorkerId);
 
-        var secondSuccess = await service.ProcessPayOsWebhookAsync("{}");
-        Assert.True(secondSuccess);
+        var secondOutcome = await service.ConfirmVnpayPaymentAsync(SuccessfulConfirmParams());
+        Assert.Equal(VnpayConfirmOutcome.OrderAlreadyConfirmed, secondOutcome);
         Assert.Single(unitOfWork.Repository<WorkerEarning>().GetQueryable());
     }
 
-    private static (Booking booking, Payment payment, InMemoryUnitOfWork unitOfWork) SetUpSuccessfulWebhook(
-        Guid workerId, WorkerProfile? workerProfile = null)
+    [Fact(DisplayName = "[UT-BE-CONFIRM-006] Xác nhận báo giao dịch thất bại tại VNPay: đơn giữ nguyên, thanh toán đánh dấu Failed")]
+    public async Task ConfirmVnpayPaymentAsync_BankDeclined_MarksPaymentFailedWithoutCompletingBooking()
     {
         var clientId = Guid.NewGuid();
-        var booking = CreatePendingPayosBooking(clientId, workerId, 250_000m);
+        var workerId = Guid.NewGuid();
+        var booking = CreatePendingVnpayBooking(clientId, workerId, 250_000m);
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
             BookingId = booking.Id,
             Amount = 250_000m,
-            Method = PaymentMethod.Payos,
+            Method = PaymentMethod.Vnpay,
             Status = PaymentStatus.Pending,
-            PayosOrderCode = 123456,
+            VnpTxnRef = "txn-123456",
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
-        var unitOfWork = new InMemoryUnitOfWork()
-            .With([booking]).With([payment]).With(new List<WorkerEarning>()).With(new List<BookingStatusLog>())
-            .With(workerProfile != null ? [workerProfile] : new List<WorkerProfile>());
-        return (booking, payment, unitOfWork);
-    }
+        var unitOfWork = new InMemoryUnitOfWork().With([booking]).With([payment]).With(new List<WorkerEarning>());
+        var checkoutService = new Mock<IVnpayCheckoutService>();
+        checkoutService.Setup(s => s.VerifyCallback(It.IsAny<IReadOnlyDictionary<string, string>>()))
+            .Returns(new VnpayCallbackResult(true, false, "txn-123456", 250_000m, null, "24"));
+        var service = CreateService(unitOfWork, checkoutService.Object);
 
-    private static Mock<IPayOsCheckoutService> SuccessfulCheckoutService() =>
-        new Mock<IPayOsCheckoutService>()
-            .Also(m => m.Setup(s => s.VerifyWebhookAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new PayOsWebhookResult(true, 123456, 250_000m, "ref-1")));
-
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-006] Thợ chưa cấu hình tài khoản nhận tiền: thu nhập giữ nguyên pending, " +
-        "không gọi cổng chi trả")]
-    public async Task ProcessPayOsWebhookAsync_NoPayoutAccount_StaysPending()
-    {
-        var workerId = Guid.NewGuid();
-        var (_, _, unitOfWork) = SetUpSuccessfulWebhook(
-            workerId, new WorkerProfile { UserId = workerId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
-        var checkoutService = SuccessfulCheckoutService();
-        var payoutGateway = new Mock<IPayoutGateway>(MockBehavior.Strict);
-        var service = CreateService(unitOfWork, checkoutService.Object, payoutGateway.Object);
-
-        var success = await service.ProcessPayOsWebhookAsync("{}");
-
-        Assert.True(success);
-        var earning = Assert.Single(unitOfWork.Repository<WorkerEarning>().GetQueryable());
-        Assert.Equal("pending", earning.Status);
-        Assert.Null(earning.PayoutId);
-        payoutGateway.VerifyNoOtherCalls();
-    }
-
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-007] Chi trả tự động thành công ngay: thu nhập chuyển sang paid kèm PaidAt")]
-    public async Task ProcessPayOsWebhookAsync_PayoutSucceeds_MarksPaid()
-    {
-        var workerId = Guid.NewGuid();
-        var workerProfile = new WorkerProfile
+        var outcome = await service.ConfirmVnpayPaymentAsync(new Dictionary<string, string>
         {
-            UserId = workerId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
-            PayoutBankBin = "970422", PayoutBankAccountNumber = "0123456789"
-        };
-        var (_, _, unitOfWork) = SetUpSuccessfulWebhook(workerId, workerProfile);
-        var checkoutService = SuccessfulCheckoutService();
-        var payoutGateway = new Mock<IPayoutGateway>();
-        payoutGateway
-            .Setup(g => g.PayAsync(
-                It.IsAny<Guid>(), 250_000m, "970422", "0123456789", It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PayoutResult(PayoutState.Succeeded, "payout-1", null));
-        var service = CreateService(unitOfWork, checkoutService.Object, payoutGateway.Object);
+            ["vnp_TxnRef"] = "txn-123456",
+            ["vnp_ResponseCode"] = "24",
+            ["vnp_TransactionStatus"] = "02"
+        });
 
-        await service.ProcessPayOsWebhookAsync("{}");
-
-        var earning = Assert.Single(unitOfWork.Repository<WorkerEarning>().GetQueryable());
-        Assert.Equal("paid", earning.Status);
-        Assert.Equal("payout-1", earning.PayoutId);
-        Assert.NotNull(earning.PaidAt);
-    }
-
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-008] Chi trả tự động đang xử lý: thu nhập chuyển sang processing kèm PayoutId")]
-    public async Task ProcessPayOsWebhookAsync_PayoutProcessing_MarksProcessing()
-    {
-        var workerId = Guid.NewGuid();
-        var workerProfile = new WorkerProfile
-        {
-            UserId = workerId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
-            PayoutBankBin = "970422", PayoutBankAccountNumber = "0123456789"
-        };
-        var (_, _, unitOfWork) = SetUpSuccessfulWebhook(workerId, workerProfile);
-        var checkoutService = SuccessfulCheckoutService();
-        var payoutGateway = new Mock<IPayoutGateway>();
-        payoutGateway
-            .Setup(g => g.PayAsync(
-                It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PayoutResult(PayoutState.Processing, "payout-2", null));
-        var service = CreateService(unitOfWork, checkoutService.Object, payoutGateway.Object);
-
-        await service.ProcessPayOsWebhookAsync("{}");
-
-        var earning = Assert.Single(unitOfWork.Repository<WorkerEarning>().GetQueryable());
-        Assert.Equal("processing", earning.Status);
-        Assert.Equal("payout-2", earning.PayoutId);
-        Assert.Null(earning.PaidAt);
-    }
-
-    [Fact(DisplayName = "[UT-BE-WEBHOOK-009] Chi trả tự động lỗi: thu nhập giữ pending kèm lý do lỗi, webhook " +
-        "vẫn báo thành công cho payOS")]
-    public async Task ProcessPayOsWebhookAsync_PayoutThrows_KeepsPendingButWebhookStillSucceeds()
-    {
-        var workerId = Guid.NewGuid();
-        var workerProfile = new WorkerProfile
-        {
-            UserId = workerId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow,
-            PayoutBankBin = "970422", PayoutBankAccountNumber = "0123456789"
-        };
-        var (_, _, unitOfWork) = SetUpSuccessfulWebhook(workerId, workerProfile);
-        var checkoutService = SuccessfulCheckoutService();
-        var payoutGateway = new Mock<IPayoutGateway>();
-        payoutGateway
-            .Setup(g => g.PayAsync(
-                It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("payOS unreachable"));
-        var service = CreateService(unitOfWork, checkoutService.Object, payoutGateway.Object);
-
-        var success = await service.ProcessPayOsWebhookAsync("{}");
-
-        Assert.True(success);
-        var earning = Assert.Single(unitOfWork.Repository<WorkerEarning>().GetQueryable());
-        Assert.Equal("pending", earning.Status);
-        Assert.Null(earning.PayoutId);
-    }
-}
-
-internal static class MockExtensions
-{
-    public static Mock<T> Also<T>(this Mock<T> mock, Action<Mock<T>> configure) where T : class
-    {
-        configure(mock);
-        return mock;
+        Assert.Equal(VnpayConfirmOutcome.Success, outcome);
+        Assert.Equal(PaymentStatus.Failed, payment.Status);
+        Assert.Equal("24", payment.FailureCode);
+        Assert.Equal(BookingStatus.PendingPayment, booking.Status);
+        Assert.Empty(unitOfWork.Repository<WorkerEarning>().GetQueryable());
     }
 }

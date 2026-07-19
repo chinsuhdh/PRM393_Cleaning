@@ -36,11 +36,10 @@ public sealed class PostgreSqlApiFixture : WebApplicationFactory<Program>, IAsyn
                         "3YlcESfqMCfUbxi5yDM0lAb7oh6XiOAniuq4Nm50Gjw=",
                     ["JwtConfig:Issuer"] = "CleaningService.Api.Tests",
                     ["JwtConfig:Audience"] = "CleaningService.Api.Tests",
-                    ["PayOS:ClientId"] = "TEST_CLIENT_ID",
-                    ["PayOS:ApiKey"] = "TEST_API_KEY",
-                    ["PayOS:ChecksumKey"] = "TEST_CHECKSUM_KEY",
-                    ["PayOS:ReturnUrl"] = "https://api.test.local/api/Payments/payos-return",
-                    ["PayOS:CancelUrl"] = "https://api.test.local/api/Payments/payos-return"
+                    ["VNPay:TmnCode"] = "TESTCODE",
+                    ["VNPay:HashSecret"] = "TEST_HASH_SECRET",
+                    ["VNPay:BaseUrl"] = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                    ["VNPay:ReturnUrl"] = "https://api.test.local/api/Payments/vnpay-return"
                 });
         });
     }

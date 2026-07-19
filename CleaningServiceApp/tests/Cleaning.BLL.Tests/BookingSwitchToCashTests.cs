@@ -5,13 +5,13 @@ namespace Cleaning.BLL.Tests;
 
 public sealed partial class BookingDispatchTests
 {
-    [Fact(DisplayName = "[UT-BOOK-SWC-01] Khách chuyển đơn PendingPayment/payOS sang tiền mặt: đổi phương " +
+    [Fact(DisplayName = "[UT-BOOK-SWC-01] Khách chuyển đơn PendingPayment/VNPay sang tiền mặt: đổi phương " +
         "thức và ghi lại lịch sử")]
     public async Task SwitchToCashAsync_HappyPath_FlipsMethodAndLogsHistory()
     {
         var scenario = DispatchScenario.Create();
         var booking = scenario.AddBooking(
-            BookingStatus.PendingPayment, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Payos);
+            BookingStatus.PendingPayment, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Vnpay);
 
         await scenario.BookingService.SwitchToCashAsync(booking.Id, scenario.ClientId);
 
@@ -30,13 +30,13 @@ public sealed partial class BookingDispatchTests
     {
         var scenario = DispatchScenario.Create();
         var booking = scenario.AddBooking(
-            BookingStatus.PendingPayment, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Payos);
+            BookingStatus.PendingPayment, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Vnpay);
 
         var exception = await Assert.ThrowsAsync<AppException>(() =>
             scenario.BookingService.SwitchToCashAsync(booking.Id, Guid.NewGuid()));
 
         Assert.Equal(AppErrors.Forbidden.Code, exception.Code);
-        Assert.Equal(PaymentMethod.Payos, booking.PaymentMethod);
+        Assert.Equal(PaymentMethod.Vnpay, booking.PaymentMethod);
     }
 
     [Fact(DisplayName = "[UT-BOOK-SWC-03] Không thể chuyển sang tiền mặt khi đơn không ở trạng thái chờ " +
@@ -45,7 +45,7 @@ public sealed partial class BookingDispatchTests
     {
         var scenario = DispatchScenario.Create();
         var booking = scenario.AddBooking(
-            BookingStatus.InProgress, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Payos);
+            BookingStatus.InProgress, workerId: scenario.WorkerId, paymentMethod: PaymentMethod.Vnpay);
 
         var exception = await Assert.ThrowsAsync<AppException>(() =>
             scenario.BookingService.SwitchToCashAsync(booking.Id, scenario.ClientId));

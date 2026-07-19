@@ -175,7 +175,7 @@ namespace CleaningService.API
             });
 
             builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("EmailConfiguration"));
-            builder.Services.Configure<PayOsSettings>(builder.Configuration.GetSection("PayOS"));
+            builder.Services.Configure<VnpaySettings>(builder.Configuration.GetSection("VNPay"));
 
             builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -202,12 +202,9 @@ namespace CleaningService.API
             builder.Services.AddScoped<IPaymentService, PaymentService>();
             builder.Services.AddScoped<IReviewService, ReviewService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
-            builder.Services.AddScoped<IPayoutSweepService, PayoutSweepService>();
-            builder.Services.AddHostedService<PayoutSweeperService>();
 
             builder.Services.AddHttpClient<IAiService, AiService>();
-            builder.Services.AddHttpClient<IPayoutGateway, PayOsPayoutGateway>();
-            builder.Services.AddHttpClient<IPayOsCheckoutService, PayOsCheckoutService>();
+            builder.Services.AddScoped<IVnpayCheckoutService, VnpayCheckoutService>();
 
             var app = builder.Build();
 

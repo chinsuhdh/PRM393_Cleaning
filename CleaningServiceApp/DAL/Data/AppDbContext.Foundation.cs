@@ -112,10 +112,10 @@ public partial class AppDbContext
             entity.Property(e => e.FailureCode).HasColumnName("failure_code");
             entity.Property(e => e.FailureMessage).HasColumnName("failure_message");
             entity.Property(e => e.CallbackVerifiedAt).HasColumnName("callback_verified_at");
-            entity.Property(e => e.PayosOrderCode).HasColumnName("payos_order_code");
+            entity.Property(e => e.VnpTxnRef).HasColumnName("vnp_txn_ref");
             entity.HasIndex(e => e.IdempotencyKey).IsUnique().HasFilter("idempotency_key IS NOT NULL");
             entity.HasIndex(e => e.ProviderReference).IsUnique().HasFilter("provider_reference IS NOT NULL");
-            entity.HasIndex(e => e.PayosOrderCode).IsUnique().HasFilter("payos_order_code IS NOT NULL");
+            entity.HasIndex(e => e.VnpTxnRef).IsUnique().HasFilter("vnp_txn_ref IS NOT NULL");
         });
 
         modelBuilder.Entity<Notification>(entity =>

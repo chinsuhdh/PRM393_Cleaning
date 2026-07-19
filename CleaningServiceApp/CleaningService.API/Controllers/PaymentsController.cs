@@ -39,19 +39,14 @@ namespace CleaningService.API.Controllers
             return Ok(payment);
         }
 
-        [HttpPost("payos-webhook")]
-        [AllowAnonymous]
-        public async Task<IActionResult> PayOsWebhook()
+        [HttpGet("vnpay-confirm")]
+        public async Task<IActionResult> VnpayConfirm()
         {
-            using var reader = new StreamReader(Request.Body);
-            var rawJson = await reader.ReadToEndAsync();
-            var success = await _paymentService.ProcessPayOsWebhookAsync(rawJson);
-            return success ? Ok() : BadRequest();
-        }
+            var queryParams = Request.Query.ToDictionary(q => q.Key, q => q.Value.ToString());
+            var outcome = await _paymentService.ConfirmVnpayPaymentAsync(queryParams);
 
-        [HttpGet("payos-return")]
-        [AllowAnonymous]
-        public IActionResult PayOsReturn() =>
-            Content("Bạn có thể đóng cửa sổ này.", "text/plain");
+            var success = outcome is VnpayConfirmOutcome.Success or VnpayConfirmOutcome.OrderAlreadyConfirmed;
+            return Ok(new { success, outcome = outcome.ToString() });
+        }
     }
 }

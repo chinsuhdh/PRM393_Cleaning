@@ -4,7 +4,6 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
-using System.Text.Json;
 using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Data;
@@ -29,7 +28,7 @@ public sealed class PaymentApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
     private static readonly Guid AddressId = Guid.Parse("9c200000-0000-0000-0000-000000000001");
     private static readonly Guid BookingId = Guid.Parse("9c300000-0000-0000-0000-000000000001");
 
-    private readonly FakePayOsCheckoutService _fakeCheckoutService = new();
+    private readonly FakeVnpayCheckoutService _fakeCheckoutService = new();
     private WebApplicationFactory<Program> _factory = null!;
 
     public async Task InitializeAsync()
@@ -38,8 +37,8 @@ public sealed class PaymentApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         _factory = fixture.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services =>
             {
-                services.RemoveAll<IPayOsCheckoutService>();
-                services.AddSingleton<IPayOsCheckoutService>(_fakeCheckoutService);
+                services.RemoveAll<IVnpayCheckoutService>();
+                services.AddSingleton<IVnpayCheckoutService>(_fakeCheckoutService);
             }));
 
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -103,7 +102,7 @@ public sealed class PaymentApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
             UnitPrice = 100_000,
             TotalPrice = 200_000,
             Status = BookingStatus.PendingPayment,
-            PaymentMethod = PaymentMethod.Payos,
+            PaymentMethod = PaymentMethod.Vnpay,
             AddressSnapshot = "{}",
             OptionAnswers = "{}",
             PricingBreakdown = "{}",
@@ -115,7 +114,7 @@ public sealed class PaymentApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    [Fact(DisplayName = "[IT-PAY-01] Pay-now trả về URL thanh toán payOS hợp lệ")]
+    [Fact(DisplayName = "[IT-PAY-01] Pay-now trả về URL thanh toán VNPay hợp lệ")]
     public async Task PayNow_HappyPath_ReturnsCheckoutUrl()
     {
         using var client = AuthenticatedClient(ClientId, UserRole.Client);
@@ -124,27 +123,22 @@ public sealed class PaymentApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadDataAsync<PayNowResponseDto>();
-        Assert.StartsWith("https://pay.payos.vn/web/", result!.PaymentUrl);
+        Assert.StartsWith("https://sandbox.vnpayment.vn/paymentv2/vpcpay.html", result!.PaymentUrl);
     }
 
-    [Fact(DisplayName = "[IT-PAY-02] Webhook hợp lệ hoàn tất đơn và ghi nhận thu nhập")]
-    public async Task PayOsWebhook_Valid_CompletesBookingAndWritesEarning()
+    [Fact(DisplayName = "[IT-PAY-02] Xác nhận VNPay hợp lệ hoàn tất đơn và ghi nhận thu nhập")]
+    public async Task VnpayConfirm_Valid_CompletesBookingAndWritesEarning()
     {
         using var client = AuthenticatedClient(ClientId, UserRole.Client);
         var payResponse = await client.PostAsJsonAsync("/api/Payments", new { bookingId = BookingId });
         await payResponse.Content.ReadDataAsync<PayNowResponseDto>();
 
-        using var anonymous = _factory.CreateClient();
-        var webhookBody = JsonSerializer.Serialize(new
-        {
-            orderCode = _fakeCheckoutService.LastOrderCode,
-            amount = 200_000m,
-            success = true
-        });
-        var webhookResponse = await anonymous.PostAsync(
-            "/api/Payments/payos-webhook", new StringContent(webhookBody, Encoding.UTF8, "application/json"));
+        var confirmResponse = await client.GetAsync(
+            $"/api/Payments/vnpay-confirm?vnp_TxnRef={_fakeCheckoutService.LastTxnRef}&vnp_Amount=20000000&vnp_ResponseCode=00&vnp_TransactionStatus=00");
 
-        Assert.Equal(HttpStatusCode.OK, webhookResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, confirmResponse.StatusCode);
+        var result = await confirmResponse.Content.ReadDataAsync<VnpayConfirmResult>();
+        Assert.True(result!.Success);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -154,23 +148,35 @@ public sealed class PaymentApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
         Assert.Equal("pending", earning.Status);
     }
 
-    [Fact(DisplayName = "[IT-PAY-03] Webhook không xác thực được chữ ký bị từ chối và không thay đổi trạng thái đơn")]
-    public async Task PayOsWebhook_InvalidSignature_RejectedAndBookingUntouched()
+    [Fact(DisplayName = "[IT-PAY-03] Xác nhận không xác thực được chữ ký bị từ chối và không thay đổi trạng thái đơn")]
+    public async Task VnpayConfirm_InvalidSignature_RejectedAndBookingUntouched()
     {
         using var client = AuthenticatedClient(ClientId, UserRole.Client);
         var payResponse = await client.PostAsJsonAsync("/api/Payments", new { bookingId = BookingId });
         await payResponse.Content.ReadDataAsync<PayNowResponseDto>();
 
-        using var anonymous = _factory.CreateClient();
-        var webhookResponse = await anonymous.PostAsync(
-            "/api/Payments/payos-webhook", new StringContent(FakePayOsCheckoutService.InvalidSignaturePayload, Encoding.UTF8, "application/json"));
+        var confirmResponse = await client.GetAsync(
+            $"/api/Payments/vnpay-confirm?vnp_TxnRef={_fakeCheckoutService.LastTxnRef}&vnp_Amount=20000000&invalid=1");
 
-        Assert.Equal(HttpStatusCode.BadRequest, webhookResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, confirmResponse.StatusCode);
+        var result = await confirmResponse.Content.ReadDataAsync<VnpayConfirmResult>();
+        Assert.False(result!.Success);
+        Assert.Equal("InvalidSignature", result.Outcome);
 
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var booking = await db.Bookings.SingleAsync(b => b.Id == BookingId);
         Assert.Equal(BookingStatus.PendingPayment, booking.Status);
+    }
+
+    [Fact(DisplayName = "[IT-PAY-04] Xác nhận VNPay yêu cầu đăng nhập")]
+    public async Task VnpayConfirm_Anonymous_Unauthorized()
+    {
+        using var anonymous = _factory.CreateClient();
+
+        var confirmResponse = await anonymous.GetAsync("/api/Payments/vnpay-confirm?vnp_TxnRef=abc");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, confirmResponse.StatusCode);
     }
 
     private HttpClient AuthenticatedClient(Guid accountId, UserRole role)
@@ -199,29 +205,29 @@ public sealed class PaymentApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
     }
 }
 
-internal sealed class FakePayOsCheckoutService : IPayOsCheckoutService
+internal sealed record VnpayConfirmResult(bool Success, string Outcome);
+
+internal sealed class FakeVnpayCheckoutService : IVnpayCheckoutService
 {
-    public const string InvalidSignaturePayload = "invalid";
+    public string? LastTxnRef { get; private set; }
 
-    public long? LastOrderCode { get; private set; }
-
-    public Task<PayOsCheckoutLink> CreatePaymentLinkAsync(decimal amount, string description, CancellationToken ct = default)
+    public VnpayCheckoutLink CreatePaymentUrl(decimal amount, string orderInfo, string ipAddress)
     {
-        var orderCode = Random.Shared.NextInt64(1, long.MaxValue);
-        LastOrderCode = orderCode;
-        return Task.FromResult(new PayOsCheckoutLink(orderCode, $"https://pay.payos.vn/web/{orderCode}"));
+        var txnRef = Guid.NewGuid().ToString("N");
+        LastTxnRef = txnRef;
+        return new VnpayCheckoutLink(txnRef, $"https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef={txnRef}");
     }
 
-    public Task<PayOsWebhookResult?> VerifyWebhookAsync(string rawJson, CancellationToken ct = default)
+    public VnpayCallbackResult VerifyCallback(IReadOnlyDictionary<string, string> queryParams)
     {
-        if (rawJson == InvalidSignaturePayload)
-            return Task.FromResult<PayOsWebhookResult?>(null);
+        if (queryParams.ContainsKey("invalid"))
+            return new VnpayCallbackResult(false, false, "", 0, null, "97");
 
-        var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(rawJson)!;
-        return Task.FromResult<PayOsWebhookResult?>(new PayOsWebhookResult(
-            payload["success"].GetBoolean(),
-            payload["orderCode"].GetInt64(),
-            payload["amount"].GetDecimal(),
-            "ref-test"));
+        var txnRef = queryParams.GetValueOrDefault("vnp_TxnRef", "");
+        var amount = queryParams.TryGetValue("vnp_Amount", out var amountStr) ? decimal.Parse(amountStr) / 100m : 0m;
+        var responseCode = queryParams.GetValueOrDefault("vnp_ResponseCode", "00");
+        var transactionStatus = queryParams.GetValueOrDefault("vnp_TransactionStatus", "00");
+        var success = responseCode == "00" && transactionStatus == "00";
+        return new VnpayCallbackResult(true, success, txnRef, amount, "ref-test", responseCode);
     }
 }

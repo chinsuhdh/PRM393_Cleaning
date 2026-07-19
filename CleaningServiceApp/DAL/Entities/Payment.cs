@@ -27,7 +27,7 @@ public partial class Payment
 
     public string? ProviderReference { get; set; }
 
-    public long? PayosOrderCode { get; set; }
+    public string? VnpTxnRef { get; set; }
 
     public string? FailureCode { get; set; }
 

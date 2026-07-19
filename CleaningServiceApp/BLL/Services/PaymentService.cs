@@ -15,23 +15,20 @@ namespace Cleaning.BLL.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<PaymentService> _logger;
         private readonly IMapper _mapper;
-        private readonly IPayOsCheckoutService _checkoutService;
-        private readonly IPayoutGateway _payoutGateway;
+        private readonly IVnpayCheckoutService _checkoutService;
         private readonly IDispatchPublisher? _dispatchPublisher;
 
         public PaymentService(
             IUnitOfWork unitOfWork,
             ILogger<PaymentService> logger,
             IMapper mapper,
-            IPayOsCheckoutService checkoutService,
-            IPayoutGateway payoutGateway,
+            IVnpayCheckoutService checkoutService,
             IDispatchPublisher? dispatchPublisher = null)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _mapper = mapper;
             _checkoutService = checkoutService;
-            _payoutGateway = payoutGateway;
             _dispatchPublisher = dispatchPublisher;
         }
 
@@ -44,8 +41,8 @@ namespace Cleaning.BLL.Services
                 throw new AppException(AppErrors.Forbidden);
             if (booking.Status != BookingStatus.PendingPayment)
                 throw new AppException(AppErrors.BookingNotPendingPayment);
-            if (booking.PaymentMethod != PaymentMethod.Payos)
-                throw new AppException(AppErrors.PaymentMethodNotPayos);
+            if (booking.PaymentMethod != PaymentMethod.Vnpay)
+                throw new AppException(AppErrors.PaymentMethodNotVnpay);
 
             var paymentRecord = (await _unitOfWork.Repository<Payment>()
                 .FindAsync(p => p.BookingId == request.BookingId)).FirstOrDefault();
@@ -53,7 +50,7 @@ namespace Cleaning.BLL.Services
             if (paymentRecord != null && paymentRecord.Status == PaymentStatus.Success)
                 throw new AppException(AppErrors.PaymentAlreadyCompleted);
 
-            var link = await _checkoutService.CreatePaymentLinkAsync(booking.TotalPrice, $"Thanh toan don {booking.Id}");
+            var link = _checkoutService.CreatePaymentUrl(booking.TotalPrice, $"Thanh toan don {booking.Id}", ipAddress);
 
             var now = DateTime.UtcNow;
             if (paymentRecord == null)
@@ -62,9 +59,9 @@ namespace Cleaning.BLL.Services
                 {
                     BookingId = booking.Id,
                     Amount = booking.TotalPrice,
-                    Method = PaymentMethod.Payos,
+                    Method = PaymentMethod.Vnpay,
                     Status = PaymentStatus.Pending,
-                    PayosOrderCode = link.OrderCode,
+                    VnpTxnRef = link.TxnRef,
                     CreatedAt = now,
                     UpdatedAt = now
                 };
@@ -73,16 +70,16 @@ namespace Cleaning.BLL.Services
             else
             {
                 paymentRecord.Amount = booking.TotalPrice;
-                paymentRecord.Method = PaymentMethod.Payos;
+                paymentRecord.Method = PaymentMethod.Vnpay;
                 paymentRecord.Status = PaymentStatus.Pending;
-                paymentRecord.PayosOrderCode = link.OrderCode;
+                paymentRecord.VnpTxnRef = link.TxnRef;
                 paymentRecord.UpdatedAt = now;
                 _unitOfWork.Repository<Payment>().Update(paymentRecord);
             }
 
             await _unitOfWork.SaveChangesAsync();
 
-            return new PayNowResponseDto { PaymentId = paymentRecord.Id, PaymentUrl = link.CheckoutUrl };
+            return new PayNowResponseDto { PaymentId = paymentRecord.Id, PaymentUrl = link.PaymentUrl };
         }
 
         public async Task<PaymentDto?> GetPaymentByBookingAsync(Guid bookingId)
@@ -93,44 +90,55 @@ namespace Cleaning.BLL.Services
             return payment != null ? _mapper.Map<PaymentDto>(payment) : null;
         }
 
-        public async Task<bool> ProcessPayOsWebhookAsync(string rawJson)
+        public async Task<VnpayConfirmOutcome> ConfirmVnpayPaymentAsync(IReadOnlyDictionary<string, string> queryParams)
         {
-            var webhookResult = await _checkoutService.VerifyWebhookAsync(rawJson);
-            if (webhookResult == null || !webhookResult.Success)
-                return false;
+            var callback = _checkoutService.VerifyCallback(queryParams);
+            if (!callback.SignatureValid)
+                return VnpayConfirmOutcome.InvalidSignature;
 
             using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
             {
                 var payment = (await _unitOfWork.Repository<Payment>()
-                    .FindAsync(p => p.PayosOrderCode == webhookResult.OrderCode)).FirstOrDefault();
+                    .FindAsync(p => p.VnpTxnRef == callback.TxnRef)).FirstOrDefault();
                 if (payment == null)
                 {
                     await transaction.RollbackAsync();
-                    return false;
+                    return VnpayConfirmOutcome.OrderNotFound;
                 }
 
-                if (payment.Amount != webhookResult.Amount)
+                if (payment.Amount != callback.Amount)
                 {
                     await transaction.RollbackAsync();
-                    return false;
+                    return VnpayConfirmOutcome.InvalidAmount;
                 }
 
                 if (payment.Status == PaymentStatus.Success)
                 {
                     await transaction.RollbackAsync();
-                    return true;
+                    return VnpayConfirmOutcome.OrderAlreadyConfirmed;
                 }
 
-                var now = DateTime.UtcNow;
+                if (!callback.Success)
+                {
+                    var now = DateTime.UtcNow;
+                    payment.Status = PaymentStatus.Failed;
+                    payment.FailureCode = callback.ResponseCode;
+                    payment.UpdatedAt = now;
+                    _unitOfWork.Repository<Payment>().Update(payment);
+                    await _unitOfWork.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    return VnpayConfirmOutcome.Success;
+                }
+
+                var completedAt = DateTime.UtcNow;
                 Guid? completedBookingId = null;
-                WorkerEarning? newEarning = null;
 
                 payment.Status = PaymentStatus.Success;
-                payment.TransactionId = webhookResult.Reference;
-                payment.CallbackVerifiedAt = now;
-                payment.PaidAt = now;
-                payment.UpdatedAt = now;
+                payment.TransactionId = callback.TransactionNo;
+                payment.CallbackVerifiedAt = completedAt;
+                payment.PaidAt = completedAt;
+                payment.UpdatedAt = completedAt;
                 _unitOfWork.Repository<Payment>().Update(payment);
 
                 var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(payment.BookingId);
@@ -138,7 +146,7 @@ namespace Cleaning.BLL.Services
                 {
                     var oldStatus = booking.Status;
                     booking.Status = BookingStatus.Completed;
-                    booking.UpdatedAt = now;
+                    booking.UpdatedAt = completedAt;
                     _unitOfWork.Repository<Booking>().Update(booking);
 
                     await _unitOfWork.Repository<BookingStatusLog>().AddAsync(new BookingStatusLog
@@ -147,22 +155,21 @@ namespace Cleaning.BLL.Services
                         OldStatus = oldStatus,
                         NewStatus = BookingStatus.Completed,
                         ChangedBy = null,
-                        Reason = BookingReasons.SystemConfirmedPayosPayment,
-                        CreatedAt = now
+                        Reason = BookingReasons.SystemConfirmedVnpayPayment,
+                        CreatedAt = completedAt
                     });
 
                     if (!await _unitOfWork.Repository<WorkerEarning>().ExistsAsync(e => e.BookingId == booking.Id))
                     {
-                        newEarning = new WorkerEarning
+                        await _unitOfWork.Repository<WorkerEarning>().AddAsync(new WorkerEarning
                         {
                             BookingId = booking.Id,
                             WorkerId = booking.WorkerId.Value,
                             Amount = booking.TotalPrice,
                             Status = "pending",
-                            EarnedAt = now,
-                            CreatedAt = now
-                        };
-                        await _unitOfWork.Repository<WorkerEarning>().AddAsync(newEarning);
+                            EarnedAt = completedAt,
+                            CreatedAt = completedAt
+                        });
                     }
 
                     var workerProfile = await _unitOfWork.Repository<WorkerProfile>()
@@ -170,7 +177,7 @@ namespace Cleaning.BLL.Services
                     if (workerProfile?.OnlineStatus == WorkerOnlineStatus.Busy)
                     {
                         workerProfile.OnlineStatus = WorkerOnlineStatus.Online;
-                        workerProfile.UpdatedAt = now;
+                        workerProfile.UpdatedAt = completedAt;
                         _unitOfWork.Repository<WorkerProfile>().Update(workerProfile);
                     }
 
@@ -183,50 +190,13 @@ namespace Cleaning.BLL.Services
                 if (completedBookingId.HasValue && _dispatchPublisher != null)
                     await _dispatchPublisher.BookingStatusChangedAsync(completedBookingId.Value, nameof(BookingStatus.Completed));
 
-                if (newEarning != null)
-                    await TryAutoPayoutAsync(newEarning);
-
-                return true;
+                return VnpayConfirmOutcome.Success;
             }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Lỗi khi xử lý payOS webhook cho OrderCode: {OrderCode}", webhookResult.OrderCode);
-                return false;
-            }
-        }
-
-        private async Task TryAutoPayoutAsync(WorkerEarning earning)
-        {
-            try
-            {
-                var workerProfile = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(earning.WorkerId);
-                if (string.IsNullOrWhiteSpace(workerProfile?.PayoutBankBin) ||
-                    string.IsNullOrWhiteSpace(workerProfile.PayoutBankAccountNumber))
-                    return;
-
-                var result = await _payoutGateway.PayAsync(
-                    earning.Id, earning.Amount, workerProfile.PayoutBankBin, workerProfile.PayoutBankAccountNumber,
-                    $"Thanh toan don {earning.BookingId}");
-
-                earning.PayoutId = result.PayoutId;
-                earning.PayoutFailureReason = result.FailureReason;
-                if (result.State == PayoutState.Succeeded)
-                {
-                    earning.Status = "paid";
-                    earning.PaidAt = DateTime.UtcNow;
-                }
-                else if (result.State == PayoutState.Processing)
-                {
-                    earning.Status = "processing";
-                }
-
-                _unitOfWork.Repository<WorkerEarning>().Update(earning);
-                await _unitOfWork.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Tự động chi trả cho thợ thất bại, EarningId: {EarningId}", earning.Id);
+                _logger.LogError(ex, "Lỗi khi xử lý VNPay IPN cho TxnRef: {TxnRef}", callback.TxnRef);
+                return VnpayConfirmOutcome.UnknownError;
             }
         }
     }

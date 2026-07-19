@@ -88,8 +88,8 @@ public static class AppErrors
         "BOOKING_NOT_PENDING_PAYMENT", "Đơn đặt lịch không ở trạng thái chờ thanh toán.", 409);
     public static readonly AppError PaymentAlreadyCompleted = new(
         "PAYMENT_ALREADY_COMPLETED", "Đơn hàng này đã được thanh toán.", 409);
-    public static readonly AppError PaymentMethodNotPayos = new(
-        "PAYMENT_METHOD_NOT_PAYOS", "Đơn này không dùng thanh toán trực tuyến payOS.", 400);
+    public static readonly AppError PaymentMethodNotVnpay = new(
+        "PAYMENT_METHOD_NOT_VNPAY", "Đơn này không dùng thanh toán trực tuyến VNPay.", 400);
     public static readonly AppError PaymentMethodAlreadyCash = new(
         "PAYMENT_METHOD_ALREADY_CASH", "Đơn này đã dùng thanh toán tiền mặt.", 400);
     public static readonly AppError PayoutAccountInvalid = new(
