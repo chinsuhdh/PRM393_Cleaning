@@ -47,6 +47,8 @@ public sealed partial class BookingDispatchTests
             SuspendedWorkerIds.Add(workerId);
             return Task.CompletedTask;
         }
+
+        public Task ChatMessageReceivedAsync(Guid bookingId, BookingMessageDto message) => Task.CompletedTask;
     }
 
     private sealed class DispatchScenario

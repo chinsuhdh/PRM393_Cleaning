@@ -88,6 +88,7 @@ public sealed class AdminServiceTests
         // Assert
         Assert.True(result);
         var updatedAccount = await unitOfWork.Repository<Account>().GetByIdAsync(userId);
+        Assert.NotNull(updatedAccount);
         Assert.Equal(AccountStatus.Banned, updatedAccount.Status);
     }
     [Fact(DisplayName = "[UT-ADM-04] GetAllServicesAsync returns all services")]

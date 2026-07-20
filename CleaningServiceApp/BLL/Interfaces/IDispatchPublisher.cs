@@ -15,4 +15,6 @@ public interface IDispatchPublisher
     Task NearbyWorkerLocationsAsync(Guid bookingId, IReadOnlyList<NearbyWorkerLocationDto> locations);
 
     Task WorkerSuspendedAsync(Guid workerId);
+
+    Task ChatMessageReceivedAsync(Guid bookingId, BookingMessageDto message);
 }
