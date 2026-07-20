@@ -18,8 +18,8 @@ internal static class DevelopmentSeedData
     internal static Service CreateApartmentService(DateTime now) => new()
     {
         Id = ApartmentServiceId,
-        Name = "Apartment Cleaning",
-        Description = "Basic and deep cleaning services for apartments.",
+        Name = "Dọn dẹp căn hộ",
+        Description = "Dịch vụ dọn dẹp cơ bản và chuyên sâu cho căn hộ chung cư.",
         PropertyType = PropertyType.Apartment,
         UnitType = ServiceUnitType.Hour,
         BasePrice = 120_000m,
@@ -33,8 +33,8 @@ internal static class DevelopmentSeedData
     internal static Service CreateHouseService(DateTime now) => new()
     {
         Id = HouseServiceId,
-        Name = "House Cleaning",
-        Description = "Basic and deep cleaning services for houses.",
+        Name = "Dọn dẹp nhà phố",
+        Description = "Dịch vụ dọn dẹp cơ bản và chuyên sâu cho nhà phố.",
         PropertyType = PropertyType.House,
         UnitType = ServiceUnitType.Hour,
         BasePrice = 150_000m,
@@ -45,15 +45,9 @@ internal static class DevelopmentSeedData
         UpdatedAt = now
     };
 
-    // D.3 BookingFormSchema example: stepper/single_choice/multi_choice options carry priceDelta (VND) and
-    // durationDelta (minutes); text/photos never affect price. "hologram" demonstrates that an unknown
-    // question type is skipped by both the API validator and the Flutter renderer (forward compatibility).
     internal const string ApartmentBookingFormSchema = """
         {
           "questions": [
-            { "id": "rooms", "type": "stepper", "label": "Căn hộ có bao nhiêu phòng?",
-              "min": 1, "max": 10, "required": true,
-              "unit": { "priceDelta": 40000, "durationDelta": 45 } },
             { "id": "level", "type": "single_choice", "label": "Mức độ dọn dẹp", "required": true,
               "options": [
                 { "id": "light", "label": "Dọn cơ bản" },

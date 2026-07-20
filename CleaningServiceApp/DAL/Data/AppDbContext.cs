@@ -1,6 +1,6 @@
 ﻿
 using Cleaning.DAL.Entities;
-using Cleaning.DAL.Enums; // Gọi thư viện Enums
+using Cleaning.DAL.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -79,7 +79,6 @@ public partial class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Cấu hình Map Enum C# với Enum PostgreSQL
         modelBuilder
             .HasPostgresEnum<AccountStatus>(name: "account_status")
             .HasPostgresEnum<AiSenderType>(name: "ai_sender_type")
@@ -130,7 +129,6 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.PasswordSalt).HasColumnName("password_salt");
             entity.Property(e => e.PhoneNumber).HasColumnName("phone_number");
 
-            // Map Enum
             entity.Property(e => e.Role).HasColumnType("user_role").HasColumnName("role");
             entity.Property(e => e.Status).HasColumnType("account_status").HasColumnName("status");
 
@@ -152,7 +150,6 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("id");
             entity.Property(e => e.BookingPhotoId).HasColumnName("booking_photo_id");
 
-            // Map Enum
             entity.Property(e => e.CleanlinessLevel).HasColumnType("cleanliness_level").HasColumnName("cleanliness_level");
 
             entity.Property(e => e.ConfidenceScore)
@@ -237,7 +234,6 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("created_at");
             entity.Property(e => e.Message).HasColumnName("message");
 
-            // Map Enum
             entity.Property(e => e.SenderType).HasColumnType("ai_sender_type").HasColumnName("sender_type");
 
             entity.HasOne(d => d.Conversation).WithMany(p => p.AiMessages)
@@ -264,7 +260,6 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.ActualStartTime).HasColumnName("actual_start_time");
             entity.Property(e => e.AddressId).HasColumnName("address_id");
 
-            // Map Enum
             entity.Property(e => e.BookingType).HasColumnType("booking_type").HasColumnName("booking_type");
             entity.Property(e => e.Status).HasColumnType("booking_status").HasColumnName("status");
             entity.Property(e => e.PaymentMethod)
@@ -340,7 +335,6 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
 
-            // Map Enum
             entity.Property(e => e.ActorRole).HasColumnType("user_role").HasColumnName("actor_role");
 
             entity.Property(e => e.ReasonCode)
@@ -375,7 +369,6 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("created_at");
             entity.Property(e => e.Note).HasColumnName("note");
 
-            // Map Enum
             entity.Property(e => e.PhotoType).HasColumnType("photo_type").HasColumnName("photo_type");
 
             entity.Property(e => e.PhotoUrl).HasColumnName("photo_url");
@@ -413,7 +406,6 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.RespondedAt).HasColumnName("responded_at");
             entity.Property(e => e.RespondedBy).HasColumnName("responded_by");
 
-            // Map Enum
             entity.Property(e => e.Status).HasColumnType("reschedule_status").HasColumnName("status");
 
             entity.HasOne(d => d.Booking).WithMany(p => p.BookingRescheduleRequests)
@@ -448,7 +440,6 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
 
-            // Map Enum
             entity.Property(e => e.OldStatus).HasColumnType("booking_status").HasColumnName("old_status");
             entity.Property(e => e.NewStatus).HasColumnType("booking_status").HasColumnName("new_status");
 
@@ -529,7 +520,6 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("is_read");
             entity.Property(e => e.Title).HasColumnName("title");
 
-            // Map Enum
             entity.Property(e => e.Type).HasColumnType("notification_type").HasColumnName("type");
 
             entity.Property(e => e.UserId).HasColumnName("user_id");
@@ -567,7 +557,6 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValueSql("now()")
                 .HasColumnName("created_at");
 
-            // Map Enum
             entity.Property(e => e.Method).HasColumnType("payment_method").HasColumnName("method");
             entity.Property(e => e.Status).HasColumnType("payment_status").HasColumnName("status");
 
@@ -699,7 +688,6 @@ public partial class AppDbContext : DbContext
                 .HasColumnName("minimum_hours");
             entity.Property(e => e.Name).HasColumnName("name");
 
-            // Map Enum
             entity.Property(e => e.PropertyType).HasColumnType("property_type").HasColumnName("property_type");
             entity.Property(e => e.UnitType).HasColumnType("service_unit_type").HasColumnName("unit_type");
         });
@@ -732,7 +720,6 @@ public partial class AppDbContext : DbContext
                 .HasPrecision(10, 7)
                 .HasColumnName("longitude");
 
-            // Map Enum
             entity.Property(e => e.PropertyType).HasColumnType("property_type").HasColumnName("property_type");
 
             entity.Property(e => e.UserId).HasColumnName("user_id");
@@ -805,7 +792,6 @@ public partial class AppDbContext : DbContext
                 .HasDefaultValue(false)
                 .HasColumnName("is_used");
 
-            // Map Enum
             entity.Property(e => e.Purpose).HasColumnType("verification_purpose").HasColumnName("purpose");
 
             entity.HasOne(d => d.Account).WithMany(p => p.VerificationCodes)
@@ -831,7 +817,6 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.Note).HasColumnName("note");
             entity.Property(e => e.StartTime).HasColumnName("start_time");
 
-            // Map Enum
             entity.Property(e => e.Status).HasColumnType("availability_status").HasColumnName("status");
 
             entity.Property(e => e.WorkerId).HasColumnName("worker_id");
@@ -864,7 +849,6 @@ public partial class AppDbContext : DbContext
                 .HasPrecision(10, 7)
                 .HasColumnName("current_lng");
 
-            // Map Enum
             entity.Property(e => e.OnlineStatus).HasColumnType("worker_online_status").HasColumnName("online_status");
 
             entity.Property(e => e.UpdatedAt)

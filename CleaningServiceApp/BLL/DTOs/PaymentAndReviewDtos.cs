@@ -2,7 +2,6 @@
 
 namespace Cleaning.BLL.DTOs
 {
-    // --- PAYMENT DTOs ---
     public class PaymentDto
     {
         public Guid Id { get; set; }
@@ -27,7 +26,6 @@ namespace Cleaning.BLL.DTOs
         public string PaymentUrl { get; set; } = null!;
     }
 
-    // --- REVIEW DTOs ---
     public class ReviewDto
     {
         public Guid Id { get; set; }

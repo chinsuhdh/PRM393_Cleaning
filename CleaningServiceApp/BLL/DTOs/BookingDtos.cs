@@ -76,7 +76,10 @@ namespace Cleaning.BLL.DTOs
         public DateTime? ScheduledStartTime { get; set; }
         public int ServiceVersion { get; set; } = 1;
         public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
-        [JsonIgnore, Obsolete("Duration is derived by the server.")]
+        // Optional client-stated expected duration — affects scheduling/display only (see
+        // BookingCreationService.CreateAsync), never pricing, which always comes from the server's
+        // own BookingPricingCalculator computation regardless of this value.
+        [Range(0, 24)]
         public decimal DurationHours { get; set; }
         [JsonIgnore, Obsolete("Discounts are derived by the server.")]
         public decimal DiscountAmount { get; set; }
@@ -91,7 +94,7 @@ namespace Cleaning.BLL.DTOs
         public Guid ServiceId { get; set; }
         public Dictionary<string, JsonElement>? OptionAnswers { get; set; }
         public DateTime? ScheduledStartTime { get; set; }
-        [JsonIgnore, Obsolete("Duration is derived by the server.")]
+        [Range(0, 24)]
         public decimal DurationHours { get; set; }
         [JsonIgnore, Obsolete("Discounts are derived by the server.")]
         public decimal DiscountAmount { get; set; }
@@ -167,6 +170,12 @@ namespace Cleaning.BLL.DTOs
         [Required]
         public BookingStatus NewStatus { get; set; }
         public string? Reason { get; set; }
+    }
+
+    public class UpdateBookingDurationDto
+    {
+        [Range(0.5, 24)]
+        public decimal DurationHours { get; set; }
     }
 
     public class WorkerCancelBookingDto

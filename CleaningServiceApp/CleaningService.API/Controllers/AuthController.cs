@@ -135,7 +135,7 @@ namespace CleaningService.API.Controllers
             var reauthToken = await _authService.ReauthenticateAsync(userId, request.Password);
 
             if (reauthToken == null)
-                throw new AppException(AppErrors.AuthInvalidCredentials); // Ném lỗi sai mật khẩu
+                throw new AppException(AppErrors.AuthInvalidCredentials);
 
             return Ok(new { ReauthToken = reauthToken });
         }

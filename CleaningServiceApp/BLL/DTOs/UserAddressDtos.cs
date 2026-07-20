@@ -11,7 +11,7 @@ namespace Cleaning.BLL.DTOs
         public string AddressText { get; set; } = null!;
         public decimal? Latitude { get; set; }
         public decimal? Longitude { get; set; }
-        public PropertyType PropertyType { get; set; } // Bổ sung field này
+        public PropertyType PropertyType { get; set; }
         public bool IsDefault { get; set; }
     }
 
@@ -27,7 +27,7 @@ namespace Cleaning.BLL.DTOs
         public decimal? Longitude { get; set; }
 
         [Required]
-        public PropertyType PropertyType { get; set; } // Bổ sung field này
+        public PropertyType PropertyType { get; set; }
 
         public bool IsDefault { get; set; }
     }

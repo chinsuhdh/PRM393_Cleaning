@@ -67,7 +67,7 @@ namespace Cleaning.BLL.Services
                 Longitude = request.Longitude,
                 PropertyType = request.PropertyType,
                 IsDefault = request.IsDefault,
-                CreatedAt = DateTime.UtcNow // Đảm bảo dùng UtcNow cho TIMESTAMPTZ
+                CreatedAt = DateTime.UtcNow
             };
 
             await _unitOfWork.Repository<UserAddress>().AddAsync(newAddress);
@@ -93,7 +93,6 @@ namespace Cleaning.BLL.Services
 
             if (address == null) return false;
 
-            // Nếu update địa chỉ này thành default, cần reset các default cũ
             if (request.IsDefault && !address.IsDefault)
             {
                 await ResetDefaultAddressesAsync(userId);
@@ -133,7 +132,6 @@ namespace Cleaning.BLL.Services
 
             if (address == null) return false;
 
-            // Nếu đã là default rồi thì không cần làm gì thêm
             if (address.IsDefault) return true;
 
             await ResetDefaultAddressesAsync(userId);

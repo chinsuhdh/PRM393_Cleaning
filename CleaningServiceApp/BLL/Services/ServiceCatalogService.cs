@@ -12,7 +12,6 @@ namespace Cleaning.BLL.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<ServiceCatalogService> _logger;
 
-        // Định nghĩa GUID tĩnh để giả lập Category, bảo vệ UI Frontend không bị vỡ
         private static readonly Guid ApartmentCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         private static readonly Guid HouseCategoryId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 

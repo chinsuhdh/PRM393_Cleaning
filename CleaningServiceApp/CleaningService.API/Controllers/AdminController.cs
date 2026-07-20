@@ -8,7 +8,7 @@ namespace CleaningService.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")] // Role string khớp chính xác với Enum UserRole.Admin.ToString() trong AuthService
+    [Authorize(Roles = "Admin")]
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _adminService;
@@ -26,8 +26,6 @@ namespace CleaningService.API.Controllers
             var stats = await _adminService.GetDashboardStatsAsync();
             return Ok(stats);
         }
-
-        // --- Worker Applications ---
 
         [HttpGet("worker-applications")]
         [ProducesResponseType(typeof(IEnumerable<WorkerApplicationDto>), StatusCodes.Status200OK)]
@@ -57,8 +55,6 @@ namespace CleaningService.API.Controllers
             return NoContent();
         }
 
-        // --- Account Management ---
-
         [HttpGet("accounts")]
         [ProducesResponseType(typeof(IEnumerable<AccountAdminDto>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetAccounts()
@@ -76,8 +72,6 @@ namespace CleaningService.API.Controllers
             if (!result) return BadRequest("Account not found or invalid status.");
             return NoContent();
         }
-
-        // --- Service Management ---
 
         [HttpGet("services")]
         [ProducesResponseType(typeof(IEnumerable<ServiceDto>), StatusCodes.Status200OK)]
@@ -114,8 +108,6 @@ namespace CleaningService.API.Controllers
             if (!result) return NotFound();
             return NoContent();
         }
-
-        // --- Booking Management ---
 
         [HttpGet("bookings")]
         [ProducesResponseType(typeof(IEnumerable<BookingAdminDto>), StatusCodes.Status200OK)]

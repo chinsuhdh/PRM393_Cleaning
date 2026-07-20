@@ -17,8 +17,9 @@ namespace CleaningService.API.Controllers
     public class ProfilesController : ControllerBase
     {
         private readonly IProfileService _profileService;
+        private readonly IWebHostEnvironment _environment;
+        private readonly IConfiguration _configuration;
         private readonly IFileStorageService _fileStorage;
-        private readonly IConfiguration _configuration; // Dùng để xác thực Reauth Token
 
         public ProfilesController(IProfileService profileService, IFileStorageService fileStorage, IConfiguration configuration)
         {
@@ -59,7 +60,6 @@ namespace CleaningService.API.Controllers
             var result = await _profileService.UpdateProfileAsync(userId, request);
             if (!result) throw new AppException(AppErrors.ProfileUpdateFailed);
 
-            // Trả về một JSON Object rõ ràng để Flutter (Dio) có thể parse dễ dàng
             return Ok(new
             {
                 success = true,
@@ -120,7 +120,7 @@ namespace CleaningService.API.Controllers
                 throw new AppException(AppErrors.Unauthorized);
 
             if (string.IsNullOrWhiteSpace(reauthToken))
-                throw new AppException(AppErrors.Unauthorized); // Đã xóa string
+                throw new AppException(AppErrors.Unauthorized);
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_configuration["JwtConfig:Secret"]!);
@@ -144,16 +144,16 @@ namespace CleaningService.API.Controllers
 
                 if (tokenType != "Reauth" || tokenUserId != userId.ToString())
                 {
-                    throw new AppException(AppErrors.Unauthorized); // Đã xóa string
+                    throw new AppException(AppErrors.Unauthorized);
                 }
             }
             catch
             {
-                throw new AppException(AppErrors.Unauthorized); // Đã xóa string
+                throw new AppException(AppErrors.Unauthorized);
             }
 
             var result = await _profileService.DeleteAccountAsync(userId);
-            if (!result) throw new AppException(AppErrors.ProfileUpdateFailed); // Đã xóa string
+            if (!result) throw new AppException(AppErrors.ProfileUpdateFailed);
 
             return Ok(ApiResponse.Message("Tài khoản đã được xóa vĩnh viễn."));
         }

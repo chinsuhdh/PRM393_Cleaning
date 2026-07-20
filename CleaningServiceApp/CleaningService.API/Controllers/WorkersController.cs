@@ -11,7 +11,7 @@ namespace CleaningService.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Worker")] // Áp dụng Authorization toàn bộ cho Controller này
+    [Authorize(Roles = "Worker")]
     public class WorkersController : ControllerBase
     {
         private readonly IWorkerService _workerService;

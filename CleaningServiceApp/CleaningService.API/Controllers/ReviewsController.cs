@@ -37,12 +37,10 @@ namespace CleaningService.API.Controllers
             }
             catch (ArgumentException ex)
             {
-                // Xảy ra khi không tìm thấy Booking
                 throw new AppException(new AppError(AppErrors.NotFound.Code, ex.Message, 404));
             }
             catch (InvalidOperationException ex)
             {
-                // Xảy ra khi vi phạm Business Rules (booking chưa xong, tự review, review 2 lần...)
                 throw new AppException(new AppError(AppErrors.ValidationError.Code, ex.Message, 400));
             }
         }

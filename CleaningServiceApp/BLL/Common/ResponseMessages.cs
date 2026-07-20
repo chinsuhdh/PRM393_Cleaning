@@ -16,6 +16,7 @@ public static class ResponseMessages
     public const string VerifyPhoneSuccess = "Xác thực số điện thoại thành công!";
 
     public const string BookingStatusUpdated = "Cập nhật trạng thái đơn thành công.";
+    public const string BookingDurationUpdated = "Cập nhật thời lượng công việc thành công.";
     public const string BookingAccepted = "Nhận đơn đặt lịch thành công!";
     public const string BroadcastRestarted = "Đã phát lại yêu cầu tìm nhân viên.";
     public const string JobHidden = "Đã ẩn công việc.";
