@@ -205,11 +205,13 @@ namespace CleaningService.API
 
             builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("EmailConfiguration"));
             builder.Services.Configure<VnpaySettings>(builder.Configuration.GetSection("VNPay"));
+            builder.Services.Configure<CloudinaryConfig>(builder.Configuration.GetSection("CloudinaryConfig"));
 
             builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
             builder.Services.AddScoped<IEmailService, EmailService>();
+            builder.Services.AddScoped<IFileStorageService, CloudinaryFileStorageService>();
 
             builder.Services.AddScoped<ISmsService, SmsService>();
 

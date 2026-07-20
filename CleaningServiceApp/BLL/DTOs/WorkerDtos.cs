@@ -16,6 +16,7 @@ namespace Cleaning.BLL.DTOs
         public string? PayoutBankBin { get; set; }
         public string? PayoutBankAccountNumber { get; set; }
         public string? PayoutBankAccountName { get; set; }
+        public decimal ServiceRadiusKm { get; set; }
     }
 
     public class UpdatePayoutAccountDto
@@ -57,6 +58,13 @@ namespace Cleaning.BLL.DTOs
 
         [Required]
         public decimal CurrentLng { get; set; }
+    }
+
+    public class UpdateSearchRadiusDto
+    {
+        [Required]
+        [Range(1, 50, ErrorMessage = "Bán kính tìm việc phải trong khoảng 1-50 km.")]
+        public decimal ServiceRadiusKm { get; set; }
     }
 
     public class UpdateOnlineStatusDto
