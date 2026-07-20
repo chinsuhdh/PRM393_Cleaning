@@ -58,6 +58,19 @@ namespace CleaningService.API.Controllers
             return Ok(ApiResponse.Message(ResponseMessages.WorkerLocationUpdated));
         }
 
+        [HttpPatch("me/radius")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateSearchRadius([FromBody] UpdateSearchRadiusDto request)
+        {
+            var workerId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _workerService.UpdateSearchRadiusAsync(workerId, request);
+
+            if (!result) throw new AppException(AppErrors.WorkerProfileNotFound);
+            return Ok(ApiResponse.Message(ResponseMessages.WorkerSearchRadiusUpdated));
+        }
+
         [HttpPatch("online-status")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

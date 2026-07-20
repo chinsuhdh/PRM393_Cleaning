@@ -323,6 +323,8 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
             UserId = ClientId,
             Label = "Home",
             AddressText = "Test address",
+            Latitude = 10.7769m,
+            Longitude = 106.7009m,
             PropertyType = PropertyType.Apartment,
             CreatedAt = now,
             UpdatedAt = now
@@ -332,6 +334,11 @@ public sealed class BookingApiTests(PostgreSqlApiFixture fixture) : IAsyncLifeti
             UserId = WorkerId,
             OnlineStatus = WorkerOnlineStatus.Online,
             VerificationStatus = "approved",
+            BaseLatitude = 10.7769m,
+            BaseLongitude = 106.7009m,
+            CurrentLat = 10.7769m,
+            CurrentLng = 106.7009m,
+            ServiceRadiusKm = 10,
             LocationUpdatedAt = now,
             CreatedAt = now,
             UpdatedAt = now

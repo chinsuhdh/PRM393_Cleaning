@@ -16,12 +16,12 @@ namespace CleaningService.API.Controllers
     public class BookingsController : ControllerBase
     {
         private readonly IBookingService _bookingService;
-        private readonly IWebHostEnvironment _environment;
+        private readonly IFileStorageService _fileStorage;
 
-        public BookingsController(IBookingService bookingService, IWebHostEnvironment environment)
+        public BookingsController(IBookingService bookingService, IFileStorageService fileStorage)
         {
             _bookingService = bookingService;
-            _environment = environment;
+            _fileStorage = fileStorage;
         }
 
         [HttpPost("{id}/photos")]
@@ -33,16 +33,13 @@ namespace CleaningService.API.Controllers
                     photo.Length > BookingDomainConstants.MaxPhotoBytes || !photo.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)))
                 return BadRequest(ApiResponse.Message("Tối đa 5 ảnh, mỗi ảnh không quá 1 MB."));
 
-            var folder = Path.Combine(_environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot"), "uploads", "bookings");
-            Directory.CreateDirectory(folder);
             var urls = new List<string>();
             foreach (var photo in photos)
             {
                 var extension = Path.GetExtension(photo.FileName);
                 var fileName = $"{Guid.NewGuid():N}{extension}";
-                await using var stream = System.IO.File.Create(Path.Combine(folder, fileName));
-                await photo.CopyToAsync(stream);
-                urls.Add($"{Request.Scheme}://{Request.Host}/uploads/bookings/{fileName}");
+                await using var stream = photo.OpenReadStream();
+                urls.Add(await _fileStorage.UploadAsync(stream, fileName, "bookings"));
             }
             var accountId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _bookingService.AddPhotosAsync(id, accountId, urls);

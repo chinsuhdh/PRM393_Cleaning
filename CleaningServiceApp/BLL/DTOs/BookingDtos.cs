@@ -16,6 +16,8 @@ namespace Cleaning.BLL.DTOs
         public string BookingType { get; set; } = null!;
         public DateTime ScheduledStartTime { get; set; }
         public DateTime ScheduledEndTime { get; set; }
+        public DateTime? ActualStartTime { get; set; }
+        public DateTime? ActualEndTime { get; set; }
         public decimal DurationHours { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal ExtraFee { get; set; }

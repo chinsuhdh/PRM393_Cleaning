@@ -181,7 +181,7 @@ public sealed class BookingAvailabilityService(IUnitOfWork unitOfWork) : IBookin
     private static bool IsWorkerWithinServiceRadius(WorkerProfile worker, UserAddress address)
     {
         if (!address.Latitude.HasValue || !address.Longitude.HasValue)
-            return true;
+            return false;
 
         var workerLat = worker.CurrentLat ?? worker.BaseLatitude;
         var workerLng = worker.CurrentLng ?? worker.BaseLongitude;

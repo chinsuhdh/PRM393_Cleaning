@@ -50,15 +50,15 @@ internal static class DevelopmentSeedData
           "questions": [
             { "id": "level", "type": "single_choice", "label": "Mức độ dọn dẹp", "required": true,
               "options": [
-                { "id": "light", "label": "Light clean" },
-                { "id": "deep", "label": "Deep clean", "priceDelta": 50000, "durationDelta": 30 } ] },
-            { "id": "addons", "type": "multi_choice", "label": "Extra tasks",
+                { "id": "light", "label": "Dọn cơ bản" },
+                { "id": "deep", "label": "Dọn kỹ", "priceDelta": 50000, "durationDelta": 30 } ] },
+            { "id": "addons", "type": "multi_choice", "label": "Dịch vụ thêm",
               "options": [
-                { "id": "fridge", "label": "Inside fridge", "priceDelta": 30000, "durationDelta": 20 },
-                { "id": "windows", "label": "Windows", "priceDelta": 50000, "durationDelta": 30 } ] },
-            { "id": "pets", "type": "yes_no", "label": "Do you have pets?" },
-            { "id": "note", "type": "text", "label": "Note for your worker", "maxLength": 500 },
-            { "id": "photos", "type": "photos", "label": "Photos of the space", "max": 5 }
+                { "id": "fridge", "label": "Vệ sinh tủ lạnh", "priceDelta": 30000, "durationDelta": 20 },
+                { "id": "windows", "label": "Lau cửa kính", "priceDelta": 50000, "durationDelta": 30 } ] },
+            { "id": "pets", "type": "yes_no", "label": "Nhà bạn có nuôi thú cưng không?" },
+            { "id": "note", "type": "text", "label": "Ghi chú cho nhân viên", "maxLength": 500 },
+            { "id": "photos", "type": "photos", "label": "Hình ảnh không gian cần dọn", "max": 5 }
           ]
         }
         """;
@@ -66,22 +66,22 @@ internal static class DevelopmentSeedData
     internal const string HouseBookingFormSchema = """
         {
           "questions": [
-            { "id": "floors", "type": "stepper", "label": "How many floors?",
+            { "id": "floors", "type": "stepper", "label": "Nhà có bao nhiêu tầng?",
               "min": 1, "max": 5, "required": true,
               "unit": { "priceDelta": 60000, "durationDelta": 60 } },
-            { "id": "level", "type": "single_choice", "label": "Cleaning level", "required": true,
+            { "id": "level", "type": "single_choice", "label": "Mức độ dọn dẹp", "required": true,
               "options": [
-                { "id": "light", "label": "Light clean" },
-                { "id": "deep", "label": "Deep clean", "priceDelta": 70000, "durationDelta": 45 } ] },
-            { "id": "addons", "type": "multi_choice", "label": "Extra tasks",
+                { "id": "light", "label": "Dọn cơ bản" },
+                { "id": "deep", "label": "Dọn kỹ", "priceDelta": 70000, "durationDelta": 45 } ] },
+            { "id": "addons", "type": "multi_choice", "label": "Dịch vụ thêm",
               "options": [
-                { "id": "oven", "label": "Inside oven", "priceDelta": 40000, "durationDelta": 25 },
-                { "id": "garage", "label": "Garage", "priceDelta": 70000, "durationDelta": 40 } ] },
-            { "id": "garden", "type": "yes_no", "label": "Does the house have a garden?" },
-            { "id": "pets", "type": "yes_no", "label": "Do you have pets?" },
-            { "id": "note", "type": "text", "label": "Note for your worker", "maxLength": 500 },
-            { "id": "photos", "type": "photos", "label": "Photos of the space", "max": 5 },
-            { "id": "future", "type": "hologram", "label": "Unknown from the future" }
+                { "id": "oven", "label": "Vệ sinh lò nướng", "priceDelta": 40000, "durationDelta": 25 },
+                { "id": "garage", "label": "Nhà để xe", "priceDelta": 70000, "durationDelta": 40 } ] },
+            { "id": "garden", "type": "yes_no", "label": "Nhà có sân vườn không?" },
+            { "id": "pets", "type": "yes_no", "label": "Nhà bạn có nuôi thú cưng không?" },
+            { "id": "note", "type": "text", "label": "Ghi chú cho nhân viên", "maxLength": 500 },
+            { "id": "photos", "type": "photos", "label": "Hình ảnh không gian cần dọn", "max": 5 },
+            { "id": "future", "type": "hologram", "label": "Câu hỏi ẩn từ tương lai" }
           ]
         }
         """;

@@ -36,7 +36,8 @@ namespace Cleaning.BLL.Services
                 SuspendedAt = worker.SuspendedAt,
                 PayoutBankBin = worker.PayoutBankBin,
                 PayoutBankAccountNumber = worker.PayoutBankAccountNumber,
-                PayoutBankAccountName = worker.PayoutBankAccountName
+                PayoutBankAccountName = worker.PayoutBankAccountName,
+                ServiceRadiusKm = worker.ServiceRadiusKm
             };
         }
 
@@ -84,6 +85,20 @@ namespace Cleaning.BLL.Services
                 if (activeBooking != null)
                     await _dispatchPublisher.WorkerPositionAsync(activeBooking.Id, request.CurrentLat, request.CurrentLng);
             }
+
+            return true;
+        }
+
+        public async Task<bool> UpdateSearchRadiusAsync(Guid workerId, UpdateSearchRadiusDto request)
+        {
+            var worker = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
+            if (worker == null) return false;
+
+            worker.ServiceRadiusKm = request.ServiceRadiusKm;
+            worker.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.Repository<WorkerProfile>().Update(worker);
+            await _unitOfWork.SaveChangesAsync();
 
             return true;
         }

@@ -39,6 +39,7 @@ public static class ResponseMessages
 
     public const string WorkerRegistered = "Worker profile registered successfully.";
     public const string WorkerLocationUpdated = "Location updated.";
+    public const string WorkerSearchRadiusUpdated = "Search radius updated.";
     public const string WorkerOnlineStatusUpdated = "Online status updated.";
     public const string WorkerSkillUpdated = "Skill updated successfully.";
     public const string WorkerPayoutAccountUpdated = "Payout account updated successfully.";
