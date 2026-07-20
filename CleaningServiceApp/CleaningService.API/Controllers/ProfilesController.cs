@@ -6,7 +6,6 @@ using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 
@@ -18,13 +17,13 @@ namespace CleaningService.API.Controllers
     public class ProfilesController : ControllerBase
     {
         private readonly IProfileService _profileService;
-        private readonly IWebHostEnvironment _environment;
+        private readonly IFileStorageService _fileStorage;
         private readonly IConfiguration _configuration; // Dùng để xác thực Reauth Token
 
-        public ProfilesController(IProfileService profileService, IWebHostEnvironment environment, IConfiguration configuration)
+        public ProfilesController(IProfileService profileService, IFileStorageService fileStorage, IConfiguration configuration)
         {
             _profileService = profileService;
-            _environment = environment;
+            _fileStorage = fileStorage;
             _configuration = configuration;
         }
 
@@ -85,25 +84,10 @@ namespace CleaningService.API.Controllers
 
             try
             {
-                string webRootPath = _environment.WebRootPath;
-                if (string.IsNullOrWhiteSpace(webRootPath))
-                {
-                    webRootPath = Path.Combine(_environment.ContentRootPath, "wwwroot");
-                }
-
-                string folderPath = Path.Combine(webRootPath, "uploads", "avatars");
-                if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
-
                 string uniqueFileName = $"{userId}_{DateTime.UtcNow.Ticks}{extension}";
-                string filePath = Path.Combine(folderPath, uniqueFileName);
 
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                var request = HttpContext.Request;
-                string avatarUrl = $"{request.Scheme}://{request.Host}/uploads/avatars/{uniqueFileName}";
+                await using var stream = file.OpenReadStream();
+                string avatarUrl = await _fileStorage.UploadAsync(stream, uniqueFileName, "avatars");
 
                 await _profileService.UpdateAvatarAsync(userId, avatarUrl);
 

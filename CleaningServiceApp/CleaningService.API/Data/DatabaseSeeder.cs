@@ -87,16 +87,16 @@ public static class DatabaseSeeder
 
     private static void AddAccountsAndProfiles(AppDbContext context, DateTime now)
     {
-        AddAccountAndProfile(context, AdminId, "admin@cleanai.local", "CleanAI Admin", UserRole.Admin, now);
-        AddAccountAndProfile(context, ClientId, "client@cleanai.local", "Demo Client", UserRole.Client, now);
-        AddAccountAndProfile(context, WorkerId, "worker@cleanai.local", "Demo Worker", UserRole.Worker, now);
+        AddAccountAndProfile(context, AdminId, "admin@cleanai.local", "Nguyễn Thị Ngọc Anh", UserRole.Admin, now);
+        AddAccountAndProfile(context, ClientId, "client@cleanai.local", "Trần Văn Bình", UserRole.Client, now);
+        AddAccountAndProfile(context, WorkerId, "worker@cleanai.local", "Lê Minh Khôi", UserRole.Worker, now);
     }
 
     private static async Task AddAccountsAndProfilesAsync(AppDbContext context, DateTime now, CancellationToken cancellationToken)
     {
-        await AddAccountAndProfileAsync(context, AdminId, "admin@cleanai.local", "CleanAI Admin", UserRole.Admin, now, cancellationToken);
-        await AddAccountAndProfileAsync(context, ClientId, "client@cleanai.local", "Demo Client", UserRole.Client, now, cancellationToken);
-        await AddAccountAndProfileAsync(context, WorkerId, "worker@cleanai.local", "Demo Worker", UserRole.Worker, now, cancellationToken);
+        await AddAccountAndProfileAsync(context, AdminId, "admin@cleanai.local", "Nguyễn Thị Ngọc Anh", UserRole.Admin, now, cancellationToken);
+        await AddAccountAndProfileAsync(context, ClientId, "client@cleanai.local", "Trần Văn Bình", UserRole.Client, now, cancellationToken);
+        await AddAccountAndProfileAsync(context, WorkerId, "worker@cleanai.local", "Lê Minh Khôi", UserRole.Worker, now, cancellationToken);
     }
 
     private static void AddAccountAndProfile(

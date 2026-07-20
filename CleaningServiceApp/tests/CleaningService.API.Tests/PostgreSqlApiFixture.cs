@@ -39,7 +39,14 @@ public sealed class PostgreSqlApiFixture : WebApplicationFactory<Program>, IAsyn
                     ["VNPay:TmnCode"] = "TESTCODE",
                     ["VNPay:HashSecret"] = "TEST_HASH_SECRET",
                     ["VNPay:BaseUrl"] = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-                    ["VNPay:ReturnUrl"] = "https://api.test.local/api/Payments/vnpay-return"
+                    ["VNPay:ReturnUrl"] = "https://api.test.local/api/Payments/vnpay-return",
+                    // appsettings.json (with real Cloudinary credentials) is gitignored and doesn't exist in
+                    // CI, so CloudinaryConfig binds to all-empty defaults there. UseMock=false in that case
+                    // makes CloudinaryFileStorageService's constructor build a real Cloudinary Account with an
+                    // empty cloud name, which throws — and since BookingsController/ProfilesController now
+                    // take IFileStorageService in their constructor, that kills every request routed to either
+                    // one. Force mock mode for tests explicitly, same as the other test-only config above.
+                    ["CloudinaryConfig:UseMock"] = "true"
                 });
         });
     }

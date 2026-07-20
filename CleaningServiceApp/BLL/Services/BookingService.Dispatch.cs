@@ -37,8 +37,8 @@ public partial class BookingService
         await HydrateAsync(eligible);
 
         var worker = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(workerId);
-        var workerLat = worker?.BaseLatitude ?? worker?.CurrentLat;
-        var workerLng = worker?.BaseLongitude ?? worker?.CurrentLng;
+        var workerLat = worker?.CurrentLat ?? worker?.BaseLatitude;
+        var workerLng = worker?.CurrentLng ?? worker?.BaseLongitude;
 
         var dtos = eligible.Select(_mapper.Map<BookingDto>).ToList();
         if (workerLat.HasValue && workerLng.HasValue)
@@ -233,9 +233,9 @@ public partial class BookingService
 
     private static bool IsInsideArea(WorkerProfile worker, UserAddress? address)
     {
-        if (address?.Latitude == null || address.Longitude == null) return true;
-        var latitude = worker.BaseLatitude ?? worker.CurrentLat;
-        var longitude = worker.BaseLongitude ?? worker.CurrentLng;
+        if (address?.Latitude == null || address.Longitude == null) return false;
+        var latitude = worker.CurrentLat ?? worker.BaseLatitude;
+        var longitude = worker.CurrentLng ?? worker.BaseLongitude;
         if (latitude == null || longitude == null) return false;
         return GeoConstants.DistanceKm(
             (double)latitude.Value, (double)longitude.Value,
