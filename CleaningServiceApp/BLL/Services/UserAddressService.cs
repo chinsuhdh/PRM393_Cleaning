@@ -67,7 +67,7 @@ namespace Cleaning.BLL.Services
                 Longitude = request.Longitude,
                 PropertyType = request.PropertyType,
                 IsDefault = request.IsDefault,
-                CreatedAt = DateTime.UtcNow 
+                CreatedAt = DateTime.UtcNow
             };
 
             await _unitOfWork.Repository<UserAddress>().AddAsync(newAddress);

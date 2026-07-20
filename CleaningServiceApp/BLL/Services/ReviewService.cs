@@ -47,7 +47,7 @@ namespace Cleaning.BLL.Services
                 RevieweeId = request.RevieweeId,
                 Rating = request.Rating,
                 Comment = request.Comment,
-                CreatedAt = DateTime.UtcNow 
+                CreatedAt = DateTime.UtcNow
             };
 
             using var transaction = await _unitOfWork.BeginTransactionAsync();
@@ -75,10 +75,6 @@ namespace Cleaning.BLL.Services
 
                 await transaction.CommitAsync();
 
-                // Reused purely as a "this booking changed, refetch" signal (same pattern as the
-                // duration-update push) — the other party's open Booking Detail screen invalidates and
-                // refetches on this event, which is what surfaces a just-submitted review live instead
-                // of requiring them to leave and re-enter the screen.
                 if (_dispatchPublisher != null)
                     await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, booking.Status.ToString());
 

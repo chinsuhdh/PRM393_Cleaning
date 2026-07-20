@@ -8,5 +8,4 @@ namespace Cleaning.BLL.Interfaces
         Task<IReadOnlyList<AiChatMessageDto>> GetHistoryAsync(Guid userId, string sessionId);
         Task ClearHistoryAsync(Guid userId, string sessionId);
     }
-    
 }

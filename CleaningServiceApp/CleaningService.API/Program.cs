@@ -34,9 +34,9 @@ namespace CleaningService.API
                 options.AddPolicy("AllowReactAdmin", policy =>
                 {
                     policy.WithOrigins("http://localhost:5173")
-                        .AllowAnyHeader()                    
-                        .AllowAnyMethod()                    
-                        .AllowCredentials();                 
+                        .AllowAnyHeader()
+                        .AllowAnyMethod()
+                        .AllowCredentials();
                 });
             });
 

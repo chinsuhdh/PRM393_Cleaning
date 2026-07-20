@@ -416,10 +416,10 @@ namespace Cleaning.BLL.Services
             var key = Encoding.UTF8.GetBytes(_configuration["JwtConfig:Secret"]!);
 
             var claims = new List<Claim>
-    {
-        new Claim(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
-        new Claim("TokenType", "Reauth") 
-    };
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
+                new Claim("TokenType", "Reauth")
+            };
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
