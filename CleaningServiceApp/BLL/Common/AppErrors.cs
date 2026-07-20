@@ -55,6 +55,8 @@ public static class AppErrors
         "BOOKING_STATUS_UPDATE_FAILED", "Không tìm thấy đơn đặt lịch này hoặc có lỗi xảy ra.", 404);
     public static readonly AppError BookingAcceptFailed = new(
         "BOOKING_ACCEPT_FAILED", "Đơn hàng này không hợp lệ, hoặc đã có thợ khác nhanh tay nhận mất rồi.", 409);
+    public static readonly AppError BookingDurationUpdateFailed = new(
+        "BOOKING_DURATION_UPDATE_FAILED", "Không thể cập nhật thời lượng cho đơn đặt lịch này.", 409);
 
     public static readonly AppError AuthRegisterFailed = new(
         "AUTH_REGISTER_FAILED", "Email hoặc số điện thoại đã tồn tại, hoặc có lỗi hệ thống xảy ra.", 400);

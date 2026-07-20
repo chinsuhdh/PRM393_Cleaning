@@ -25,16 +25,12 @@ namespace Cleaning.BLL.Services
             if (profile == null || account == null)
                 return null;
 
-            // [THÊM MỚI] Tính toán số lượng dữ liệu thực tế từ Database
-            // Đếm số lượng đơn đặt lịch (Booking) của người dùng
             var bookingCount = await _unitOfWork.Repository<Booking>()
                 .CountAsync(b => b.ClientId == userId);
 
-            // Đếm số lượng địa chỉ đã lưu (UserAddress) của người dùng
             var savedCount = await _unitOfWork.Repository<UserAddress>()
                 .CountAsync(a => a.UserId == userId);
 
-            // Mặc định Rating là 5.0 (Có thể tính trung bình từ bảng Review nếu có)
             var averageRating = 5.0m;
 
             return new ProfileDto
@@ -49,7 +45,6 @@ namespace Cleaning.BLL.Services
                 UpdatedAt = profile.UpdatedAt,
                 OnboardingCompletedAt = profile.OnboardingCompletedAt,
 
-                // Gán dữ liệu thống kê vào DTO
                 BookingCount = bookingCount,
                 Rating = averageRating,
                 SavedCount = savedCount

@@ -111,7 +111,6 @@ namespace Cleaning.BLL.Services
 
         public async Task<IEnumerable<AccountAdminDto>> GetAccountsAsync()
         {
-            // Thêm .Include(a => a.Profile) để JOIN với bảng Profile
             var accounts = await _unitOfWork.Repository<Account>()
                 .GetQueryable()
                 .Include(a => a.Profile)

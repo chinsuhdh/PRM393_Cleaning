@@ -2,7 +2,6 @@
 
 namespace Cleaning.DAL.Entities;
 
-// One row per broadcasting scheduled booking x eligible worker (full E.1 predicate lives in the view).
 public partial class VAvailableWorkersForScheduledBooking
 {
     public Guid? BookingId { get; set; }

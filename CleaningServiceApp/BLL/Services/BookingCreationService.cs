@@ -38,18 +38,16 @@ public sealed class BookingCreationService(
         if (!request.AddressId.HasValue)
             throw new AppException(AppErrors.AddressRequired);
 
-        // BOOK-002: validate the service-defined answers against the service schema before any write.
         var optionAnswers = BookingOptionValidator.Normalize(service.BookingFormSchema, request.OptionAnswers);
         if (request.ServiceVersion != service.Version)
             throw new AppException(AppErrors.QuoteStale);
         var promotion = await GetActivePromotionAsync(service.Id);
-        var pricing = BookingPricingCalculator.Calculate(service, optionAnswers, promotion);
+        var durationOverride = request.DurationHours > 0 ? (decimal?)request.DurationHours : null;
+        var pricing = BookingPricingCalculator.Calculate(service, optionAnswers, promotion, durationOverride);
         var durationHours = pricing.DurationHours;
 
         if (request.BookingType == BookingType.Immediate)
         {
-            // One in-flight "looking for a worker" Immediate booking at a time — otherwise a client
-            // could stack several broadcasts and have two workers show up for the same person.
             var hasActiveImmediate = await _unitOfWork.Repository<Booking>().ExistsAsync(existing =>
                 existing.ClientId == clientId &&
                 existing.BookingType == BookingType.Immediate &&
@@ -73,17 +71,11 @@ public sealed class BookingCreationService(
             To = scheduledStart
         });
 
-        // OperatingSchedule is dormant per the spec ("any hour of day is allowed"), so no operating-hours
-        // check here. Worker availability is intentionally NOT checked either — matching happens afterwards
-        // via dispatch, so the booking is created first and offered to eligible workers who can accept it.
-
-        // BOOK-004: the server computes the authoritative pricing breakdown; the client only displays it.
         var pricingBreakdown = JsonSerializer.Serialize(pricing);
 
         using var transaction = await _unitOfWork.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         try
         {
-            // Pay-after-job: no upfront payment, so every booking starts broadcasting immediately.
             var initialStatus = BookingStatus.AwaitingWorker;
 
             var addressEntity = await _unitOfWork.Repository<UserAddress>().GetByIdAsync(request.AddressId.Value);
@@ -103,7 +95,7 @@ public sealed class BookingCreationService(
                 TotalPrice = pricing.TotalPrice,
                 Status = initialStatus,
                 PaymentMethod = request.PaymentMethod,
-                Notes = request.Notes ?? string.Empty, // Fix: Tránh gán null
+                Notes = request.Notes ?? string.Empty,
                 OptionAnswers = optionAnswers,
                 PricingBreakdown = pricingBreakdown,
                 AddressSnapshot = BuildAddressSnapshot(addressEntity),
@@ -178,10 +170,9 @@ public sealed class BookingCreationService(
         if (service == null || !service.IsActive || service.ArchivedAt.HasValue)
             throw new AppException(AppErrors.ServiceUnavailable);
 
-        // Validate any provided answers (types/choices/unknown keys) but do not require completeness:
-        // the client may request a quote while still filling in the form.
         var answers = BookingOptionValidator.Normalize(service.BookingFormSchema, request.OptionAnswers, enforceRequired: false);
-        return BookingPricingCalculator.Calculate(service, answers, await GetActivePromotionAsync(service.Id));
+        var durationOverride = request.DurationHours > 0 ? (decimal?)request.DurationHours : null;
+        return BookingPricingCalculator.Calculate(service, answers, await GetActivePromotionAsync(service.Id), durationOverride);
     }
 
     private async Task<Promotion?> GetActivePromotionAsync(Guid serviceId)

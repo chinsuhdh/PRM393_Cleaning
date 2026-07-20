@@ -5,10 +5,6 @@ using Cleaning.DAL.Interfaces;
 
 namespace CleaningService.API.Services;
 
-// E.9: fans out real eligible-worker positions to every searching client's `booking:{id}` group on a
-// ~60s cadence (matching the K.6 idle location cadence) — replaces the client's REST poll on the
-// finding-worker map. Covers both Immediate (online, in-radius workers) and Scheduled (eligible-for
-// -the-slot workers) bookings.
 public sealed class NearbyWorkerLocationsBroadcastService(
     IServiceScopeFactory scopeFactory,
     ILogger<NearbyWorkerLocationsBroadcastService> logger) : BackgroundService

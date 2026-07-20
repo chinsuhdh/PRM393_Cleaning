@@ -7,7 +7,7 @@ namespace CleaningService.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AllowAnonymous] // Cho phép người dùng vãng lai lướt xem dịch vụ
+    [AllowAnonymous]
     public class ServiceCatalogController : ControllerBase
     {
         private readonly IServiceCatalogService _catalogService;

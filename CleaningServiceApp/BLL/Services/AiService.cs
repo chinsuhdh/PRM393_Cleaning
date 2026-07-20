@@ -43,7 +43,6 @@ namespace Cleaning.BLL.Services
             var stopwatch = Stopwatch.StartNew();
             var modelName = _config["AiConfig:DefaultModel"] ?? "qwen2.5:1.5b";
 
-            // Fix: Khắc phục trường hợp dữ liệu đầu vào bị null
             var sessionId = request.SessionId ?? Guid.NewGuid().ToString();
             var userMessage = request.Message ?? string.Empty;
 
@@ -174,13 +173,6 @@ Yêu cầu: Trả lời ngắn gọn, lịch sự, chuyên nghiệp bằng tiế
             await _context.SaveChangesAsync();
         }
 
-        /// <summary>
-        /// Scores active knowledge documents by keyword overlap with the user's message and returns
-        /// the top matches' content. Falls back to the most recent documents when nothing scores above
-        /// zero, so the bot always has some grounding context rather than none. No vector/embedding
-        /// search infra exists in this codebase — this is the pragmatic fix for the previous ".Take(3)
-        /// with zero relevance filtering" behavior.
-        /// </summary>
         public static List<string> SelectRelevantDocuments(
             IReadOnlyList<KnowledgeDocument> documents, string userMessage, int take = MaxRelevantDocuments)
         {

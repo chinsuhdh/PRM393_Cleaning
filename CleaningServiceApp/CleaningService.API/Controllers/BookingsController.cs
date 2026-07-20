@@ -109,6 +109,18 @@ namespace CleaningService.API.Controllers
             return Ok(ApiResponse.Message(ResponseMessages.BookingStatusUpdated));
         }
 
+        [HttpPatch("{id}/duration")]
+        [Authorize(Roles = "Client")]
+        public async Task<IActionResult> UpdateDuration(Guid id, [FromBody] UpdateBookingDurationDto request)
+        {
+            var clientId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _bookingService.UpdateDurationAsync(id, clientId, request.DurationHours);
+
+            if (!result) throw new AppException(AppErrors.BookingDurationUpdateFailed);
+
+            return Ok(ApiResponse.Message(ResponseMessages.BookingDurationUpdated));
+        }
+
         [HttpPost("{id}/cancel")]
         [Authorize(Roles = "Client")]
         public async Task<IActionResult> CancelByClient(Guid id)

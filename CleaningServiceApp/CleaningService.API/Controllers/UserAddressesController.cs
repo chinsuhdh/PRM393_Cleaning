@@ -11,7 +11,7 @@ namespace CleaningService.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Client")] // Nếu Admin cũng có quyền quản lý, có thể sửa thành "Client,Admin"
+    [Authorize(Roles = "Client")]
     public class UserAddressesController : ControllerBase
     {
         private readonly IUserAddressService _userAddressService;

@@ -123,7 +123,6 @@ public partial class BookingService
             _unitOfWork.Repository<BookingRescheduleRequest>().Update(reschedule);
 
             var oldStatus = booking.Status;
-            // Worker calendar conflicts are deliberately not re-checked on accept, per spec.
             if (action == RescheduleAction.Accept)
             {
                 booking.ScheduledStartTime = reschedule.NewStartTime;

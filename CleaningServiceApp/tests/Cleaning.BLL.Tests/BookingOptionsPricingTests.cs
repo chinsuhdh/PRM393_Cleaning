@@ -8,7 +8,7 @@ using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
 
-// Legacy DurationHours/DiscountAmount are exercised deliberately to prove the server ignores them.
+// Legacy DiscountAmount is exercised deliberately to prove the server ignores it.
 #pragma warning disable CS0618
 
 namespace Cleaning.BLL.Tests;
@@ -145,6 +145,36 @@ public sealed class BookingOptionsPricingTests
             scenario.ClientId,
             new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id, DurationHours = 1 });
         Assert.Equal(2m, quote.DurationHours);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-004-06] Requesting more duration than the computed minimum adds an hourly surcharge")]
+    public async Task Quote_DurationAboveMinimum_AddsExtraHourSurcharge()
+    {
+        var scenario = FeatureScenario.Create();
+
+        var quote = await scenario.BookingService.GetQuoteAsync(
+            scenario.ClientId,
+            new BookingQuoteRequestDto { ServiceId = scenario.ServiceEntity.Id, DurationHours = 3 });
+
+        Assert.Equal(3m, quote.DurationHours);
+        Assert.Equal(300_000m, quote.TotalPrice);
+        Assert.Contains(quote.Breakdown, line => line.Amount == 100_000m);
+    }
+
+    [Fact(DisplayName = "[UT-BOOK-004-07] A created booking is charged for the client-requested extra duration")]
+    public async Task Create_DurationAboveMinimum_ChargesExtraHour()
+    {
+        var scenario = FeatureScenario.Create();
+
+        var result = await scenario.BookingService.CreateBookingAsync(
+            scenario.ClientId,
+            "extra-duration",
+            scenario.CreateRequest(BookingType.Immediate, durationHours: 3));
+
+        var persisted = Assert.Single(scenario.Bookings);
+        Assert.Equal(3m, persisted.DurationHours);
+        Assert.Equal(300_000m, persisted.TotalPrice);
+        Assert.Equal(300_000m, result.TotalPrice);
     }
 
     [Fact(DisplayName = "[UT-BOOK-004-05] A quote for an inactive service is unavailable")]
@@ -579,13 +609,14 @@ public sealed class BookingOptionsPricingTests
             BookingType bookingType,
             DateTime? start = null,
             decimal discount = 0,
+            decimal durationHours = 0,
             Dictionary<string, JsonElement>? answers = null) => new()
             {
                 ServiceId = ServiceEntity.Id,
                 AddressId = Address.Id,
                 BookingType = bookingType,
                 ScheduledStartTime = start,
-                DurationHours = 2,
+                DurationHours = durationHours,
                 DiscountAmount = discount,
                 OptionAnswers = answers
             };

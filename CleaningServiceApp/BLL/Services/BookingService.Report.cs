@@ -68,7 +68,6 @@ public partial class BookingService
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Same Busy-release as any other assignment-ending transition (UpdateBookingStatusAsync).
             if (assignedWorkerId.HasValue)
             {
                 var workerProfile = await _unitOfWork.Repository<WorkerProfile>().GetByIdAsync(assignedWorkerId.Value);

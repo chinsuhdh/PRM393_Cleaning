@@ -19,10 +19,6 @@ public sealed class BookingSweepService(
         await SuspendWorkersOverThresholdAsync();
     }
 
-    // Duty 1: a Scheduled booking still stuck in AwaitingWorker within 1 hour of its start time is
-    // auto-cancelled. Reuses UpdateBookingStatusAsync — same state machine, BookingStatusLog,
-    // BookingCancellation write, and JobCancelledAsync/BookingStatusChangedAsync dispatch that
-    // already fire from any AwaitingWorker-origin cancel, so there's no new dispatch logic here.
     private async Task AutoCancelUnansweredScheduledBookingsAsync(CancellationToken cancellationToken)
     {
         var deadline = DateTime.UtcNow.AddHours(1);

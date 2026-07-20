@@ -88,7 +88,7 @@ namespace Cleaning.BLL.Services
                         BookingId = booking.Id,
                         CancelledBy = accountId,
                         ActorRole = booking.ClientId == accountId ? UserRole.Client : UserRole.Worker,
-                        Reason = request.Reason ?? string.Empty, // Fix: Tránh null
+                        Reason = request.Reason ?? string.Empty,
                         CreatedAt = DateTime.UtcNow
                     });
                 }
@@ -101,7 +101,7 @@ namespace Cleaning.BLL.Services
                     OldStatus = oldStatus,
                     NewStatus = request.NewStatus,
                     ChangedBy = accountId,
-                    Reason = request.Reason ?? string.Empty, // Fix: Tránh null
+                    Reason = request.Reason ?? string.Empty,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -114,8 +114,6 @@ namespace Cleaning.BLL.Services
                     await UpsertSuccessfulPaymentAsync(booking, transactionId: null);
                 }
 
-                // Immediate dispatch marks the worker Busy on accept. Release that system-owned
-                // state when the assignment ends; otherwise the profile remains Busy forever.
                 if (assignedWorkerId.HasValue &&
                     (booking.Status == BookingStatus.Completed ||
                      booking.Status == BookingStatus.Cancelled ||
@@ -136,17 +134,8 @@ namespace Cleaning.BLL.Services
                 await transaction.CommitAsync();
                 if (_dispatchPublisher != null)
                 {
-                    // Lets Booking Detail on the *other* party's screen pick up every transition live
-                    // (Accepted -> OnTheWay -> InProgress -> ... as well as Cancelled), not just the
-                    // dispatch-feed-specific pushes below. booking.Status (not request.NewStatus):
-                    // a VNPay Finish lands on Completed, and that's the state the screens must show.
                     await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, booking.Status.ToString());
 
-                    // Cancelling from AwaitingWorker means the job was live in eligible workers' feeds;
-                    // includeTaken recomputes eligibility as if it were still AwaitingWorker/unassigned
-                    // (booking.Status is already Cancelled at this point) so those workers actually get
-                    // told to remove it, instead of an empty recipient list because nothing is eligible
-                    // for a booking that's no longer AwaitingWorker.
                     if (request.NewStatus == BookingStatus.Cancelled && oldStatus == BookingStatus.AwaitingWorker)
                     {
                         var recipients = await EligibleWorkerIdsAsync(booking, includeTaken: true);
@@ -154,9 +143,6 @@ namespace Cleaning.BLL.Services
                     }
                     else if (request.NewStatus == BookingStatus.Cancelled && booking.WorkerId.HasValue)
                     {
-                        // Post-accept cancel/report: this booking was never in anyone else's eligible
-                        // feed, so only the worker it was assigned to needs telling — that's what keeps
-                        // their own My Jobs / active-job bar from still showing a job that's gone.
                         await _dispatchPublisher.JobCancelledAsync(booking.Id, [booking.WorkerId.Value]);
                     }
                     else if (request.NewStatus == BookingStatus.AwaitingWorker)
@@ -174,6 +160,24 @@ namespace Cleaning.BLL.Services
             }
         }
 
+        public async Task<bool> UpdateDurationAsync(Guid bookingId, Guid clientId, decimal durationHours)
+        {
+            var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
+            if (booking == null || booking.ClientId != clientId) return false;
+            if (booking.Status is not (BookingStatus.Accepted or BookingStatus.OnTheWay or BookingStatus.InProgress))
+                return false;
+
+            booking.DurationHours = durationHours;
+            booking.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.Repository<Booking>().Update(booking);
+            await _unitOfWork.SaveChangesAsync();
+
+            if (_dispatchPublisher != null)
+                await _dispatchPublisher.BookingStatusChangedAsync(booking.Id, booking.ClientId, booking.Status.ToString());
+
+            return true;
+        }
+
         private async Task HydrateAsync(IReadOnlyCollection<Booking> bookings)
         {
             if (bookings.Count == 0) return;
@@ -189,8 +193,6 @@ namespace Cleaning.BLL.Services
                 : (await _unitOfWork.Repository<UserAddress>().FindAsync(a => addressIds.Contains(a.Id)))
                     .ToDictionary(a => a.Id);
 
-            // Only for bookings that actually have an assigned worker — candidate workers during
-            // broadcast (WorkerId == null) are never hydrated or exposed to the client.
             var workerIds = bookings.Where(b => b.WorkerId.HasValue)
                 .Select(b => b.WorkerId!.Value).Distinct().ToHashSet();
             var workers = new Dictionary<Guid, WorkerProfile>();
@@ -219,9 +221,6 @@ namespace Cleaning.BLL.Services
             }
         }
 
-        /// Ghi nhận thanh toán thành công cho booking (1 booking = 1 Payment, upsert như
-        /// PaymentService.CreatePaymentAsync). Amount luôn lấy TotalPrice từ DB, Method lấy từ
-        /// booking.PaymentMethod. Đã Success rồi thì bỏ qua (idempotent).
         private async Task UpsertSuccessfulPaymentAsync(Booking booking, string? transactionId)
         {
             var now = DateTime.UtcNow;

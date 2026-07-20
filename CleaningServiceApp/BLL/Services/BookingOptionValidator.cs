@@ -3,31 +3,12 @@ using Cleaning.BLL.Common;
 
 namespace Cleaning.BLL.Services;
 
-/// <summary>
-/// BOOK-002: validates a client's answers against a service's <c>BookingFormSchema</c> and returns a
-/// normalized JSON document containing only the known, valid answers. The API is authoritative here, so
-/// this runs on the server regardless of any client-side validation.
-/// </summary>
-/// <remarks>
-/// Schema shape:
-/// <code>
-/// { "questions": [
-///   { "key": "rooms", "type": "number",  "required": true,  "min": 1, "max": 10 },
-///   { "key": "level", "type": "choice",  "required": true,  "options": ["light","deep"] },
-///   { "key": "note",  "type": "text",    "required": false, "maxLength": 200 },
-///   { "key": "pets",  "type": "boolean", "required": false }
-/// ] }
-/// </code>
-/// </remarks>
+
 public static class BookingOptionValidator
 {
     private static readonly HashSet<string> KnownTypes =
         ["number", "stepper", "boolean", "yes_no", "text", "choice", "single_choice", "multi_choice", "photos"];
 
-    /// <param name="enforceRequired">
-    /// When true (booking creation) every required question must be answered. When false (a price quote,
-    /// where the client may still be completing the form) only the provided answers are checked.
-    /// </param>
     public static string Normalize(
         string? schemaJson,
         IReadOnlyDictionary<string, JsonElement>? answers,
@@ -36,7 +17,6 @@ public static class BookingOptionValidator
         var provided = answers ?? new Dictionary<string, JsonElement>();
         var questions = ParseQuestions(schemaJson);
 
-        // A service without a schema accepts no free-form answers; any provided key is unknown.
         if (questions.Count == 0)
         {
             if (provided.Count > 0)
@@ -51,15 +31,11 @@ public static class BookingOptionValidator
         var normalized = new Dictionary<string, object?>();
         foreach (var question in questions)
         {
-            // Forward compatibility (spec D.3): a question type this validator does not know is skipped
-            // entirely — it never blocks the booking and any answer for it is dropped, not rejected.
             if (!KnownTypes.Contains(question.Type))
                 continue;
 
             if (!provided.TryGetValue(question.Key, out var value) || value.ValueKind is JsonValueKind.Null)
             {
-                // Photos are uploaded AFTER creation via POST bookings/{id}/photos, so a required photos
-                // question must never block the create itself.
                 if (question.Required && enforceRequired && question.Type != "photos")
                     throw new AppException(AppErrors.OptionAnswersInvalid);
                 continue;
@@ -126,7 +102,6 @@ public static class BookingOptionValidator
                 return photos;
 
             default:
-                // Unreachable: Normalize skips questions whose type is not in KnownTypes.
                 throw new AppException(AppErrors.OptionAnswersInvalid);
         }
     }
@@ -144,8 +119,6 @@ public static class BookingOptionValidator
         }
         catch (JsonException)
         {
-            // A malformed schema is treated as "no questions" so a bad config cannot block bookings entirely;
-            // any provided answers then fall through the unknown-key guard above.
             return result;
         }
 

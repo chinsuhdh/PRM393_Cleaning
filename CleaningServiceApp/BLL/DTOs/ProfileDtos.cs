@@ -17,7 +17,6 @@ namespace Cleaning.BLL.DTOs
         public DateTime UpdatedAt { get; set; }
         public DateTime? OnboardingCompletedAt { get; set; }
 
-        // [THÊM MỚI] Các trường số liệu thống kê
         public int BookingCount { get; set; }
         public decimal Rating { get; set; }
         public int SavedCount { get; set; }

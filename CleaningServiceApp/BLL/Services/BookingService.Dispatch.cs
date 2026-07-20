@@ -14,10 +14,6 @@ public partial class BookingService
         var booking = await _unitOfWork.Repository<Booking>().GetByIdAsync(bookingId);
         if (booking == null || booking.Status != BookingStatus.AwaitingWorker) return;
 
-        // Marks "when the current search window started" for the client's countdown: a fresh
-        // broadcast (first post, a manual retry after timeout, or a worker releasing the job back to
-        // AwaitingWorker) should restart the search timer, not leave it stuck at whenever the booking
-        // was originally created.
         booking.UpdatedAt = DateTime.UtcNow;
         _unitOfWork.Repository<Booking>().Update(booking);
         await _unitOfWork.SaveChangesAsync();
@@ -61,14 +57,6 @@ public partial class BookingService
             .ThenBy(dto => dto.ScheduledStartTime);
     }
 
-    /// Anonymous coordinates only for eligible, currently-online workers for this booking — reuses
-    /// the same eligibility views the dispatch broadcast itself is scoped to, rather than
-    /// duplicating that logic. Immediate bookings read v_online_workers_for_immediate_booking;
-    /// Scheduled bookings read v_available_workers_for_scheduled_booking — both views require
-    /// online_status = 'online', so a dot always means "online right now" regardless of booking
-    /// type. Only meaningful while the booking is still AwaitingWorker; any other state (already
-    /// assigned, not this client's own booking) yields an empty list rather than an error, matching
-    /// how the search map already tolerates missing data.
     public async Task<IReadOnlyList<NearbyWorkerLocationDto>> GetNearbyOnlineWorkerLocationsAsync(
         Guid bookingId, Guid requestingClientId)
     {
@@ -194,9 +182,6 @@ public partial class BookingService
         return true;
     }
 
-    /// Real time conflicts: the worker's own accepted/active bookings, or a blocked availability range.
-    /// Always blocks *accepting* a job (both booking types); also gates *browse* eligibility (E.1) but
-    /// only for Scheduled bookings — see IsEligibleAsync.
     private async Task<bool> HasScheduleConflictAsync(Booking booking, Guid workerId)
     {
         if (await _unitOfWork.Repository<WorkerAvailability>().ExistsAsync(block =>

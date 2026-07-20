@@ -78,9 +78,6 @@ namespace Cleaning.BLL.Services
 
             if (_dispatchPublisher != null)
             {
-                // F.2/F.3: forward while the worker has a job they're assigned to and en route for —
-                // LiveTrackingMap shows the route/ETA for both Accepted and OnTheWay (see showRoute in
-                // live_tracking_map.dart), so both need the live push, not just OnTheWay.
                 var activeBooking = await _unitOfWork.Repository<Booking>().FirstOrDefaultAsync(
                     b => b.WorkerId == workerId &&
                          (b.Status == BookingStatus.Accepted || b.Status == BookingStatus.OnTheWay));
@@ -116,7 +113,6 @@ namespace Cleaning.BLL.Services
 
         public async Task<IEnumerable<WorkerSkillDto>> GetWorkerSkillsAsync(Guid workerId)
         {
-            // Sử dụng DalWorkerService thay vì WorkerService
             var skills = await _unitOfWork.Repository<DalWorkerService>()
                 .FindAsync(ws => ws.WorkerId == workerId);
 

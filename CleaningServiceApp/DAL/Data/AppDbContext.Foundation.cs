@@ -148,7 +148,6 @@ public partial class AppDbContext
 
     private static void ConfigurePromotions(ModelBuilder modelBuilder)
     {
-        // Campaign model: one promotion targets one service, applied automatically (no codes/quotas).
         var promotion = modelBuilder.Entity<Promotion>();
         ConfigureEntity(promotion, "promotions");
         promotion.Property(e => e.DiscountValue).HasPrecision(12, 2);

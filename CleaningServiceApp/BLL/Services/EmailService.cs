@@ -29,13 +29,10 @@ namespace Cleaning.BLL.Services
             using var client = new SmtpClient();
             try
             {
-                // Kết nối tới SMTP Server của Google
                 await client.ConnectAsync(_emailConfig.SmtpServer, _emailConfig.SmtpPort, SecureSocketOptions.StartTls);
 
-                // Xác thực bằng App Password
                 await client.AuthenticateAsync(_emailConfig.SenderEmail, _emailConfig.Password);
 
-                // Gửi mail
                 await client.SendAsync(emailMessage);
             }
             finally

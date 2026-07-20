@@ -4,26 +4,29 @@ using System.Text.Json;
 
 namespace Cleaning.BLL.Services;
 
-/// <summary>
-/// BOOK-004: computes the authoritative pricing breakdown for a service and duration. Both the quote
-/// endpoint and booking creation use this so the figure the client sees equals the amount that is charged.
-/// </summary>
 public static class BookingPricingCalculator
 {
-    public static PricingBreakdownDto Calculate(Service service, string normalizedAnswers, Promotion? promotion = null)
+    public static PricingBreakdownDto Calculate(Service service, string normalizedAnswers, Promotion? promotion = null, decimal? durationOverrideHours = null)
     {
         var (durationHours, answerLines) = CalculateAnswerAdjustments(service, normalizedAnswers);
         var unitPrice = service.BasePrice;
-        var lineTotal = unitPrice * durationHours;
         const decimal extraFee = 0m;
 
-        // A client cannot lower the charge with a negative discount; the discount is also capped at the line total
-        // so the total never goes below zero.
         var lines = new List<PricingLineDto>
         {
             new() { Label = $"{service.Name} — base", Amount = service.BasePrice * service.MinimumHours }
         };
         lines.AddRange(answerLines);
+
+        if (durationOverrideHours.HasValue && durationOverrideHours.Value > durationHours)
+        {
+            var extraHours = durationOverrideHours.Value - durationHours;
+            lines.Add(new PricingLineDto { Label = "Thời gian thêm", Amount = extraHours * unitPrice });
+            durationHours = durationOverrideHours.Value;
+        }
+
+        var lineTotal = unitPrice * durationHours;
+
         var subtotal = lines.Sum(line => line.Amount);
         var discount = promotion == null ? 0 : promotion.DiscountType.Equals("percentage", StringComparison.OrdinalIgnoreCase)
             ? decimal.Round(subtotal * promotion.DiscountValue / 100m, 0)
