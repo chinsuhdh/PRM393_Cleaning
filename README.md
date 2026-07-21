@@ -1,5 +1,10 @@
 # CleanAI Cleaning Service Backend
 
+![.NET Core](https://img.shields.io/badge/.NET%208.0-Purple?logo=dotnet)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-85EA2D?logo=swagger&logoColor=black)
+
 ASP.NET Core API for a cleaning-service marketplace connecting clients, workers, and administrators. The backend uses PostgreSQL, Entity Framework Core, JWT authentication, and an optional Ollama-powered assistant.
 
 ## Prerequisites
