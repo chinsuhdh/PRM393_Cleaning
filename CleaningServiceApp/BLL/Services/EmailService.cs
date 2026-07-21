@@ -1,4 +1,4 @@
-﻿using Cleaning.BLL.DTOs;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using MailKit.Net.Smtp;
 using MailKit.Security;
@@ -7,6 +7,9 @@ using MimeKit;
 
 namespace Cleaning.BLL.Services
 {
+    /// <summary>
+    /// Provides email sending functionality using SMTP.
+    /// </summary>
     public class EmailService : IEmailService
     {
         private readonly EmailConfiguration _emailConfig;
@@ -16,6 +19,13 @@ namespace Cleaning.BLL.Services
             _emailConfig = emailConfig.Value;
         }
 
+        /// <summary>
+        /// Sends an email asynchronously using the configured SMTP server settings.
+        /// </summary>
+        /// <param name="toEmail">The recipient's email address.</param>
+        /// <param name="subject">The subject line of the email.</param>
+        /// <param name="body">The HTML formatted body of the email.</param>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public async Task SendEmailAsync(string toEmail, string subject, string body)
         {
             var emailMessage = new MimeMessage();
