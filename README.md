@@ -230,7 +230,7 @@ docker compose up -d --force-recreate db
 
 ## Security Notes
 
-- Never commit `.env` or `appsettings.json`.
-- Replace all example secrets before deploying.
-- Seeded credentials are for local Development only.
-- Production migrations should run through a controlled deployment process.
+- **Never** commit `.env` or `appsettings.json`.
+- **Replace** all example secrets before deploying.
+- Seeded credentials are for local **Development** only.
+- **Production migrations** should run through a controlled deployment process.
