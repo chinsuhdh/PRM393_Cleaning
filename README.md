@@ -1,236 +1,132 @@
-# CleanAI Cleaning Service Backend
+<div align="center">
+  <img src="https://img.icons8.com/clouds/200/000000/broom.png" alt="CleanAI Logo" width="150" height="150"/>
+  <h1>🌟 CleanAI - Backend Service 🌟</h1>
+  <p><em>The core engine powering the CleanAI marketplace, built with ASP.NET Core & PostgreSQL.</em></p>
 
-![.NET Core](https://img.shields.io/badge/.NET%208.0-Purple?logo=dotnet)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
-![Swagger](https://img.shields.io/badge/Swagger-85EA2D?logo=swagger&logoColor=black)
+  ![.NET Core](https://img.shields.io/badge/.NET%208.0-Purple?logo=dotnet&style=for-the-badge)
+  ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?logo=postgresql&logoColor=white&style=for-the-badge)
+  ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white&style=for-the-badge)
+  ![Swagger](https://img.shields.io/badge/Swagger-85EA2D?logo=swagger&logoColor=black&style=for-the-badge)
+</div>
 
-ASP.NET Core API for a cleaning-service marketplace connecting clients, workers, and administrators. The backend uses PostgreSQL, Entity Framework Core, JWT authentication, and an optional Ollama-powered assistant.
+---
 
-## Table of Contents
+## 📖 Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Project Structure](#project-structure)
-- [1. Configure Docker](#1-configure-docker)
-- [2. Configure the Local API](#2-configure-the-local-api)
-- [3. Start PostgreSQL](#3-start-postgresql)
-- [4. Apply Migrations and Seed Development Data](#4-apply-migrations-and-seed-development-data)
-- [5. Run the API](#5-run-the-api)
-- [Verify the Setup](#verify-the-setup)
-- [Optional: Start Ollama](#optional-start-ollama)
-- [Useful Commands](#useful-commands)
-- [Troubleshooting](#troubleshooting)
-- [Security Notes](#security-notes)
+- [About the Project](#-about-the-project)
+- [Key Features](#-key-features)
+- [Project Structure](#-project-structure)
+- [Getting Started](#-getting-started)
+- [Security Notes](#-security-notes)
+- [Troubleshooting](#-troubleshooting)
 
-## Prerequisites
+---
 
-Install the following before starting:
+## 🚀 About the Project
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- EF Core CLI 9.0.17:
+CleanAI is an on-demand cleaning service marketplace that connects **Clients**, **Cleaners (Workers)**, and **Administrators**. This repository contains the robust backend API that handles authentication, booking logic, payment processing, and real-time chat with an AI assistant.
 
-```powershell
-dotnet tool install --global dotnet-ef --version 9.0.17
-```
+---
 
-If `dotnet-ef` is already installed with a different version:
+## ✨ Key Features
 
-```powershell
-dotnet tool update --global dotnet-ef --version 9.0.17
-```
+- **JWT Authentication & Authorization**: Secure role-based access for Admin, Client, and Worker.
+- **Advanced Booking System**: Real-time availability checking, price calculation, and status tracking.
+- **AI Assistant Integration**: Powered by Ollama for smart chat responses.
+- **EF Core ORM**: Highly optimized queries with PostgreSQL.
+- **Dockerized Environment**: Quick and easy setup for development and production.
 
-## Project Structure
+---
+
+## 📂 Project Structure
 
 ```text
 CleaningServiceApp/
-|- CleaningService.API/   ASP.NET Core controllers and application startup
-|- BLL/                   DTOs, interfaces, and business services
-|- DAL/                   EF Core context, entities, repositories, and migrations
-|- docker-compose.yml     PostgreSQL, API, and Ollama services
-`- CleaningServiceApp.sln
+ ├── CleaningService.API/   # API Controllers, Middleware & Startup configuration
+ ├── BLL/                   # Business Logic Layer (Services, DTOs, Interfaces)
+ ├── DAL/                   # Data Access Layer (Entities, DbContext, Repositories)
+ ├── docker-compose.yml     # Container orchestration for DB & AI
+ └── CleaningServiceApp.sln # Main Solution File
 ```
 
-Run the commands below from `CleaningServiceApp`:
+---
 
-```powershell
-cd .\CleaningServiceApp
-```
+## 🛠 Getting Started
 
-If you are at the parent workspace containing both repositories, use:
+### Prerequisites
 
-```powershell
-cd .\PRM393_Cleaning\CleaningServiceApp
-```
+Ensure you have the following installed:
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- Entity Framework Core CLI (v9.0.17):
+  ```powershell
+  dotnet tool install --global dotnet-ef --version 9.0.17
+  ```
 
-## 1. Configure Docker
+### 1️⃣ Database & Docker Setup
 
-Create the local Compose environment file:
-
-
-Update `.env` with local values:
-
+Set up your `.env` file for Docker:
 ```dotenv
 DB_HOST_PORT=5433
 DB_USER=postgres
-DB_PASSWORD=replace_with_your_password
-JWT_SECRET=replace_with_a_long_random_secret
+DB_PASSWORD=your_secure_password
+JWT_SECRET=your_super_secret_key_here
 ```
 
-`DB_HOST_PORT` controls the PostgreSQL port exposed on the host. It defaults to `5433` when omitted.
-
-## 2. Configure the Local API
-
-Create the ignored local settings file:
-
-Set `ConnectionStrings:DefaultConnection` in `appsettings.json`. The port must match `DB_HOST_PORT` from `.env`:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5433;Database=PRM393_Cleaning;Username=postgres;Password=replace_with_your_password"
-  }
-}
-```
-
-The files are intentionally separate:
-
-- `.env` configures Docker Compose.
-- `appsettings.json` configures a locally executed API and EF commands.
-
-## 3. Start PostgreSQL
-
+Start the PostgreSQL database:
 ```powershell
 docker compose up -d db
 ```
 
-## 4. Apply Migrations and Seed Development Data
+### 2️⃣ Application Configuration
 
+Configure `appsettings.json` in `CleaningService.API`:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5433;Database=PRM393_Cleaning;Username=postgres;Password=your_secure_password"
+  }
+}
+```
+
+### 3️⃣ Migrations & Seeding
+
+Apply migrations to create the schema and seed demo data:
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT = "Development"
 dotnet ef database update --project DAL --startup-project CleaningService.API
 ```
 
-Applying migrations in Development also invokes EF Core `UseSeeding`/`UseAsyncSeeding`. The seed operation is idempotent, so running the command again does not duplicate data.
+*Demo Accounts Seeded:*
+- **Admin**: `admin@cleanai.local` | `CleanAI123!`
+- **Client**: `client@cleanai.local` | `CleanAI123!`
+- **Worker**: `worker@cleanai.local` | `CleanAI123!`
 
-Seeded accounts:
-
-| Role | Email | Password |
-|---|---|---|
-| Admin | `admin@cleanai.local` | `CleanAI123!` |
-| Client | `client@cleanai.local` | `CleanAI123!` |
-| Worker | `worker@cleanai.local` | `CleanAI123!` |
-
-The seeder also creates two cleaning services, profiles, a client address, worker skills and availability, and AI knowledge documents. Demo data is not seeded outside Development.
-
-## 5. Run the API
+### 4️⃣ Run the API
 
 ```powershell
 dotnet run --project .\CleaningService.API\CleaningService.API.csproj
 ```
+API will be live at `http://localhost:5000`  
+Swagger UI available at `http://localhost:5000/swagger`
 
-The default launch profile serves the API at:
+---
 
-- API: `http://localhost:5000`
-- Swagger: `http://localhost:5000/swagger`
+## 🛡️ Security Notes
 
-## Verify the Setup
+- 🛑 **Never** commit `.env` or `appsettings.json` to version control.
+- 🔑 **Replace** all example secrets and JWT keys before deploying to production.
+- 🧪 Seeded credentials are for local **Development** environments only.
+- 🚀 **Production migrations** should run through a controlled CI/CD pipeline.
 
-Open Swagger and call:
+---
 
-```http
-POST /api/Auth/login
-Content-Type: application/json
-```
+## 🔧 Troubleshooting
 
-```json
-{
-  "emailOrPhone": "client@cleanai.local",
-  "password": "CleanAI123!"
-}
-```
+- **`MSB1009: Project file does not exist`**: Ensure you are running commands from the `CleaningServiceApp` directory.
+- **Port Conflict**: If PostgreSQL port `5433` is occupied, change `DB_HOST_PORT` in `.env` and `appsettings.json`.
+- **401 Unauthorized on Login**: Ensure you are using `emailOrPhone` in your request body, not just `email`.
 
-A successful response containing access and refresh tokens confirms that the migration, seeder, database connection, and authentication flow are working.
-
-The public service catalog can be checked with:
-
-```http
-GET /api/ServiceCatalog/categories
-```
-
-## Optional: Start Ollama
-
-The chatbot requires Ollama:
-
-```powershell
-docker compose up -d ollama
-```
-
-The default model is `qwen2.5:1.5b`. Pull it if it is not already available:
-
-```powershell
-docker exec local_ollama ollama pull qwen2.5:1.5b
-```
-
-## Useful Commands
-
-Build the backend:
-
-```powershell
-dotnet build .\CleaningServiceApp.sln
-```
-
-Create a migration:
-
-```powershell
-dotnet ef migrations add MigrationName --project DAL --startup-project CleaningService.API --output-dir Migrations
-```
-
-List migrations:
-
-```powershell
-dotnet ef migrations list --project DAL --startup-project CleaningService.API
-```
-
-Stop Compose services without deleting data:
-
-```powershell
-docker compose down
-```
-
-## Troubleshooting
-
-### `MSB1009: Project file does not exist`
-
-Run commands from `CleaningServiceApp`, or provide the full project path:
-
-```powershell
-dotnet run --project .\CleaningService.API\CleaningService.API.csproj
-```
-
-### `Format of the initialization string does not conform to specification`
-
-Check `ConnectionStrings:DefaultConnection` in `appsettings.json`. Passwords containing semicolons must be quoted as shown above.
-
-### Seeded login returns HTTP 401
-
-Confirm all of the following:
-
-- The migration command ran with `ASPNETCORE_ENVIRONMENT=Development`.
-- The API and EF command use the same database and host port.
-- The request field is `emailOrPhone`, not `email`.
-
-### PostgreSQL port is already in use
-
-Choose another host port in `.env`, update the matching port in `appsettings.json`, and recreate the database container:
-
-```powershell
-docker compose up -d --force-recreate db
-```
-
-## Security Notes
-
-- **Never** commit `.env` or `appsettings.json`.
-- **Replace** all example secrets before deploying.
-- Seeded credentials are for local **Development** only.
-- **Production migrations** should run through a controlled deployment process.
+<div align="center">
+  <i>Developed with ❤️ by the CleanAI Team</i>
+</div>
