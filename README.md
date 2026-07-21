@@ -7,6 +7,21 @@
 
 ASP.NET Core API for a cleaning-service marketplace connecting clients, workers, and administrators. The backend uses PostgreSQL, Entity Framework Core, JWT authentication, and an optional Ollama-powered assistant.
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Project Structure](#project-structure)
+- [1. Configure Docker](#1-configure-docker)
+- [2. Configure the Local API](#2-configure-the-local-api)
+- [3. Start PostgreSQL](#3-start-postgresql)
+- [4. Apply Migrations and Seed Development Data](#4-apply-migrations-and-seed-development-data)
+- [5. Run the API](#5-run-the-api)
+- [Verify the Setup](#verify-the-setup)
+- [Optional: Start Ollama](#optional-start-ollama)
+- [Useful Commands](#useful-commands)
+- [Troubleshooting](#troubleshooting)
+- [Security Notes](#security-notes)
+
 ## Prerequisites
 
 Install the following before starting:
