@@ -6,8 +6,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Cleaning.BLL.Services;
 
+/// <summary>
+/// Service responsible for handling chat messages between clients and workers within a booking context.
+/// </summary>
 public class ChatService(AppDbContext dbContext, IDispatchPublisher dispatchPublisher) : IChatService
 {
+    /// <summary>
+    /// Retrieves all messages associated with a specific booking.
+    /// Ensures that only authorized participants (Client or Worker) can access the messages.
+    /// </summary>
+    /// <param name="bookingId">The unique identifier of the booking.</param>
+    /// <param name="accountId">The ID of the user requesting the messages.</param>
+    /// <returns>A collection of booking messages.</returns>
     public async Task<IEnumerable<BookingMessageDto>> GetMessagesAsync(Guid bookingId, Guid accountId)
     {
         await EnsureParticipantAsync(bookingId, accountId);
