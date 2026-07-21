@@ -1,4 +1,4 @@
-﻿using Cleaning.BLL.DTOs;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -7,6 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Cleaning.BLL.Services
 {
+    /// <summary>
+    /// Provides operations to retrieve service catalogs and categories.
+    /// </summary>
     public class ServiceCatalogService : IServiceCatalogService
     {
         private readonly IUnitOfWork _unitOfWork;
@@ -21,6 +24,10 @@ namespace Cleaning.BLL.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// Retrieves all predefined service categories available in the system.
+        /// </summary>
+        /// <returns>A collection of service category data transfer objects.</returns>
         public Task<IEnumerable<ServiceCategoryDto>> GetAllCategoriesAsync()
         {
             var categories = new List<ServiceCategoryDto>
@@ -32,6 +39,11 @@ namespace Cleaning.BLL.Services
             return Task.FromResult<IEnumerable<ServiceCategoryDto>>(categories);
         }
 
+        /// <summary>
+        /// Retrieves a list of active services filtered by the specified category ID.
+        /// </summary>
+        /// <param name="categoryId">The unique identifier of the category.</param>
+        /// <returns>A collection of services matching the category.</returns>
         public async Task<IEnumerable<ServiceDto>> GetServicesByCategoryIdAsync(Guid categoryId)
         {
             try
@@ -53,6 +65,11 @@ namespace Cleaning.BLL.Services
             }
         }
 
+        /// <summary>
+        /// Retrieves a specific service by its unique identifier.
+        /// </summary>
+        /// <param name="id">The unique identifier of the service.</param>
+        /// <returns>The service data transfer object, or null if not found or inactive.</returns>
         public async Task<ServiceDto?> GetServiceByIdAsync(Guid id)
         {
             var s = await _unitOfWork.Repository<Service>().GetByIdAsync(id);
@@ -61,6 +78,9 @@ namespace Cleaning.BLL.Services
             return MapToDto(s);
         }
 
+        /// <summary>
+        /// Maps a service entity to its corresponding data transfer object.
+        /// </summary>
         private static ServiceDto MapToDto(Service s)
         {
             return new ServiceDto

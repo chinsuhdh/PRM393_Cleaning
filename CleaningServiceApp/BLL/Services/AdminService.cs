@@ -1,4 +1,4 @@
-﻿using Cleaning.BLL.DTOs;
+using Cleaning.BLL.DTOs;
 using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -7,6 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Cleaning.BLL.Services
 {
+    /// <summary>
+    /// Provides administrative operations such as viewing dashboard statistics, managing workers, and managing services.
+    /// </summary>
     public class AdminService : IAdminService
     {
         private readonly IUnitOfWork _unitOfWork;
@@ -16,6 +19,10 @@ namespace Cleaning.BLL.Services
             _unitOfWork = unitOfWork;
         }
 
+        /// <summary>
+        /// Retrieves high-level statistics for the admin dashboard, including total clients, workers, bookings, and revenue.
+        /// </summary>
+        /// <returns>A data transfer object containing the aggregated dashboard statistics.</returns>
         public async Task<AdminDashboardStatsDto> GetDashboardStatsAsync()
         {
             var totalClients = await _unitOfWork.Repository<Account>()
