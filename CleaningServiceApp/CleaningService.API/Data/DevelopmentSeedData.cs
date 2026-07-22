@@ -186,7 +186,7 @@ internal static class DevelopmentSeedData
         yield return CreateKnowledgeDocument(
             "50000000-0000-0000-0000-000000000005",
             "Thanh toán",
-            "CleanAI chỉ thu tiền SAU KHI công việc hoàn thành — không thu tiền trước, do đó không có chính sách hoàn tiền. Có hai hình thức: tiền mặt (nhân viên xác nhận đã nhận tiền ngay tại chỗ) hoặc payOS (khách thanh toán qua liên kết payOS ngay trong ứng dụng sau khi nhân viên bấm Hoàn thành). Nhân viên nhận 100% giá trị đơn hàng, không có phí hoa hồng nền tảng.",
+            "CleanAI chỉ thu tiền SAU KHI công việc hoàn thành — không thu tiền trước, do đó không có chính sách hoàn tiền. Có hai hình thức: tiền mặt (nhân viên xác nhận đã nhận tiền ngay tại chỗ) hoặc VNPay (khách thanh toán qua cổng VNPay ngay trong ứng dụng sau khi nhân viên bấm Hoàn thành). Nhân viên nhận 100% giá trị đơn hàng, không có phí hoa hồng nền tảng.",
             now);
         yield return CreateKnowledgeDocument(
             "50000000-0000-0000-0000-000000000006",
