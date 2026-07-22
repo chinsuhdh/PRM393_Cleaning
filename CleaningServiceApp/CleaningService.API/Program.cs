@@ -140,7 +140,7 @@ namespace CleaningService.API
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
                 options.AddFixedWindowLimiter(RateLimiterPolicies.AiChat, limiterOptions =>
                 {
-                    limiterOptions.PermitLimit = 15;
+                    limiterOptions.PermitLimit = 10;
                     limiterOptions.Window = TimeSpan.FromMinutes(1);
                     limiterOptions.QueueLimit = 0;
                 });

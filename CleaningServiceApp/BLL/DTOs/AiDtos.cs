@@ -12,8 +12,15 @@
         public string Reply { get; set; } = null!;
         public int LatencyMs { get; set; }
 
-        /// <summary>False when this is the canned overload/fallback message, not a real model reply.</summary>
         public bool Success { get; set; }
+
+        public List<ChatSuggestionDto> Suggestions { get; set; } = [];
+    }
+
+    public class ChatSuggestionDto
+    {
+        public string Label { get; set; } = null!;
+        public string Route { get; set; } = null!;
     }
 
     public class AiChatMessageDto
