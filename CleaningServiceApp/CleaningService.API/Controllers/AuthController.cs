@@ -141,3 +141,5 @@ namespace CleaningService.API.Controllers
         }
     }
 }
+
+// Added endpoint documentation for AuthController
