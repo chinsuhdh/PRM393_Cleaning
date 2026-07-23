@@ -2,7 +2,7 @@
   <img src="https://img.icons8.com/clouds/200/000000/broom.png" alt="CleanAI Logo" width="150" height="150"/>
   <h1>🌟 CleanAI - Backend Service 🌟</h1>
   <p><em>The core engine powering the CleanAI marketplace, built with ASP.NET Core & PostgreSQL.</em></p>
-
+ 
   ![.NET Core](https://img.shields.io/badge/.NET%208.0-Purple?logo=dotnet&style=for-the-badge)
   ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?logo=postgresql&logoColor=white&style=for-the-badge)
   ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white&style=for-the-badge)
