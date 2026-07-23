@@ -52,3 +52,5 @@ namespace CleaningService.API.Controllers
         }
     }
 }
+
+// Additional context for Ai Controller endpoints
