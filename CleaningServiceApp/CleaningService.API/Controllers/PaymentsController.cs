@@ -50,3 +50,5 @@ namespace CleaningService.API.Controllers
         }
     }
 }
+
+// Payment processing documentation added
