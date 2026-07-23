@@ -10,4 +10,7 @@ public static class BookingTimingConstants
     public const int ImmediateSlotRoundingMinutes = 5;
     public const int ImmediateSlotCap = 1;
     public const int ScheduledSlotCap = 12;
+    public const int QuoteValidityMinutes = 2;
+    public const int MaxAdvanceSchedulingDays = 30;
+    public const int PreStartResponseCutoffHours = 1;
 }

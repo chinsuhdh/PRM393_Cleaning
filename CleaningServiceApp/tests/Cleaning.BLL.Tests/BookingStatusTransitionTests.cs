@@ -1,4 +1,4 @@
-using Cleaning.BLL.DTOs;
+using Cleaning.BLL.Features.Bookings;
 using Cleaning.DAL.Enums;
 
 namespace Cleaning.BLL.Tests;

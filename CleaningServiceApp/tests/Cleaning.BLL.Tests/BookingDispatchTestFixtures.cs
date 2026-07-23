@@ -1,8 +1,6 @@
-using AutoMapper;
-using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Interfaces;
-using Cleaning.BLL.Mapping;
-using Cleaning.BLL.Services;
+using Cleaning.BLL.Features.Bookings;
+using Cleaning.BLL.Features.Chat;
+using Cleaning.BLL.Infrastructure.Dispatch;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -147,9 +145,7 @@ public sealed partial class BookingDispatchTests
             scenario.UnitOfWork = unitOfWork;
 
             var availabilityService = new BookingAvailabilityService(unitOfWork);
-            var mapper = new MapperConfiguration(
-                configuration => configuration.AddProfile<BookingMappingProfile>(),
-                NullLoggerFactory.Instance).CreateMapper();
+            var mapper = TestMapperFactory.Create();
             var creationService = new BookingCreationService(
                 unitOfWork, availabilityService, NullLogger<BookingCreationService>.Instance, mapper);
             scenario.BookingService = new BookingService(

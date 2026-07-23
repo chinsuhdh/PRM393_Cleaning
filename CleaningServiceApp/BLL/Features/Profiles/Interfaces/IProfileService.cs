@@ -1,0 +1,13 @@
+
+namespace Cleaning.BLL.Features.Profiles
+{
+    public interface IProfileService
+    {
+        Task<ProfileDto?> GetProfileAsync(Guid userId);
+        Task<bool> UpdateProfileAsync(Guid userId, UpdateProfileDto request);
+        Task<bool> UpdateAvatarAsync(Guid userId, string avatarUrl);
+
+        Task<bool> CompleteOnboardingAsync(Guid userId);
+        Task<bool> DeleteAccountAsync(Guid userId);
+    }
+}

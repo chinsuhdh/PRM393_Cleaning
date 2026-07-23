@@ -1,5 +1,4 @@
-using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Services;
+using Cleaning.BLL.Features.Admin;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -28,7 +27,7 @@ public sealed class AdminServiceTests
         var unitOfWork = new InMemoryUnitOfWork()
             .With(clients.Concat(workers).ToList())
             .With(bookings.ToList());
-        var service = new AdminService(unitOfWork);
+        var service = new AdminService(unitOfWork, TestMapperFactory.Create());
 
         // Act
         var stats = await service.GetDashboardStatsAsync();
@@ -51,7 +50,7 @@ public sealed class AdminServiceTests
         var application = new WorkerApplication { Id = appId, UserId = userId, Status = "pending" };
 
         var unitOfWork = new InMemoryUnitOfWork().With(new List<Account> { account }).With(new List<WorkerApplication> { application });
-        var service = new AdminService(unitOfWork);
+        var service = new AdminService(unitOfWork, TestMapperFactory.Create());
 
         // Act
         var result = await service.ApproveWorkerApplicationAsync(appId, new ApproveWorkerApplicationDto { AdminId = adminId });
@@ -80,7 +79,7 @@ public sealed class AdminServiceTests
         var account = new Account { Id = userId, Status = AccountStatus.Active, Email = "test@test.com" };
 
         var unitOfWork = new InMemoryUnitOfWork().With(new List<Account> { account });
-        var service = new AdminService(unitOfWork);
+        var service = new AdminService(unitOfWork, TestMapperFactory.Create());
 
         // Act
         var result = await service.ChangeAccountStatusAsync(userId, new UpdateAccountStatusDto { Status = "Banned" });
@@ -101,7 +100,7 @@ public sealed class AdminServiceTests
         };
 
         var unitOfWork = new InMemoryUnitOfWork().With(services.ToList());
-        var service = new AdminService(unitOfWork);
+        var service = new AdminService(unitOfWork, TestMapperFactory.Create());
 
         // Act
         var result = await service.GetAllServicesAsync();

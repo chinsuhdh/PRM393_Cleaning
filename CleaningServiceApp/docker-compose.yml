@@ -8,10 +8,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      ollama:
-        condition: service_started
     environment:
-      - AiConfig__OllamaUrl=http://ollama:11434
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=PRM393_Cleaning;Username=${DB_USER};Password=${DB_PASSWORD}
       - JwtConfig__Secret=${JWT_SECRET}
@@ -41,20 +38,9 @@ services:
     networks:
       - cleaning_network
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: local_ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - cleaning_network
-
 networks:
   cleaning_network:
     driver: bridge
 
 volumes:
-  ollama_data:
   postgres_data:

@@ -146,4 +146,37 @@ public static class AppErrors
         "RESCHEDULE_REQUEST_NOT_FOUND", "Không tìm thấy yêu cầu dời lịch này.", 404);
     public static readonly AppError RescheduleRequestNotPending = new(
         "RESCHEDULE_REQUEST_NOT_PENDING", "Yêu cầu dời lịch này đã được xử lý.", 409);
+
+    public static readonly AppError CannotDeleteAccountWithBookingHistory = new(
+        "ACCOUNT_DELETE_HAS_BOOKING_HISTORY", "Không thể xóa tài khoản đã có lịch sử đặt dịch vụ.", 409);
+
+    public static readonly AppError ChatNotFound = new(
+        "CHAT_NOT_FOUND", "Không tìm thấy đơn đặt lịch cho cuộc trò chuyện này.", 404);
+    public static readonly AppError ChatForbidden = new(
+        "CHAT_FORBIDDEN", "Bạn không phải là người tham gia cuộc trò chuyện này.", 403);
+
+    public static readonly AppError ServiceCategoryInvalid = new(
+        "SERVICE_CATEGORY_INVALID", "Danh mục dịch vụ không hợp lệ.", 400);
+
+    public static readonly AppError AuthAccountNotActive = new(
+        "AUTH_ACCOUNT_NOT_ACTIVE", "Tài khoản chưa được xác thực hoặc đã bị khóa.", 403);
+
+    public static readonly AppError WorkerInvalidOnlineStatusTransition = new(
+        "WORKER_INVALID_ONLINE_STATUS_TRANSITION", "Không thể chuyển sang trạng thái này.", 400);
+
+    public static readonly AppError ReviewSelfNotAllowed = new(
+        "REVIEW_SELF_NOT_ALLOWED", "Bạn không thể tự đánh giá chính mình.", 403);
+    public static readonly AppError ReviewBookingNotCompleted = new(
+        "REVIEW_BOOKING_NOT_COMPLETED", "Chỉ có thể đánh giá các đơn đã hoàn thành.", 409);
+    public static readonly AppError ReviewAlreadyExists = new(
+        "REVIEW_ALREADY_EXISTS", "Bạn đã đánh giá người này cho đơn đặt lịch này rồi.", 409);
+
+    public static readonly AppError WorkerApplicationNotFound = new(
+        "WORKER_APPLICATION_NOT_FOUND", "Không tìm thấy đơn đăng ký làm nhân viên này.", 404);
+    public static readonly AppError WorkerApplicationNotPending = new(
+        "WORKER_APPLICATION_NOT_PENDING", "Đơn đăng ký này đã được xử lý.", 409);
+    public static readonly AppError AccountNotFound = new(
+        "ACCOUNT_NOT_FOUND", "Không tìm thấy tài khoản này.", 404);
+    public static readonly AppError AccountStatusInvalid = new(
+        "ACCOUNT_STATUS_INVALID", "Trạng thái tài khoản không hợp lệ.", 400);
 }

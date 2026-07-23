@@ -1,9 +1,5 @@
-using AutoMapper;
+using Cleaning.BLL.Features.Payments;
 using Cleaning.BLL.Common;
-using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Interfaces;
-using Cleaning.BLL.Mapping;
-using Cleaning.BLL.Services;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,15 +9,10 @@ namespace Cleaning.BLL.Tests;
 
 public class PaymentServiceTests
 {
-    private static IMapper CreateMapper() =>
-        new MapperConfiguration(
-            configuration => configuration.AddProfile<BookingMappingProfile>(),
-            NullLoggerFactory.Instance).CreateMapper();
-
     private static PaymentService CreateService(
         InMemoryUnitOfWork unitOfWork,
         IVnpayCheckoutService? checkoutService = null) =>
-        new(unitOfWork, NullLogger<PaymentService>.Instance, CreateMapper(),
+        new(unitOfWork, NullLogger<PaymentService>.Instance, TestMapperFactory.Create(),
             checkoutService ?? Mock.Of<IVnpayCheckoutService>());
 
     private static Booking CreatePendingVnpayBooking(Guid clientId, Guid workerId, decimal totalPrice) => new()

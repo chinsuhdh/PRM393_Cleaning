@@ -1,12 +1,13 @@
+using Cleaning.BLL.Infrastructure.Dispatch;
+using Cleaning.BLL.Features.Worker;
 using Cleaning.BLL.Common;
-using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Interfaces;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
+using Microsoft.EntityFrameworkCore.Storage;
 using Moq;
 
-using WorkerService = Cleaning.BLL.Services.WorkerService;
+using WorkerService = Cleaning.BLL.Features.Worker.WorkerService;
 
 namespace Cleaning.BLL.Tests;
 
@@ -19,6 +20,13 @@ public class WorkerServiceTests
         var unitOfWork = new Mock<IUnitOfWork>();
         unitOfWork.Setup(w => w.Repository<WorkerProfile>()).Returns(repository.Object);
         unitOfWork.Setup(w => w.SaveChangesAsync()).ReturnsAsync(1);
+
+        var transaction = new Mock<IDbContextTransaction>();
+        transaction.Setup(t => t.CommitAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        transaction.Setup(t => t.RollbackAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        transaction.Setup(t => t.DisposeAsync()).Returns(ValueTask.CompletedTask);
+        unitOfWork.Setup(w => w.BeginTransactionAsync()).ReturnsAsync(transaction.Object);
+
         return (repository, unitOfWork);
     }
 
@@ -44,7 +52,7 @@ public class WorkerServiceTests
         unitOfWork.Setup(w => w.Repository<Booking>()).Returns(bookingRepository.Object);
 
         var dispatchPublisher = new Mock<IDispatchPublisher>();
-        var service = new WorkerService(unitOfWork.Object, dispatchPublisher.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create(), dispatchPublisher.Object);
 
         var result = await service.UpdateLocationAsync(workerId, new UpdateLocationDto { CurrentLat = 10.77m, CurrentLng = 106.70m });
 
@@ -60,7 +68,7 @@ public class WorkerServiceTests
         var workerId = Guid.NewGuid();
         var worker = new WorkerProfile { UserId = workerId, OnlineStatus = WorkerOnlineStatus.Offline };
         var (repository, unitOfWork) = MockUnitOfWork(worker);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var result = await service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Online });
 
@@ -75,10 +83,11 @@ public class WorkerServiceTests
         var workerId = Guid.NewGuid();
         var worker = new WorkerProfile { UserId = workerId, OnlineStatus = WorkerOnlineStatus.Busy };
         var (_, unitOfWork) = MockUnitOfWork(worker);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
             service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Online }));
+        Assert.Equal(AppErrors.WorkerInvalidOnlineStatusTransition.Code, ex.Code);
         Assert.Equal(WorkerOnlineStatus.Busy, worker.OnlineStatus);
     }
 
@@ -88,7 +97,7 @@ public class WorkerServiceTests
         var workerId = Guid.NewGuid();
         var worker = new WorkerProfile { UserId = workerId, OnlineStatus = WorkerOnlineStatus.Busy };
         var (_, unitOfWork) = MockUnitOfWork(worker);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var result = await service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Offline });
 
@@ -100,7 +109,7 @@ public class WorkerServiceTests
     public async Task UpdateOnlineStatusAsync_UnknownWorker_ReturnsFalse()
     {
         var (_, unitOfWork) = MockUnitOfWork(null);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var result = await service.UpdateOnlineStatusAsync(Guid.NewGuid(), new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Online });
 
@@ -113,10 +122,11 @@ public class WorkerServiceTests
         var workerId = Guid.NewGuid();
         var worker = new WorkerProfile { UserId = workerId, OnlineStatus = WorkerOnlineStatus.Offline };
         var (_, unitOfWork) = MockUnitOfWork(worker);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
             service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Busy }));
+        Assert.Equal(AppErrors.WorkerInvalidOnlineStatusTransition.Code, ex.Code);
     }
 
     [Fact(DisplayName = "[UT-WRK-SUS-06] A suspended worker cannot go back Online")]
@@ -130,7 +140,7 @@ public class WorkerServiceTests
             SuspendedAt = DateTime.UtcNow
         };
         var (_, unitOfWork) = MockUnitOfWork(worker);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var ex = await Assert.ThrowsAsync<AppException>(() =>
             service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Online }));
@@ -149,7 +159,7 @@ public class WorkerServiceTests
             SuspendedAt = DateTime.UtcNow
         };
         var (_, unitOfWork) = MockUnitOfWork(worker);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var result = await service.UpdateOnlineStatusAsync(workerId, new UpdateOnlineStatusDto { OnlineStatus = WorkerOnlineStatus.Offline });
 
@@ -162,7 +172,7 @@ public class WorkerServiceTests
         var workerId = Guid.NewGuid();
         var worker = new WorkerProfile { UserId = workerId };
         var (repository, unitOfWork) = MockUnitOfWork(worker);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var result = await service.UpdatePayoutAccountAsync(workerId, new UpdatePayoutAccountDto
         {
@@ -184,7 +194,7 @@ public class WorkerServiceTests
         var workerId = Guid.NewGuid();
         var worker = new WorkerProfile { UserId = workerId };
         var (_, unitOfWork) = MockUnitOfWork(worker);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var ex = await Assert.ThrowsAsync<AppException>(() =>
             service.UpdatePayoutAccountAsync(workerId, new UpdatePayoutAccountDto
@@ -201,7 +211,7 @@ public class WorkerServiceTests
     public async Task UpdatePayoutAccountAsync_UnknownWorker_ReturnsFalse()
     {
         var (_, unitOfWork) = MockUnitOfWork(null);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var result = await service.UpdatePayoutAccountAsync(Guid.NewGuid(), new UpdatePayoutAccountDto
         {
@@ -240,7 +250,7 @@ public class WorkerServiceTests
             .ReturnsAsync([older, newer]);
         var unitOfWork = new Mock<IUnitOfWork>();
         unitOfWork.Setup(w => w.Repository<WorkerEarning>()).Returns(repository.Object);
-        var service = new WorkerService(unitOfWork.Object);
+        var service = new WorkerService(unitOfWork.Object, TestMapperFactory.Create());
 
         var result = (await service.GetWorkerEarningsAsync(workerId)).ToList();
 

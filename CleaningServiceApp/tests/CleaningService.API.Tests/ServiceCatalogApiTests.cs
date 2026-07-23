@@ -1,6 +1,6 @@
+using Cleaning.BLL.Features.ServiceCatalog;
 using System.Net;
 using System.Net.Http.Json;
-using Cleaning.BLL.DTOs;
 
 namespace CleaningService.API.Tests;
 

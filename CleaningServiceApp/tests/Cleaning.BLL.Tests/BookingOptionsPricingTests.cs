@@ -1,9 +1,6 @@
-﻿using System.Text.Json;
-using AutoMapper;
+using Cleaning.BLL.Features.Bookings;
+using System.Text.Json;
 using Cleaning.BLL.Common;
-using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Mapping;
-using Cleaning.BLL.Services;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -585,9 +582,7 @@ public sealed class BookingOptionsPricingTests
                 .With(new List<BookingStatusLog>());
 
             var availabilityService = new BookingAvailabilityService(unitOfWork);
-            var mapper = new MapperConfiguration(
-                configuration => configuration.AddProfile<BookingMappingProfile>(),
-                NullLoggerFactory.Instance).CreateMapper();
+            var mapper = TestMapperFactory.Create();
             var creationService = new BookingCreationService(
                 unitOfWork, availabilityService, NullLogger<BookingCreationService>.Instance, mapper);
             scenario.BookingService = new BookingService(

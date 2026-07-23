@@ -1,6 +1,5 @@
+using Cleaning.BLL.Features.Ai;
 using System.Net;
-using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Services;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
@@ -50,7 +49,7 @@ public sealed class AiServiceTests
         }).Build();
 
     private static AiService CreateService(AppDbContext context, SequencedHttpMessageHandler handler) =>
-        new(context, new HttpClient(handler), CreateConfig(), NullLogger<AiService>.Instance);
+        new(context, new HttpClient(handler), CreateConfig(), NullLogger<AiService>.Instance, TestMapperFactory.Create());
 
     private static string ContentReply(string text) =>
         $$$"""{"choices":[{"message":{"role":"assistant","content":"{{{text}}}"},"finish_reason":"stop"}]}""";

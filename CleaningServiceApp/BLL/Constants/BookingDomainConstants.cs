@@ -7,6 +7,20 @@ public static class BookingDomainConstants
     public const int MaxPhotosPerBooking = 5;
     public const int MaxPhotoRequestBytes = 5_242_880;
     public const int MaxPhotoBytes = 1_048_576;
+    public const int MaxIdempotencyKeyLength = 100;
+}
+
+public static class WorkerApplicationStatusCodes
+{
+    public const string Pending = "pending";
+    public const string Approved = "approved";
+    public const string Rejected = "rejected";
+}
+
+public static class WorkerEarningStatusCodes
+{
+    public const string Pending = "pending";
+    public const string Settled = "settled";
 }
 
 public static class BookingReasons
