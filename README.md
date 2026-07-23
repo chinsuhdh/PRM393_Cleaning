@@ -13,12 +13,18 @@
 
 ## 📖 Table of Contents
 
-- [About the Project](#-about-the-project)
-- [Key Features](#-key-features)
-- [Project Structure](#-project-structure)
-- [Getting Started](#-getting-started)
-- [Security Notes](#-security-notes)
-- [Troubleshooting](#-troubleshooting)
+- [📖 Table of Contents](#-table-of-contents)
+- [🚀 About the Project](#-about-the-project)
+- [✨ Key Features](#-key-features)
+- [📂 Project Structure](#-project-structure)
+- [🛠 Getting Started](#-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [1️⃣ Database \& Docker Setup](#1️⃣-database--docker-setup)
+  - [2️⃣ Application Configuration](#2️⃣-application-configuration)
+  - [3️⃣ Migrations \& Seeding](#3️⃣-migrations--seeding)
+  - [4️⃣ Run the API](#4️⃣-run-the-api)
+- [🛡️ Security Notes](#️-security-notes)
+- [🔧 Troubleshooting](#-troubleshooting)
 
 ---
 
@@ -126,7 +132,3 @@ Swagger UI available at `http://localhost:5000/swagger`
 - **`MSB1009: Project file does not exist`**: Ensure you are running commands from the `CleaningServiceApp` directory.
 - **Port Conflict**: If PostgreSQL port `5433` is occupied, change `DB_HOST_PORT` in `.env` and `appsettings.json`.
 - **401 Unauthorized on Login**: Ensure you are using `emailOrPhone` in your request body, not just `email`.
-
-<div align="center">
-  <i>Developed with ❤️ by the CleanAI Team</i>
-</div>
