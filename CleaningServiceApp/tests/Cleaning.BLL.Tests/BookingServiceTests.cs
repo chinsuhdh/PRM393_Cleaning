@@ -1,8 +1,5 @@
-﻿using AutoMapper;
-using Cleaning.BLL.DTOs;
+using Cleaning.BLL.Features.Bookings;
 using Cleaning.BLL.Common;
-using Cleaning.BLL.Mapping;
-using Cleaning.BLL.Services;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -238,9 +235,7 @@ public sealed class BookingServiceTests
                 .With(scenario.Bookings)
                 .With(new List<BookingStatusLog>());
             var availabilityService = new BookingAvailabilityService(unitOfWork);
-            var mapper = new MapperConfiguration(
-                configuration => configuration.AddProfile<BookingMappingProfile>(),
-                NullLoggerFactory.Instance).CreateMapper();
+            var mapper = TestMapperFactory.Create();
             var creationService = new BookingCreationService(
                 unitOfWork,
                 availabilityService,

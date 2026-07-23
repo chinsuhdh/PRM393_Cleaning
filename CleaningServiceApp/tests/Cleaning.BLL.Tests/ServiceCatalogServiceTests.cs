@@ -1,4 +1,4 @@
-using Cleaning.BLL.Services;
+using Cleaning.BLL.Features.ServiceCatalog;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,7 +17,7 @@ public sealed class ServiceCatalogServiceTests
     {
         var service = BuildService(PropertyType.Apartment);
         var unitOfWork = new InMemoryUnitOfWork().With([service]);
-        var catalogService = new ServiceCatalogService(unitOfWork, NullLogger<ServiceCatalogService>.Instance);
+        var catalogService = new ServiceCatalogService(unitOfWork, TestMapperFactory.Create(), NullLogger<ServiceCatalogService>.Instance);
 
         var dto = await catalogService.GetServiceByIdAsync(service.Id);
 
@@ -30,7 +30,7 @@ public sealed class ServiceCatalogServiceTests
     {
         var service = BuildService(PropertyType.House);
         var unitOfWork = new InMemoryUnitOfWork().With([service]);
-        var catalogService = new ServiceCatalogService(unitOfWork, NullLogger<ServiceCatalogService>.Instance);
+        var catalogService = new ServiceCatalogService(unitOfWork, TestMapperFactory.Create(), NullLogger<ServiceCatalogService>.Instance);
 
         var results = await catalogService.GetServicesByCategoryIdAsync(HouseCategoryId);
 

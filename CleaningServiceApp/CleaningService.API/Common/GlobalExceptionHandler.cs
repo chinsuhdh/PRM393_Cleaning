@@ -9,6 +9,11 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
     {
         if (exception is AppException appException)
         {
+            logger.LogWarning(
+                appException,
+                "Yêu cầu tại {Path} thất bại với {ErrorCode}: {Message}",
+                httpContext.Request.Path, appException.Code, appException.Message);
+
             httpContext.Response.StatusCode = appException.StatusCode;
             await httpContext.Response.WriteAsJsonAsync(
                 ApiResponse.Fail(appException.Message, appException.Code), cancellationToken);

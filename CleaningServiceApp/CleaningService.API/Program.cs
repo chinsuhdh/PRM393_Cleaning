@@ -1,18 +1,30 @@
 ﻿using System.Text;
 using System.Text.Json.Serialization;
+using AutoMapper;
 using Cleaning.BLL.Common;
-using Cleaning.BLL.DTOs;
-using Cleaning.BLL.Interfaces;
-using Cleaning.BLL.Mapping;
-using Cleaning.BLL.Services;
+using Cleaning.BLL.Features.Admin;
+using Cleaning.BLL.Features.Ai;
+using Cleaning.BLL.Features.Auth;
+using Cleaning.BLL.Features.Bookings;
+using Cleaning.BLL.Features.Chat;
+using Cleaning.BLL.Features.Payments;
+using Cleaning.BLL.Features.Profiles;
+using Cleaning.BLL.Features.Reviews;
+using Cleaning.BLL.Features.ServiceCatalog;
+using Cleaning.BLL.Features.UserAddresses;
+using Cleaning.BLL.Features.Worker;
+using Cleaning.BLL.Infrastructure.Dispatch;
+using Cleaning.BLL.Infrastructure.Email;
+using Cleaning.BLL.Infrastructure.Sms;
+using Cleaning.BLL.Infrastructure.Storage;
 using Cleaning.DAL.Data;
 using Cleaning.DAL.Enums;
 using Cleaning.DAL.Interfaces;
 using Cleaning.DAL.Repositories;
 using CleaningService.API.Common;
 using CleaningService.API.Data;
-using CleaningService.API.Hubs;
-using CleaningService.API.Services;
+using CleaningService.API.Infrastructure.BackgroundJobs;
+using CleaningService.API.Infrastructure.Dispatch;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -118,7 +130,7 @@ namespace CleaningService.API
                         {
                             var token = context.Request.Query["access_token"];
                             if (!string.IsNullOrEmpty(token) &&
-                                context.HttpContext.Request.Path.StartsWithSegments("/hubs/dispatch"))
+                                context.HttpContext.Request.Path.StartsWithSegments(DispatchConstants.DispatchHubPath))
                                 context.Token = token;
                             return Task.CompletedTask;
                         }
@@ -140,9 +152,9 @@ namespace CleaningService.API
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
                 options.AddFixedWindowLimiter(RateLimiterPolicies.AiChat, limiterOptions =>
                 {
-                    limiterOptions.PermitLimit = 10;
-                    limiterOptions.Window = TimeSpan.FromMinutes(1);
-                    limiterOptions.QueueLimit = 0;
+                    limiterOptions.PermitLimit = AiChatRateLimiterSettings.PermitLimit;
+                    limiterOptions.Window = AiChatRateLimiterSettings.Window;
+                    limiterOptions.QueueLimit = AiChatRateLimiterSettings.QueueLimit;
                 });
             });
 
@@ -164,7 +176,16 @@ namespace CleaningService.API
             });
 
             builder.Services.AddAutoMapper(configuration =>
-                configuration.AddProfile<BookingMappingProfile>());
+            {
+                configuration.AddProfile<BookingMappingProfile>();
+                configuration.AddProfile<WorkerMappingProfile>();
+                configuration.AddProfile<ReviewMappingProfile>();
+                configuration.AddProfile<UserAddressMappingProfile>();
+                configuration.AddProfile<ServiceMappingProfile>();
+                configuration.AddProfile<AdminMappingProfile>();
+                configuration.AddProfile<ChatMappingProfile>();
+                configuration.AddProfile<AiMappingProfile>();
+            });
             builder.Services.AddEndpointsApiExplorer();
 
             builder.Services.AddSwaggerGen(options =>
@@ -199,7 +220,7 @@ namespace CleaningService.API
 
             builder.Services.Configure<EmailConfiguration>(builder.Configuration.GetSection("EmailConfiguration"));
             builder.Services.Configure<VnpaySettings>(builder.Configuration.GetSection("VNPay"));
-            builder.Services.Configure<CloudinaryConfig>(builder.Configuration.GetSection("CloudinaryConfig"));
+            builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinaryConfig"));
 
             builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -213,7 +234,7 @@ namespace CleaningService.API
             builder.Services.AddScoped<IProfileService, ProfileService>();
             builder.Services.AddScoped<IUserAddressService, UserAddressService>();
 
-            builder.Services.AddScoped<IWorkerService, Cleaning.BLL.Services.WorkerService>();
+            builder.Services.AddScoped<IWorkerService, WorkerService>();
 
             builder.Services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
             builder.Services.AddScoped<IBookingService, BookingService>();
@@ -229,7 +250,7 @@ namespace CleaningService.API
             builder.Services.AddScoped<IAdminService, AdminService>();
             builder.Services.AddScoped<IChatService, ChatService>();
 
-            builder.Services.AddHttpClient<IAiService, AiService>();
+            builder.Services.AddHttpClient<IAiService, AiService>().AddStandardResilienceHandler();
             builder.Services.AddScoped<IVnpayCheckoutService, VnpayCheckoutService>();
 
             var app = builder.Build();
@@ -256,7 +277,7 @@ namespace CleaningService.API
             app.UseRateLimiter();
 
             app.MapControllers();
-            app.MapHub<DispatchHub>("/hubs/dispatch");
+            app.MapHub<DispatchHub>(DispatchConstants.DispatchHubPath);
 
             app.Run();
         }

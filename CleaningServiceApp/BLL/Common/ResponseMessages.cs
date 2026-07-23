@@ -43,4 +43,7 @@ public static class ResponseMessages
     public const string WorkerOnlineStatusUpdated = "Online status updated.";
     public const string WorkerSkillUpdated = "Skill updated successfully.";
     public const string WorkerPayoutAccountUpdated = "Payout account updated successfully.";
+
+    public const string OnboardingCompleted = "Onboarding completed successfully.";
+    public const string AccountDeleted = "Tài khoản đã được xóa vĩnh viễn.";
 }
