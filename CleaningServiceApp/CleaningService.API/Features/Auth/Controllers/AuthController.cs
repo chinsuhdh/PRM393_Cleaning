@@ -1,5 +1,5 @@
 using Cleaning.BLL.Features.Auth;
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Cleaning.BLL.Common;
 using CleaningService.API.Common;
 using Microsoft.AspNetCore.Authorization;

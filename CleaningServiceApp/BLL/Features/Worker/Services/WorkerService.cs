@@ -1,5 +1,5 @@
 using Cleaning.BLL.Infrastructure.Dispatch;
-﻿using AutoMapper;
+using AutoMapper;
 using Cleaning.BLL.Common;
 using Cleaning.DAL.Entities;
 using Cleaning.DAL.Interfaces;
