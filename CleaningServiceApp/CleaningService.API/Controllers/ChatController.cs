@@ -36,3 +36,5 @@ public class ChatController(IChatService chatService) : ControllerBase
         return Ok(new { message = "OK" });
     }
 }
+
+// Documented Chat controller functionality
